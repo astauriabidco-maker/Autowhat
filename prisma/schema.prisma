@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- MODÈLES MULTI-TENANT ---
+
+model Tenant {
+  id        String     @id @default(uuid())
+  name      String
+  createdAt DateTime   @default(now())
+  employees Employee[]
+}
+
+model Employee {
+  id          String   @id @default(uuid())
+  phoneNumber String   // Format E.164 (ex: +33612345678)
+  name        String?
+  role        String   @default("EMPLOYEE") // EMPLOYEE, MANAGER
+  
+  // Relation Tenant (CRITIQUE)
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  
+  attendances Attendance[]
+  leaves      LeaveRequest[]
+
+  // Un numéro est unique pour un tenant donné
+  @@unique([phoneNumber, tenantId])
+}
+
+model Attendance {
+  id         String    @id @default(uuid())
+  checkIn    DateTime
+  checkOut   DateTime?
+  status     String    @default("PRESENT")
+  
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  
+  // Dénormalisation pour sécurité (Row Level Security logicielle)
+  tenantId   String
+  
+  @@index([tenantId])
+}
+
+model LeaveRequest {
+  id         String   @id @default(uuid())
+  startDate  DateTime
+  endDate  DateTime
+  status     String   @default("PENDING")
+  
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  
+  tenantId   String
+}
