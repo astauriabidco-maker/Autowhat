@@ -21,7 +21,10 @@ app.get('/', (req, res) => {
     });
 });
 
-// TODO: Importer les routes ici (étape suivante)
+import router from './routes/index';
+
+// API Routes
+app.use(router);
 
 app.listen(PORT, () => {
     console.log(`✅ Serveur démarré sur le port ${PORT}`);
