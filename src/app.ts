@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
+import path from 'path';
 
 dotenv.config();
 
@@ -13,6 +14,9 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Static file serving for uploaded photos
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
 // Health Check (Pour vérifier que le serveur tourne)
 app.get('/', (req, res) => {
     res.status(200).json({
@@ -22,9 +26,13 @@ app.get('/', (req, res) => {
 });
 
 import router from './routes/index';
+import { initLateArrivalJob } from './jobs/lateArrivalJob';
 
 // API Routes
 app.use(router);
+
+// Initialisation des Jobs (Cron)
+initLateArrivalJob();
 
 app.listen(PORT, () => {
     console.log(`✅ Serveur démarré sur le port ${PORT}`);
