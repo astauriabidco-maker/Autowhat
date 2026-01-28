@@ -10,8 +10,7 @@ import {
     Sparkles,
     ShieldCheck,
     Clock,
-    FileSpreadsheet,
-    ChevronRight
+    FileSpreadsheet
 } from 'lucide-react';
 
 const SECTORS = [
@@ -59,21 +58,37 @@ export default function Landing() {
                         Tarifs
                     </a>
                 </div>
-                <button
-                    onClick={() => navigate('/login')}
-                    style={{
-                        padding: '0.6rem 1.5rem',
-                        background: 'transparent',
-                        border: '1px solid #3b82f6',
-                        borderRadius: '0.5rem',
-                        color: '#3b82f6',
-                        cursor: 'pointer',
-                        fontWeight: 500,
-                        fontSize: '0.9rem'
-                    }}
-                >
-                    Espace Manager
-                </button>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <button
+                        onClick={() => navigate('/login')}
+                        style={{
+                            padding: '0.6rem 1.25rem',
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#94a3b8',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            fontSize: '0.9rem'
+                        }}
+                    >
+                        Connexion
+                    </button>
+                    <button
+                        onClick={() => navigate('/register')}
+                        style={{
+                            padding: '0.6rem 1.5rem',
+                            background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                            border: 'none',
+                            borderRadius: '0.5rem',
+                            color: 'white',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            fontSize: '0.9rem'
+                        }}
+                    >
+                        Essai Gratuit
+                    </button>
+                </div>
             </nav>
 
             {/* Hero Section */}
@@ -114,24 +129,52 @@ export default function Landing() {
                             lineHeight: 1.1,
                             marginBottom: '1.5rem'
                         }}>
-                            La Gestion d'Équipe Terrain,{' '}
-                            <span style={{ color: '#60a5fa' }}>sans installer d'App.</span>
+                            Vos employés savent déjà utiliser WhatsApp.{' '}
+                            <span style={{ color: '#60a5fa' }}>Pourquoi leur imposer autre chose ?</span>
                         </h1>
 
                         <p style={{
                             color: '#94a3b8',
                             fontSize: '1.25rem',
                             lineHeight: 1.6,
+                            marginBottom: '1rem',
+                            maxWidth: '500px'
+                        }}>
+                            Arrêtez de courir après les feuilles d'heures papier ou les SMS perdus.
+                        </p>
+                        <p style={{
+                            color: '#e2e8f0',
+                            fontSize: '1.25rem',
+                            fontWeight: 600,
+                            lineHeight: 1.6,
                             marginBottom: '2rem',
                             maxWidth: '500px'
                         }}>
-                            Pilotez les heures, les congés et les frais de vos équipes directement via WhatsApp.
-                            <strong style={{ color: '#e2e8f0' }}> 0% de formation, 100% d'adoption.</strong>
+                            ✅ Tout est centralisé, horodaté et prêt pour la paie.
                         </p>
 
                         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                            <button
+                                onClick={() => navigate('/register')}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    padding: '1rem 2rem',
+                                    background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+                                    border: 'none',
+                                    borderRadius: '0.75rem',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    fontSize: '1rem',
+                                    boxShadow: '0 10px 30px rgba(59, 130, 246, 0.4)'
+                                }}
+                            >
+                                🚀 Créer mon compte gratuit
+                            </button>
                             <a
-                                href="https://wa.me/33612345678?text=Demo"
+                                href="https://wa.me/33612345678?text=Menu"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{
@@ -151,25 +194,6 @@ export default function Landing() {
                                 <MessageCircle size={20} />
                                 Essayer la Démo WhatsApp
                             </a>
-                            <button
-                                onClick={() => navigate('/login')}
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    padding: '1rem 2rem',
-                                    background: 'rgba(255,255,255,0.1)',
-                                    border: '1px solid rgba(255,255,255,0.2)',
-                                    borderRadius: '0.75rem',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    fontWeight: 500,
-                                    fontSize: '1rem'
-                                }}
-                            >
-                                Voir le Dashboard
-                                <ChevronRight size={18} />
-                            </button>
                         </div>
                     </motion.div>
 
@@ -496,26 +520,47 @@ export default function Landing() {
                     <p style={{ color: '#c7d2fe', marginBottom: '2rem' }}>
                         Essayez gratuitement pendant 14 jours. Sans engagement.
                     </p>
-                    <a
-                        href="https://wa.me/33612345678?text=Demo"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            padding: '1rem 2.5rem',
-                            background: 'white',
-                            borderRadius: '0.75rem',
-                            color: '#1e3a8a',
-                            textDecoration: 'none',
-                            fontWeight: 600,
-                            fontSize: '1rem'
-                        }}
-                    >
-                        <MessageCircle size={20} />
-                        Démarrer l'essai gratuit
-                    </a>
+                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button
+                            onClick={() => navigate('/register')}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '1rem 2.5rem',
+                                background: 'white',
+                                border: 'none',
+                                borderRadius: '0.75rem',
+                                color: '#1e3a8a',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                fontSize: '1rem'
+                            }}
+                        >
+                            🚀 Créer mon compte
+                        </button>
+                        <a
+                            href="https://wa.me/33612345678?text=Menu"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '1rem 2rem',
+                                background: 'rgba(255,255,255,0.15)',
+                                border: '1px solid rgba(255,255,255,0.3)',
+                                borderRadius: '0.75rem',
+                                color: 'white',
+                                textDecoration: 'none',
+                                fontWeight: 500,
+                                fontSize: '1rem'
+                            }}
+                        >
+                            <MessageCircle size={20} />
+                            Voir la démo
+                        </a>
+                    </div>
                 </motion.div>
             </section>
 

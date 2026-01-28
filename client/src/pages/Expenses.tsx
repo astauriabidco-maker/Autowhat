@@ -1,6 +1,21 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import {
+    Receipt,
+    Check,
+    X,
+    Filter,
+    Loader2,
+    CheckCircle,
+    XCircle,
+    Clock,
+    Euro,
+    User,
+    Calendar,
+    Image
+} from 'lucide-react';
+import { useSiteContext } from '../context/SiteContext';
 
 interface ExpenseRecord {
     id: string;
@@ -8,7 +23,7 @@ interface ExpenseRecord {
     amount: number;
     category: string;
     categoryLabel: string;
-    photoUrl: string;
+    photoUrl: string | null;
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
     employee: {
         id: string;
@@ -17,62 +32,121 @@ interface ExpenseRecord {
     };
 }
 
-const STATUS_STYLES = {
-    PENDING: 'bg-amber-100 text-amber-800 border-amber-200',
-    APPROVED: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    REJECTED: 'bg-red-100 text-red-800 border-red-200'
+const CATEGORY_ICONS: Record<string, string> = {
+    FOOD: '🍔',
+    FUEL: '⛽',
+    TRANSPORT: '🚗',
+    SUPPLIES: '📦',
+    OTHER: '📋',
+    MEAL: '🍔',
+    TRAVEL: '✈️',
+    MATERIAL: '🛠️'
 };
 
-const STATUS_LABELS = {
-    PENDING: 'En attente',
-    APPROVED: 'Approuvée',
-    REJECTED: 'Refusée'
-};
+interface ToastProps {
+    message: string;
+    type: 'success' | 'error';
+    onClose: () => void;
+}
+
+function Toast({ message, type, onClose }: ToastProps) {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 3000);
+        return () => clearTimeout(timer);
+    }, [onClose]);
+
+    return (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-5 py-3 rounded-xl shadow-lg text-white ${type === 'success' ? 'bg-green-600' : 'bg-red-600'
+            }`}>
+            {type === 'success' ? <CheckCircle size={20} /> : <XCircle size={20} />}
+            {message}
+        </div>
+    );
+}
+
+interface ImageModalProps {
+    src: string;
+    onClose: () => void;
+}
+
+function ImageModal({ src, onClose }: ImageModalProps) {
+    return (
+        <div
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+            onClick={onClose}
+        >
+            <div className="relative max-w-3xl max-h-[90vh]">
+                <button
+                    onClick={onClose}
+                    className="absolute -top-12 right-0 text-white hover:text-gray-300 transition"
+                >
+                    <X size={32} />
+                </button>
+                <img
+                    src={src}
+                    alt="Ticket"
+                    className="max-w-full max-h-[85vh] object-contain rounded-lg"
+                />
+            </div>
+        </div>
+    );
+}
+
+function getInitials(name: string | null): string {
+    if (!name) return '?';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function getAvatarColor(name: string | null): string {
+    if (!name) return 'from-gray-400 to-gray-500';
+    const colors = [
+        'from-blue-500 to-indigo-500',
+        'from-green-500 to-emerald-500',
+        'from-purple-500 to-pink-500',
+        'from-orange-500 to-red-500',
+        'from-teal-500 to-cyan-500'
+    ];
+    const index = name.charCodeAt(0) % colors.length;
+    return colors[index];
+}
+
+function formatPhotoUrl(url: string | null): string {
+    if (!url) return '';
+    return url.startsWith('http') ? url : `http://localhost:3000${url}`;
+}
 
 export default function Expenses() {
+    const navigate = useNavigate();
+    const { selectedSiteId } = useSiteContext();
     const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [user, setUser] = useState<{ name: string; tenant: string } | null>(null);
+    const [filter, setFilter] = useState<'all' | 'pending'>('pending');
     const [updatingId, setUpdatingId] = useState<string | null>(null);
-    const navigate = useNavigate();
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
-        const userData = localStorage.getItem('user');
-
         if (!token) {
             navigate('/');
             return;
         }
-
-        if (userData) {
-            setUser(JSON.parse(userData));
-        }
-
         fetchExpenses();
-    }, [navigate]);
+    }, [navigate, selectedSiteId]); // Refetch on site change
 
     const fetchExpenses = async () => {
         setLoading(true);
-        setError('');
-
         try {
             const token = localStorage.getItem('token');
             const response = await axios.get<{ expenses: ExpenseRecord[] }>(
                 '/api/expenses',
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
+                { headers: { Authorization: `Bearer ${token}` } }
             );
             setExpenses(response.data.expenses);
         } catch (err: any) {
             if (err.response?.status === 401) {
                 localStorage.removeItem('token');
-                localStorage.removeItem('user');
                 navigate('/');
-            } else {
-                setError(err.response?.data?.error || 'Erreur lors du chargement');
             }
         } finally {
             setLoading(false);
@@ -81,6 +155,14 @@ export default function Expenses() {
 
     const handleStatusUpdate = async (id: string, status: 'APPROVED' | 'REJECTED') => {
         setUpdatingId(id);
+
+        // Optimistic UI update
+        setExpenses(prev =>
+            prev.map(exp =>
+                exp.id === id ? { ...exp, status } : exp
+            )
+        );
+
         try {
             const token = localStorage.getItem('token');
             await axios.patch(
@@ -89,217 +171,246 @@ export default function Expenses() {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
-            // Optimistic UI update
+            setToast({
+                message: status === 'APPROVED' ? '✅ Note validée' : '❌ Note refusée',
+                type: 'success'
+            });
+        } catch (err: any) {
+            // Rollback on error
             setExpenses(prev =>
                 prev.map(exp =>
-                    exp.id === id ? { ...exp, status } : exp
+                    exp.id === id ? { ...exp, status: 'PENDING' } : exp
                 )
             );
-        } catch (err: any) {
-            setError(err.response?.data?.error || 'Erreur lors de la mise à jour');
+            setToast({ message: 'Erreur lors de la mise à jour', type: 'error' });
         } finally {
             setUpdatingId(null);
         }
     };
 
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/');
-    };
+    // Filter expenses
+    const filteredExpenses = filter === 'pending'
+        ? expenses.filter(e => e.status === 'PENDING')
+        : expenses;
 
+    // Stats
     const pendingCount = expenses.filter(e => e.status === 'PENDING').length;
-    const totalPending = expenses
+    const pendingAmount = expenses
         .filter(e => e.status === 'PENDING')
+        .reduce((sum, e) => sum + e.amount, 0);
+    const approvedAmount = expenses
+        .filter(e => e.status === 'APPROVED')
         .reduce((sum, e) => sum + e.amount, 0);
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="space-y-6">
             {/* Header */}
-            <header className="bg-white border-b border-slate-200">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-                    <div className="flex items-center gap-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Notes de Frais</h1>
+                    <p className="text-gray-500 mt-1">Validation rapide des dépenses</p>
+                </div>
+            </div>
+
+            {/* Stats Cards - Revolut Style */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl p-5 text-white shadow-lg">
+                    <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-xl font-semibold text-slate-900">
-                                🧾 Notes de Frais
-                            </h1>
-                            {user && (
-                                <p className="text-sm text-slate-500">
-                                    {user.name} • {user.tenant}
-                                </p>
-                            )}
+                            <p className="text-amber-100 text-sm font-medium">En attente</p>
+                            <p className="text-3xl font-bold mt-1">{pendingCount}</p>
                         </div>
-                        <nav className="hidden md:flex gap-4 ml-8">
-                            <a
-                                href="/dashboard"
-                                className="text-sm text-slate-600 hover:text-slate-900 transition"
+                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                            <Clock size={24} />
+                        </div>
+                    </div>
+                    <p className="mt-3 text-amber-100 text-sm">{pendingAmount.toFixed(2)} € à traiter</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-emerald-500 to-green-500 rounded-xl p-5 text-white shadow-lg">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-emerald-100 text-sm font-medium">Approuvés</p>
+                            <p className="text-3xl font-bold mt-1">{approvedAmount.toFixed(2)} €</p>
+                        </div>
+                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                            <CheckCircle size={24} />
+                        </div>
+                    </div>
+                    <p className="mt-3 text-emerald-100 text-sm">Ce mois</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-slate-700 to-slate-900 rounded-xl p-5 text-white shadow-lg">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-slate-300 text-sm font-medium">Total</p>
+                            <p className="text-3xl font-bold mt-1">{expenses.length}</p>
+                        </div>
+                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                            <Receipt size={24} />
+                        </div>
+                    </div>
+                    <p className="mt-3 text-slate-300 text-sm">Notes de frais</p>
+                </div>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="bg-white rounded-xl border border-gray-200 p-2 shadow-sm inline-flex gap-1">
+                <button
+                    onClick={() => setFilter('pending')}
+                    className={`px-4 py-2 rounded-lg font-medium transition ${filter === 'pending'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'text-gray-500 hover:bg-gray-100'
+                        }`}
+                >
+                    <Clock size={16} className="inline mr-2" />
+                    En attente ({pendingCount})
+                </button>
+                <button
+                    onClick={() => setFilter('all')}
+                    className={`px-4 py-2 rounded-lg font-medium transition ${filter === 'all'
+                        ? 'bg-gray-100 text-gray-700'
+                        : 'text-gray-500 hover:bg-gray-100'
+                        }`}
+                >
+                    <Filter size={16} className="inline mr-2" />
+                    Tous ({expenses.length})
+                </button>
+            </div>
+
+            {/* Expense Cards / Table */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                {loading ? (
+                    <div className="flex items-center justify-center py-16">
+                        <Loader2 className="animate-spin text-gray-400" size={32} />
+                    </div>
+                ) : filteredExpenses.length === 0 ? (
+                    <div className="text-center py-16 text-gray-500">
+                        <Receipt size={48} className="mx-auto mb-3 opacity-50" />
+                        <p className="font-medium">Aucune note de frais</p>
+                        <p className="text-sm mt-1">
+                            {filter === 'pending' ? 'Toutes les notes ont été traitées !' : 'Aucune dépense enregistrée'}
+                        </p>
+                    </div>
+                ) : (
+                    <div className="divide-y divide-gray-100">
+                        {filteredExpenses.map((expense) => (
+                            <div
+                                key={expense.id}
+                                className={`flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition ${expense.status !== 'PENDING' ? 'opacity-75' : ''
+                                    }`}
                             >
-                                📊 Pointages
-                            </a>
-                            <span className="text-sm text-slate-900 font-medium border-b-2 border-slate-900 pb-1">
-                                🧾 Frais
-                            </span>
-                        </nav>
-                    </div>
-                    <button
-                        onClick={handleLogout}
-                        className="text-slate-600 hover:text-slate-900 text-sm font-medium"
-                    >
-                        Déconnexion
-                    </button>
-                </div>
-            </header>
+                                {/* Date & Employee */}
+                                <div className="flex items-center gap-3 min-w-[200px]">
+                                    <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${getAvatarColor(expense.employee.name)} flex items-center justify-center text-white font-bold text-sm`}>
+                                        {getInitials(expense.employee.name)}
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-gray-900">{expense.employee.name}</p>
+                                        <p className="text-sm text-gray-500">{expense.date}</p>
+                                    </div>
+                                </div>
 
-            {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-6 py-8">
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                    <div className="bg-white rounded-xl border border-slate-200 p-5">
-                        <p className="text-sm text-slate-500 mb-1">En attente</p>
-                        <p className="text-2xl font-semibold text-amber-600">{pendingCount}</p>
-                    </div>
-                    <div className="bg-white rounded-xl border border-slate-200 p-5">
-                        <p className="text-sm text-slate-500 mb-1">Montant à traiter</p>
-                        <p className="text-2xl font-semibold text-slate-900">{totalPending.toFixed(2)} €</p>
-                    </div>
-                    <div className="bg-white rounded-xl border border-slate-200 p-5">
-                        <p className="text-sm text-slate-500 mb-1">Total</p>
-                        <p className="text-2xl font-semibold text-slate-900">{expenses.length}</p>
-                    </div>
-                </div>
+                                {/* Category */}
+                                <div className="flex items-center gap-2 min-w-[150px]">
+                                    <span className="text-2xl">{CATEGORY_ICONS[expense.category] || '📋'}</span>
+                                    <span className="text-gray-700">{expense.categoryLabel}</span>
+                                </div>
 
-                {/* Error */}
-                {error && (
-                    <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm mb-6 border border-red-200">
-                        ⚠️ {error}
+                                {/* Photo Preview - CRITICAL */}
+                                <div className="flex-shrink-0">
+                                    {expense.photoUrl ? (
+                                        <div
+                                            className="relative group cursor-pointer"
+                                            onClick={() => setPreviewImage(formatPhotoUrl(expense.photoUrl))}
+                                        >
+                                            <img
+                                                src={formatPhotoUrl(expense.photoUrl)}
+                                                alt="Ticket"
+                                                className="w-14 h-14 object-cover rounded-lg border-2 border-gray-200 group-hover:border-indigo-400 group-hover:scale-110 transition-all shadow-sm"
+                                            />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 rounded-lg flex items-center justify-center transition-opacity">
+                                                <Image size={20} className="text-white" />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
+                                            <Receipt size={20} />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Amount - Big & Bold */}
+                                <div className="flex-1 text-right">
+                                    <span className="text-2xl font-bold text-gray-900">
+                                        {expense.amount.toFixed(2)}
+                                    </span>
+                                    <span className="text-lg text-gray-500 ml-1">€</span>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="flex items-center gap-2 min-w-[140px] justify-end">
+                                    {expense.status === 'PENDING' ? (
+                                        <>
+                                            <button
+                                                onClick={() => handleStatusUpdate(expense.id, 'APPROVED')}
+                                                disabled={updatingId === expense.id}
+                                                className="w-10 h-10 bg-green-100 hover:bg-green-500 hover:text-white text-green-600 rounded-full flex items-center justify-center transition disabled:opacity-50"
+                                                title="Valider"
+                                            >
+                                                {updatingId === expense.id ? (
+                                                    <Loader2 size={18} className="animate-spin" />
+                                                ) : (
+                                                    <Check size={20} strokeWidth={3} />
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={() => handleStatusUpdate(expense.id, 'REJECTED')}
+                                                disabled={updatingId === expense.id}
+                                                className="w-10 h-10 bg-red-100 hover:bg-red-500 hover:text-white text-red-600 rounded-full flex items-center justify-center transition disabled:opacity-50"
+                                                title="Refuser"
+                                            >
+                                                <X size={20} strokeWidth={3} />
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium ${expense.status === 'APPROVED'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-red-100 text-red-700'
+                                            }`}>
+                                            {expense.status === 'APPROVED' ? (
+                                                <>
+                                                    <CheckCircle size={14} />
+                                                    Approuvé
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <XCircle size={14} />
+                                                    Refusé
+                                                </>
+                                            )}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
+            </div>
 
-                {/* Table */}
-                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                    {loading ? (
-                        <div className="p-12 text-center text-slate-500">
-                            <div className="animate-pulse">Chargement...</div>
-                        </div>
-                    ) : expenses.length === 0 ? (
-                        <div className="p-12 text-center text-slate-500">
-                            <p className="text-4xl mb-3">🧾</p>
-                            <p>Aucune note de frais</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="border-b border-slate-100">
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                            Date
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                            Employé
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                            Catégorie
-                                        </th>
-                                        <th className="px-6 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                            Montant
-                                        </th>
-                                        <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                            Preuve
-                                        </th>
-                                        <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                            Statut
-                                        </th>
-                                        <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                            Actions
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {expenses.map((expense) => (
-                                        <tr
-                                            key={expense.id}
-                                            className="hover:bg-slate-50/50 transition"
-                                        >
-                                            <td className="px-6 py-4 text-sm text-slate-600">
-                                                {expense.date}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="font-medium text-slate-900 text-sm">
-                                                    {expense.employee.name}
-                                                </div>
-                                                <div className="text-xs text-slate-500">
-                                                    {expense.employee.phoneNumber}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm">
-                                                {expense.categoryLabel}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <span className="font-semibold text-slate-900">
-                                                    {expense.amount.toFixed(2)} €
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                {expense.photoUrl ? (
-                                                    <a
-                                                        href={expense.photoUrl.startsWith('http')
-                                                            ? expense.photoUrl
-                                                            : `http://localhost:3000${expense.photoUrl}`
-                                                        }
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="inline-block"
-                                                    >
-                                                        <img
-                                                            src={expense.photoUrl.startsWith('http')
-                                                                ? expense.photoUrl
-                                                                : `http://localhost:3000${expense.photoUrl}`
-                                                            }
-                                                            alt="Ticket"
-                                                            className="w-10 h-10 object-cover rounded-lg border border-slate-200 hover:scale-105 transition cursor-pointer"
-                                                        />
-                                                    </a>
-                                                ) : (
-                                                    <span className="text-xs text-slate-400">—</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span
-                                                    className={`inline-flex px-3 py-1 text-xs font-medium rounded-full border ${STATUS_STYLES[expense.status]}`}
-                                                >
-                                                    {STATUS_LABELS[expense.status]}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                {expense.status === 'PENDING' ? (
-                                                    <div className="flex justify-center gap-2">
-                                                        <button
-                                                            onClick={() => handleStatusUpdate(expense.id, 'APPROVED')}
-                                                            disabled={updatingId === expense.id}
-                                                            className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                                                        >
-                                                            ✓ Valider
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleStatusUpdate(expense.id, 'REJECTED')}
-                                                            disabled={updatingId === expense.id}
-                                                            className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                                                        >
-                                                            ✗ Refuser
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-xs text-slate-400">—</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-            </main>
+            {/* Image Preview Modal */}
+            {previewImage && (
+                <ImageModal src={previewImage} onClose={() => setPreviewImage(null)} />
+            )}
+
+            {/* Toast */}
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
         </div>
     );
 }

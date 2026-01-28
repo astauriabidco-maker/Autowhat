@@ -14,6 +14,15 @@ model Tenant {
   name      String
   createdAt DateTime   @default(now())
   employees Employee[]
+  sites     Site[]     // Multi-sites support
+  
+  // Identification légale internationale
+  country    String  @default("FR")  // Code ISO : FR, CM, US, CA
+  legalName  String?                  // Raison sociale officielle
+  legalId    String?                  // SIRET (FR), NIU (CM), EIN (US)
+  taxId      String?                  // Numéro TVA ou équivalent
+  address    String?
+  city       String?
   
   // Géolocalisation par défaut du site
   defaultLatitude  Float?
@@ -24,9 +33,27 @@ model Tenant {
   maxWorkHours  Int    @default(12)       // Seuil alerte session fantôme
   
   // Configuration sectorielle
-  industry   String  @default("BTP") // BTP, RETAIL, CLEANING, SECURITY, OFFICE
+  industry   String  @default("BTP") // Flexible - peut être personnalisé
   config     Json?   // { enableGps: true, enablePhotos: true, enableExpenses: true }
   vocabulary Json?   // { workplace: "Chantier", manager: "Chef" } - surcharges personnalisées
+}
+
+// --- MODÈLE SITE (Multi-Sites) ---
+
+model Site {
+  id        String   @id @default(uuid())
+  name      String   // "Paris", "Lyon", "Marseille"
+  address   String?
+  latitude  Float?
+  longitude Float?
+  radius    Int      @default(200) // Rayon de tolérance en mètres pour géofencing
+  
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  
+  employees Employee[]
+  
+  @@index([tenantId])
 }
 
 model Employee {
@@ -35,6 +62,9 @@ model Employee {
   name        String?
   role        String   @default("EMPLOYEE") // EMPLOYEE, MANAGER
   password    String?  // Hashé, uniquement pour les MANAGER
+  
+  // Profil de poste pour géofencing
+  workProfile String   @default("MOBILE") // MOBILE = pas de restriction, SEDENTARY = doit être sur site
   
   // Leave balance (default 25 days for MVP)
   leaveBalance Int     @default(25)
@@ -47,6 +77,10 @@ model Employee {
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
   
+  // Multi-Sites: optionnel, si null = tous les sites
+  siteId      String?
+  site        Site?    @relation(fields: [siteId], references: [id])
+  
   attendances Attendance[]
   leaves      LeaveRequest[]
   expenses    Expense[]
@@ -54,6 +88,7 @@ model Employee {
 
   // Un numéro est unique pour un tenant donné
   @@unique([phoneNumber, tenantId])
+  @@index([siteId])
 }
 
 model Attendance {
@@ -67,6 +102,7 @@ model Attendance {
   latitude       Float?
   longitude      Float?
   distanceFromSite Int?   // Distance en mètres
+  locationWarning  Boolean @default(false) // true si sédentaire hors zone
   
   // Anti-spam pour rappels
   lastReminderSentAt DateTime?  // Dernière notification envoyée
@@ -76,8 +112,10 @@ model Attendance {
   
   // Dénormalisation pour sécurité (Row Level Security logicielle)
   tenantId   String
+  siteId     String?   // Multi-sites filter
   
   @@index([tenantId])
+  @@index([siteId])
 }
 
 model LeaveRequest {
@@ -104,8 +142,10 @@ model Expense {
   employee    Employee @relation(fields: [employeeId], references: [id])
   
   tenantId    String
+  siteId      String?   // Multi-sites filter
   
   @@index([tenantId])
+  @@index([siteId])
 }
 
 // --- DOCUMENTS ---

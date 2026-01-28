@@ -27,13 +27,25 @@ export const getSettings = async (req: Request, res: Response): Promise<any> => 
         const template = getTemplate(tenant.industry);
 
         return res.json({
+            // Basic info
             name: tenant.name,
             industry: tenant.industry,
+
+            // Legal info (international)
+            country: tenant.country,
+            legalName: tenant.legalName,
+            legalId: tenant.legalId,
+            taxId: tenant.taxId,
+            address: tenant.address,
+            city: tenant.city,
+
+            // Work config
             workStartTime: tenant.workStartTime,
             maxWorkHours: tenant.maxWorkHours,
             config: tenant.config || template.config,
             vocabulary: tenant.vocabulary || template.vocabulary,
-            // Send template defaults for reference
+
+            // Template defaults for reference
             templateConfig: template.config,
             templateVocabulary: template.vocabulary
         });
@@ -57,6 +69,12 @@ export const updateSettings = async (req: Request, res: Response): Promise<any> 
         const {
             name,
             industry,
+            country,
+            legalName,
+            legalId,
+            taxId,
+            address,
+            city,
             workStartTime,
             maxWorkHours,
             config,
@@ -64,7 +82,7 @@ export const updateSettings = async (req: Request, res: Response): Promise<any> 
             resetToDefaults
         } = req.body;
 
-        // Get current tenant to check if industry changed
+        // Get current tenant
         const currentTenant = await prisma.tenant.findUnique({
             where: { id: tenantId }
         });
@@ -76,8 +94,19 @@ export const updateSettings = async (req: Request, res: Response): Promise<any> 
         // Prepare update data
         const updateData: any = {};
 
-        if (name) updateData.name = name;
-        if (industry) updateData.industry = industry;
+        // Basic info
+        if (name !== undefined) updateData.name = name;
+        if (industry !== undefined) updateData.industry = industry;
+
+        // Legal info
+        if (country !== undefined) updateData.country = country;
+        if (legalName !== undefined) updateData.legalName = legalName;
+        if (legalId !== undefined) updateData.legalId = legalId;
+        if (taxId !== undefined) updateData.taxId = taxId;
+        if (address !== undefined) updateData.address = address;
+        if (city !== undefined) updateData.city = city;
+
+        // Work config
         if (workStartTime) updateData.workStartTime = workStartTime;
         if (maxWorkHours) updateData.maxWorkHours = maxWorkHours;
 
@@ -91,12 +120,14 @@ export const updateSettings = async (req: Request, res: Response): Promise<any> 
             updateData.vocabulary = vocabulary;
         }
 
-        // If industry changed and resetToDefaults is true, reset config/vocabulary
-        if (industry && industry !== currentTenant.industry && resetToDefaults) {
+        // If industry changed, check if it's a known template or use GENERIC
+        if (industry && industry !== currentTenant.industry) {
             const template = getTemplate(industry);
-            updateData.config = template.config;
-            updateData.vocabulary = template.vocabulary;
-            console.log(`🔄 Industry changed to ${industry}, resetting to defaults`);
+            if (resetToDefaults) {
+                updateData.config = template.config;
+                updateData.vocabulary = template.vocabulary;
+                console.log(`🔄 Industry changed to ${industry}, resetting to defaults`);
+            }
         }
 
         const updatedTenant = await prisma.tenant.update({
@@ -115,6 +146,12 @@ export const updateSettings = async (req: Request, res: Response): Promise<any> 
             settings: {
                 name: updatedTenant.name,
                 industry: updatedTenant.industry,
+                country: updatedTenant.country,
+                legalName: updatedTenant.legalName,
+                legalId: updatedTenant.legalId,
+                taxId: updatedTenant.taxId,
+                address: updatedTenant.address,
+                city: updatedTenant.city,
                 workStartTime: updatedTenant.workStartTime,
                 maxWorkHours: updatedTenant.maxWorkHours,
                 config: updatedTenant.config || template.config,

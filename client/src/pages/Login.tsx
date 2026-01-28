@@ -106,9 +106,17 @@ export default function Login() {
                 </div>
 
                 {/* Footer */}
-                <p className="text-center text-gray-500 text-sm mt-6">
-                    AutoWhats © 2026 - Gestion des Présences
-                </p>
+                <div className="text-center mt-6 space-y-2">
+                    <p className="text-gray-600">
+                        Pas encore de compte ?{' '}
+                        <a href="/register" className="text-blue-600 font-medium hover:underline">
+                            S'inscrire
+                        </a>
+                    </p>
+                    <p className="text-gray-400 text-sm">
+                        AutoWhats © 2026 - Gestion des Présences
+                    </p>
+                </div>
             </div>
         </div>
     );

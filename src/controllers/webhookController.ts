@@ -5,7 +5,7 @@ import { sendMessage, sendInteractiveList, sendInteractiveButtons, sendDocument 
 import { checkIn, checkOut } from '../services/attendanceService';
 import { createRequest, handleManagerResponse, formatDateForMessage } from '../services/leaveService';
 import { downloadAndSaveMetaImage } from '../services/storageService';
-import { isWithinRange } from '../services/locationService';
+import { isWithinRange, checkLocationCompliance } from '../services/locationService';
 import { setConversationState, updateTempExpenseData, createExpense, EXPENSE_CATEGORIES } from '../services/expenseService';
 import { getWeeklySummary, getHistory, formatWeeklySummaryMessage, formatHistoryMessage } from '../services/statsService';
 import { getDocumentsForEmployee, getDocumentById, formatDocumentListMessage } from '../services/documentService';
@@ -318,15 +318,68 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                         // 1. Identify User
                         const employee = await identifyUser(`+${from}`);
 
+                        // Handle "Admin Start" command for manager activation
+                        if (!employee && messageType === 'text' && messageBody.toLowerCase().trim() === 'admin start') {
+                            console.log(`🔑 Processing ADMIN START activation from ${from}`);
+
+                            // Try to find manager with flexible phone matching
+                            const manager = await prisma.employee.findFirst({
+                                where: {
+                                    role: 'MANAGER',
+                                    OR: [
+                                        { phoneNumber: from },           // Without +
+                                        { phoneNumber: `+${from}` },     // With +
+                                        { phoneNumber: { endsWith: from.slice(-9) } }  // Last 9 digits
+                                    ]
+                                },
+                                include: { tenant: true }
+                            });
+
+                            if (manager) {
+                                // Extract first name
+                                const firstName = (manager.name || 'Manager').split(' ')[0];
+
+                                // Update botActivated flag if field exists
+                                try {
+                                    await prisma.employee.update({
+                                        where: { id: manager.id },
+                                        data: { phoneNumber: from }  // Normalize to WhatsApp format
+                                    });
+                                } catch (e) {
+                                    console.log('Phone number already normalized');
+                                }
+
+                                await sendMessage(
+                                    from,
+                                    `👋 Bonjour *${firstName}* !\n\n` +
+                                    `Je vous ai reconnu. Vous êtes l'administrateur de *${manager.tenant.name}*.\n\n` +
+                                    `✅ Votre bot WhatsApp est maintenant activé !\n\n` +
+                                    `Tapez *Menu* pour voir vos options.`,
+                                    phoneNumberId
+                                );
+                                console.log(`✅ Manager ${manager.name} activated successfully`);
+                            } else {
+                                await sendMessage(
+                                    from,
+                                    `⚠️ Je ne reconnais pas ce numéro administrateur.\n\n` +
+                                    `Assurez-vous d'avoir utilisé ce numéro lors de votre inscription sur le site web.\n\n` +
+                                    `📞 Numéro reçu: +${from}`,
+                                    phoneNumberId
+                                );
+                                console.log(`❌ Unknown manager number: ${from}`);
+                            }
+                            continue;
+                        }
+
                         if (!employee) {
                             // Unknown user
                             await sendMessage(from, '❌ Numéro non reconnu. Contactez votre RH.', phoneNumberId);
                             continue;
                         }
 
-                        // 2. Handle LOCATION messages - Geographic validation
+                        // 2. Handle LOCATION messages - Geographic validation with Geofencing
                         if (messageType === 'location' && message.location) {
-                            console.log(`📍 Processing LOCATION for ${employee.name}`);
+                            console.log(`📍 Processing LOCATION for ${employee.name} (workProfile: ${employee.workProfile || 'MOBILE'})`);
                             const { latitude, longitude } = message.location;
 
                             // Check if employee has an active attendance record today
@@ -346,46 +399,33 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                             if (!todayAttendance) {
                                 await sendMessage(
                                     from,
-                                    `⚠️ Vous devez d'abord pointer votre entrée avec "Hi" avant d'envoyer votre position.`,
+                                    `⚠️ Vous devez d'abord pointer votre entrée avec \"Hi\" avant d'envoyer votre position.`,
                                     phoneNumberId
                                 );
                                 continue;
                             }
 
-                            // Calculate distance if tenant has default coordinates
-                            let distanceMsg = "";
-                            let finalDistance: number | null = null;
+                            // GEOFENCING: Check location compliance based on workProfile
+                            const complianceResult = await checkLocationCompliance(
+                                employee,
+                                latitude,
+                                longitude
+                            );
 
-                            if (employee.tenant.defaultLatitude && employee.tenant.defaultLongitude) {
-                                const { inRange, distance } = isWithinRange(
-                                    latitude,
-                                    longitude,
-                                    employee.tenant.defaultLatitude,
-                                    employee.tenant.defaultLongitude
-                                );
-                                finalDistance = distance;
+                            console.log(`📍 Geofencing result for ${employee.name}: ${JSON.stringify(complianceResult)}`);
 
-                                if (inRange) {
-                                    distanceMsg = `✅ Position validée (vous êtes à ${distance} mètres du site).`;
-                                } else {
-                                    const km = (distance / 1000).toFixed(1);
-                                    distanceMsg = `⚠️ Attention, vous êtes détecté à ${km} km du site. Pointage marqué 'Hors Site'.`;
-                                }
-                            } else {
-                                distanceMsg = `📍 Position enregistrée (Site non configuré pour la validation GPS).`;
-                            }
-
-                            // Update attendance record
+                            // Update attendance record with GPS data and warning flag
                             await prisma.attendance.update({
                                 where: { id: todayAttendance.id },
                                 data: {
                                     latitude,
                                     longitude,
-                                    distanceFromSite: finalDistance
+                                    distanceFromSite: complianceResult.distance,
+                                    locationWarning: complianceResult.warning
                                 }
                             });
 
-                            await sendMessage(from, distanceMsg, phoneNumberId);
+                            await sendMessage(from, complianceResult.message, phoneNumberId);
                             continue;
                         }
 

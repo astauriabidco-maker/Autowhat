@@ -6,6 +6,8 @@ import * as adminController from '../controllers/adminController';
 import * as expenseController from '../controllers/expenseController';
 import * as documentController from '../controllers/documentController';
 import * as tenantController from '../controllers/tenantController';
+import * as employeeController from '../controllers/employeeController';
+import * as siteController from '../controllers/siteController';
 import { authenticateManager } from '../middlewares/authMiddleware';
 import { authenticateSuperAdmin } from '../middlewares/adminMiddleware';
 import debugRoutes from './debugRoutes';
@@ -18,10 +20,24 @@ router.post('/webhook', webhookController.handleMessage);
 
 // Auth Routes (Public)
 router.post('/auth/login', authController.login);
+router.post('/auth/register', authController.register);
 
 // Dashboard API Routes (Protected - Manager only)
 router.get('/api/attendance', authenticateManager, dashboardController.getAttendance);
 router.get('/api/attendance/stats', authenticateManager, dashboardController.getAttendanceStats);
+router.get('/api/dashboard/stats', authenticateManager, dashboardController.getDashboardStats);
+
+// Site API Routes (Protected - Manager only)
+router.get('/api/sites', authenticateManager, siteController.getSites);
+router.post('/api/sites', authenticateManager, siteController.createSite);
+router.put('/api/sites/:id', authenticateManager, siteController.updateSite);
+router.delete('/api/sites/:id', authenticateManager, siteController.deleteSite);
+
+// Employee API Routes (Protected - Manager only)
+router.get('/api/employees', authenticateManager, employeeController.getEmployees);
+router.post('/api/employees', authenticateManager, employeeController.createEmployee);
+router.patch('/api/employees/:id', authenticateManager, employeeController.updateEmployee);
+router.delete('/api/employees/:id', authenticateManager, employeeController.deleteEmployee);
 
 // Expense API Routes (Protected - Manager only)
 router.get('/api/expenses', authenticateManager, expenseController.getExpenses);

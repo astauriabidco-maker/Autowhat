@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import clsx from 'clsx';
+import { Download, Camera, MapPin, Clock, AlertCircle } from 'lucide-react';
 
 interface AttendanceRecord {
     id: string;
@@ -32,23 +34,14 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [period, setPeriod] = useState('today');
-    const [user, setUser] = useState<{ name: string; tenant: string } | null>(null);
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Check authentication
         const token = localStorage.getItem('token');
-        const userData = localStorage.getItem('user');
-
         if (!token) {
             navigate('/');
             return;
         }
-
-        if (userData) {
-            setUser(JSON.parse(userData));
-        }
-
         fetchAttendances(period);
     }, [period, navigate]);
 
@@ -61,9 +54,7 @@ export default function Dashboard() {
             const response = await axios.get<AttendanceResponse>(
                 `/api/attendance?period=${selectedPeriod}`,
                 {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
+                    headers: { Authorization: `Bearer ${token}` }
                 }
             );
             setAttendances(response.data.attendances);
@@ -78,12 +69,6 @@ export default function Dashboard() {
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/');
     };
 
     const exportToCSV = () => {
@@ -112,194 +97,204 @@ export default function Dashboard() {
         URL.revokeObjectURL(url);
     };
 
+    const getStatusBadge = (status: string) => {
+        switch (status) {
+            case 'PRESENT':
+                return { label: 'Présent', bg: 'bg-green-100', text: 'text-green-700' };
+            case 'LATE':
+                return { label: 'En retard', bg: 'bg-amber-100', text: 'text-amber-700' };
+            case 'ABSENT':
+                return { label: 'Absent', bg: 'bg-red-100', text: 'text-red-700' };
+            default:
+                return { label: status, bg: 'bg-gray-100', text: 'text-gray-700' };
+        }
+    };
+
+    // Stats
+    const presentCount = attendances.filter(a => a.status === 'PRESENT' || a.checkIn).length;
+    const withPhotoCount = attendances.filter(a => a.photoUrl).length;
+    const withGpsCount = attendances.filter(a => a.latitude && a.longitude).length;
+
     return (
-        <div className="min-h-screen bg-gray-100">
-            {/* Header */}
-            <header className="bg-white shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-                    <div className="flex items-center gap-6">
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">
-                                📊 Dashboard RH
-                            </h1>
-                            {user && (
-                                <p className="text-sm text-gray-500">
-                                    {user.name} • {user.tenant}
-                                </p>
-                            )}
-                        </div>
-                        <nav className="hidden md:flex gap-4 ml-8">
-                            <span className="text-sm text-gray-900 font-medium border-b-2 border-gray-900 pb-1">
-                                📊 Pointages
-                            </span>
-                            <a
-                                href="/expenses"
-                                className="text-sm text-gray-600 hover:text-gray-900 transition"
-                            >
-                                🧾 Frais
-                            </a>
-                        </nav>
-                    </div>
-                    <button
-                        onClick={handleLogout}
-                        className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-                    >
-                        Déconnexion
-                    </button>
-                </div>
-            </header>
-
-            {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 py-8">
-                {/* Controls */}
-                <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex flex-wrap gap-4 items-center justify-between">
-                    <div className="flex gap-2">
-                        {['today', 'week', 'month'].map((p) => (
-                            <button
-                                key={p}
-                                onClick={() => setPeriod(p)}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${period === p
+        <div className="space-y-6">
+            {/* Controls Bar */}
+            <div className="flex flex-wrap gap-4 items-center justify-between">
+                {/* Period Tabs */}
+                <div className="flex bg-white rounded-lg border border-gray-200 p-1">
+                    {[
+                        { key: 'today', label: "Aujourd'hui" },
+                        { key: 'week', label: 'Cette semaine' },
+                        { key: 'month', label: 'Ce mois' }
+                    ].map((p) => (
+                        <button
+                            key={p.key}
+                            onClick={() => setPeriod(p.key)}
+                            className={clsx(
+                                'px-4 py-2 rounded-md text-sm font-medium transition',
+                                period === p.key
                                     ? 'bg-blue-600 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                            >
-                                {p === 'today' ? "Aujourd'hui" : p === 'week' ? 'Cette semaine' : 'Ce mois'}
-                            </button>
-                        ))}
-                    </div>
-                    <button
-                        onClick={exportToCSV}
-                        disabled={attendances.length === 0}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
-                    >
-                        📥 Exporter CSV
-                    </button>
+                                    : 'text-gray-600 hover:bg-gray-100'
+                            )}
+                        >
+                            {p.label}
+                        </button>
+                    ))}
                 </div>
 
-                {/* Error */}
-                {error && (
-                    <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm mb-6">
-                        ⚠️ {error}
-                    </div>
-                )}
+                {/* Export Button */}
+                <button
+                    onClick={exportToCSV}
+                    disabled={attendances.length === 0}
+                    className={clsx(
+                        'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition',
+                        attendances.length === 0
+                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            : 'bg-green-600 text-white hover:bg-green-700'
+                    )}
+                >
+                    <Download size={16} />
+                    Exporter CSV
+                </button>
+            </div>
 
-                {/* Table */}
-                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-                    {loading ? (
-                        <div className="p-8 text-center text-gray-500">
-                            Chargement...
-                        </div>
-                    ) : attendances.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500">
-                            Aucun pointage pour cette période
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                            Employé
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                            Date
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                            Arrivée
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                            Départ
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                            Durée
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                            Statut
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                            Preuve
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                            Lieu
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {attendances.map((a) => (
-                                        <tr key={a.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4">
-                                                <div className="font-medium text-gray-900">
-                                                    {a.employee.name}
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center gap-4">
+                    <div className="p-3 bg-blue-100 rounded-lg">
+                        <Clock size={20} className="text-blue-600" />
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-500">Pointages</p>
+                        <p className="text-2xl font-bold text-gray-900">{presentCount}</p>
+                    </div>
+                </div>
+                <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center gap-4">
+                    <div className="p-3 bg-purple-100 rounded-lg">
+                        <Camera size={20} className="text-purple-600" />
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-500">Avec photo</p>
+                        <p className="text-2xl font-bold text-gray-900">{withPhotoCount}</p>
+                    </div>
+                </div>
+                <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center gap-4">
+                    <div className="p-3 bg-green-100 rounded-lg">
+                        <MapPin size={20} className="text-green-600" />
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-500">Avec GPS</p>
+                        <p className="text-2xl font-bold text-gray-900">{withGpsCount}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Error */}
+            {error && (
+                <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                    <AlertCircle size={18} />
+                    {error}
+                </div>
+            )}
+
+            {/* Table */}
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                {loading ? (
+                    <div className="p-12 text-center text-gray-500">
+                        Chargement des pointages...
+                    </div>
+                ) : attendances.length === 0 ? (
+                    <div className="p-12 text-center text-gray-500">
+                        <Clock size={32} className="mx-auto mb-2 text-gray-300" />
+                        <p>Aucun pointage pour cette période</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-200">
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employé</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Arrivée</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Départ</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Durée</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Preuve</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Lieu</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {attendances.map((a) => {
+                                    const statusBadge = getStatusBadge(a.status);
+                                    return (
+                                        <tr key={a.id} className="hover:bg-gray-50 transition">
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                                        {a.employee.name?.charAt(0)?.toUpperCase() || '?'}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">{a.employee.name}</p>
+                                                        <p className="text-xs text-gray-500">{a.employee.phoneNumber}</p>
+                                                    </div>
                                                 </div>
-                                                <div className="text-sm text-gray-500">
-                                                    {a.employee.phoneNumber}
-                                                </div>
                                             </td>
-                                            <td className="px-6 py-4 text-gray-700">
-                                                {a.date}
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-700 font-mono">
-                                                {a.checkIn}
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-700 font-mono">
-                                                {a.checkOut || '-'}
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-700">
-                                                {a.duration}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${a.status === 'PRESENT'
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : 'bg-yellow-100 text-yellow-800'
-                                                    }`}>
-                                                    {a.status}
+                                            <td className="px-4 py-3 text-sm text-gray-600">{a.date}</td>
+                                            <td className="px-4 py-3 text-sm font-mono text-gray-900">{a.checkIn}</td>
+                                            <td className="px-4 py-3 text-sm font-mono text-gray-600">{a.checkOut || '—'}</td>
+                                            <td className="px-4 py-3 text-sm text-gray-600">{a.duration}</td>
+                                            <td className="px-4 py-3">
+                                                <span className={clsx(
+                                                    'inline-flex px-2.5 py-1 text-xs font-medium rounded-full',
+                                                    statusBadge.bg,
+                                                    statusBadge.text
+                                                )}>
+                                                    {statusBadge.label}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-center">
+                                            <td className="px-4 py-3 text-center">
                                                 {a.photoUrl ? (
                                                     <a
                                                         href={a.photoUrl.startsWith('http') ? a.photoUrl : `http://localhost:3000${a.photoUrl}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="text-2xl hover:scale-110 transition-transform inline-block"
-                                                        title="Voir la photo de preuve"
+                                                        className="inline-flex p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition"
                                                     >
-                                                        📷
+                                                        <Camera size={16} />
                                                     </a>
                                                 ) : (
-                                                    <span className="text-gray-300 text-xs">Aucune</span>
+                                                    <span className="text-gray-300">—</span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 text-center">
+                                            <td className="px-4 py-3 text-center">
                                                 {a.latitude && a.longitude ? (
                                                     <a
                                                         href={`https://www.google.com/maps/search/?api=1&query=${a.latitude},${a.longitude}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="text-2xl hover:scale-110 transition-transform inline-block"
-                                                        title={`Voir sur la carte (${a.distanceFromSite || '?'}m du site)`}
+                                                        className="inline-flex p-2 text-green-600 hover:bg-green-50 rounded-lg transition"
+                                                        title={a.distanceFromSite ? `${a.distanceFromSite}m du site` : 'Voir sur la carte'}
                                                     >
-                                                        📍
+                                                        <MapPin size={16} />
                                                     </a>
                                                 ) : (
-                                                    <span className="text-gray-300 text-xs">Inconnu</span>
+                                                    <span className="text-gray-300">—</span>
                                                 )}
                                             </td>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-
-                {/* Summary */}
-                {!loading && attendances.length > 0 && (
-                    <div className="mt-4 text-sm text-gray-500 text-right">
-                        Total: {attendances.length} pointage(s)
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
                 )}
-            </main>
+            </div>
+
+            {/* Summary Footer */}
+            {!loading && attendances.length > 0 && (
+                <div className="text-sm text-gray-500 text-right">
+                    Total: {attendances.length} pointage(s) sur la période
+                </div>
+            )}
         </div>
     );
 }

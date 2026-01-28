@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import clsx from 'clsx';
+import {
+    Upload,
+    FileText,
+    Trash2,
+    ExternalLink,
+    AlertCircle,
+    CheckCircle,
+    File,
+    Users
+} from 'lucide-react';
 
 interface Document {
     id: string;
@@ -24,9 +35,9 @@ interface Employee {
 }
 
 const CATEGORIES = [
-    { value: 'PAIE', label: '💰 Fiche de paie', color: '#10b981' },
-    { value: 'CONTRAT', label: '📝 Contrat', color: '#3b82f6' },
-    { value: 'INTERNE', label: '📋 Document interne', color: '#8b5cf6' }
+    { value: 'PAIE', label: '💰 Fiche de paie', color: 'bg-emerald-100 text-emerald-700' },
+    { value: 'CONTRAT', label: '📝 Contrat', color: 'bg-blue-100 text-blue-700' },
+    { value: 'INTERNE', label: '📋 Document interne', color: 'bg-purple-100 text-purple-700' }
 ];
 
 export default function Documents() {
@@ -45,10 +56,6 @@ export default function Documents() {
     const [employeeId, setEmployeeId] = useState<string>('');
     const [dragActive, setDragActive] = useState(false);
 
-    const API_BASE = window.location.hostname === 'localhost'
-        ? 'http://localhost:3000'
-        : '';
-
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -57,18 +64,18 @@ export default function Documents() {
         }
         fetchDocuments();
         fetchEmployees();
-    }, []);
+    }, [navigate]);
 
     const fetchDocuments = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get(`${API_BASE}/api/documents`, {
+            const response = await axios.get('/api/documents', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setDocuments(response.data.documents.slice(0, 20));
-            setLoading(false);
         } catch (err) {
             setError('Erreur lors du chargement des documents');
+        } finally {
             setLoading(false);
         }
     };
@@ -76,7 +83,7 @@ export default function Documents() {
     const fetchEmployees = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get(`${API_BASE}/api/documents/employees`, {
+            const response = await axios.get('/api/documents/employees', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setEmployees(response.data.employees);
@@ -144,19 +151,15 @@ export default function Documents() {
 
         try {
             const token = localStorage.getItem('token');
-            await axios.post(`${API_BASE}/api/documents`, formData, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                    // Note: Don't set Content-Type, let browser handle multipart boundary
-                }
+            await axios.post('/api/documents', formData, {
+                headers: { Authorization: `Bearer ${token}` }
             });
 
-            // Reset form
             setSelectedFile(null);
             setTitle('');
             setCategory('PAIE');
             setEmployeeId('');
-            setSuccess('✅ Document envoyé ! L\'employé a été notifié par WhatsApp.');
+            setSuccess('Document envoyé ! L\'employé a été notifié par WhatsApp.');
             fetchDocuments();
 
             setTimeout(() => setSuccess(null), 5000);
@@ -172,7 +175,7 @@ export default function Documents() {
 
         try {
             const token = localStorage.getItem('token');
-            await axios.delete(`${API_BASE}/api/documents/${docId}`, {
+            await axios.delete(`/api/documents/${docId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             fetchDocuments();
@@ -185,154 +188,73 @@ export default function Documents() {
 
     const getCategoryBadge = (cat: string) => {
         const found = CATEGORIES.find(c => c.value === cat);
-        return {
-            label: found?.label || cat,
-            color: found?.color || '#6b7280'
-        };
+        return found || { label: cat, color: 'bg-gray-100 text-gray-700' };
     };
 
     if (loading) {
         return (
-            <div style={{
-                minHeight: '100vh',
-                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white'
-            }}>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📂</div>
-                    <p>Chargement...</p>
-                </div>
+            <div className="flex items-center justify-center h-64">
+                <div className="text-gray-500">Chargement des documents...</div>
             </div>
         );
     }
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-            padding: '2rem'
-        }}>
-            {/* Header */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '2rem'
-            }}>
-                <div>
-                    <h1 style={{ color: 'white', fontSize: '2rem', margin: 0 }}>📂 Gestion Documentaire</h1>
-                    <p style={{ color: '#94a3b8', marginTop: '0.5rem' }}>
-                        Envoyez et gérez les documents de vos employés
-                    </p>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button
-                        onClick={() => navigate('/dashboard')}
-                        style={{
-                            padding: '0.75rem 1.5rem',
-                            background: 'rgba(255,255,255,0.1)',
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            borderRadius: '0.5rem',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '0.875rem'
-                        }}
-                    >
-                        📊 Pointages
-                    </button>
-                    <button
-                        onClick={() => navigate('/expenses')}
-                        style={{
-                            padding: '0.75rem 1.5rem',
-                            background: 'rgba(255,255,255,0.1)',
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            borderRadius: '0.5rem',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '0.875rem'
-                        }}
-                    >
-                        🧾 Frais
-                    </button>
-                </div>
-            </div>
-
+        <div className="space-y-6">
             {/* Alerts */}
             {error && (
-                <div style={{
-                    background: 'rgba(239, 68, 68, 0.2)',
-                    border: '1px solid rgba(239, 68, 68, 0.5)',
-                    borderRadius: '0.5rem',
-                    padding: '1rem',
-                    color: '#fca5a5',
-                    marginBottom: '1.5rem'
-                }}>
+                <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                    <AlertCircle size={18} />
                     {error}
                 </div>
             )}
 
             {success && (
-                <div style={{
-                    background: 'rgba(16, 185, 129, 0.2)',
-                    border: '1px solid rgba(16, 185, 129, 0.5)',
-                    borderRadius: '0.5rem',
-                    padding: '1rem',
-                    color: '#6ee7b7',
-                    marginBottom: '1.5rem'
-                }}>
+                <div className="flex items-center gap-3 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+                    <CheckCircle size={18} />
                     {success}
                 </div>
             )}
 
             {/* Two Column Layout */}
-            <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: '2rem' }}>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Upload Form */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                            <Upload size={20} className="text-blue-600" />
+                        </div>
+                        <h2 className="text-lg font-semibold text-gray-900">Envoyer un document</h2>
+                    </div>
 
-                {/* Zone 1: Upload Form */}
-                <div style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    borderRadius: '1rem',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    padding: '1.5rem'
-                }}>
-                    <h2 style={{ color: 'white', marginTop: 0, marginBottom: '1.5rem', fontSize: '1.25rem' }}>
-                        📤 Envoyer un document
-                    </h2>
-
-                    <form onSubmit={handleUpload}>
+                    <form onSubmit={handleUpload} className="space-y-4">
                         {/* Drag & Drop Zone */}
                         <div
                             onDragEnter={handleDrag}
                             onDragLeave={handleDrag}
                             onDragOver={handleDrag}
                             onDrop={handleDrop}
-                            style={{
-                                border: `2px dashed ${dragActive ? '#10b981' : 'rgba(255,255,255,0.3)'}`,
-                                borderRadius: '0.75rem',
-                                padding: '1.5rem',
-                                textAlign: 'center',
-                                marginBottom: '1rem',
-                                background: dragActive ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.02)',
-                                transition: 'all 0.2s ease',
-                                cursor: 'pointer'
-                            }}
                             onClick={() => document.getElementById('fileInput')?.click()}
+                            className={clsx(
+                                'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition',
+                                dragActive
+                                    ? 'border-blue-500 bg-blue-50'
+                                    : 'border-gray-300 hover:border-gray-400'
+                            )}
                         >
                             {selectedFile ? (
-                                <div style={{ color: '#10b981' }}>
-                                    <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📄</div>
-                                    <p style={{ margin: 0, fontWeight: '500' }}>{selectedFile.name}</p>
-                                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>
+                                <div className="text-green-600">
+                                    <File size={24} className="mx-auto mb-2" />
+                                    <p className="font-medium">{selectedFile.name}</p>
+                                    <p className="text-xs text-gray-500 mt-1">
                                         {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                                     </p>
                                 </div>
                             ) : (
-                                <div style={{ color: '#94a3b8' }}>
-                                    <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📁</div>
-                                    <p style={{ margin: 0, fontSize: '0.875rem' }}>Glissez un fichier ou cliquez</p>
-                                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem' }}>PDF, JPG, PNG (max 10MB)</p>
+                                <div className="text-gray-500">
+                                    <Upload size={24} className="mx-auto mb-2" />
+                                    <p className="text-sm">Glissez un fichier ou cliquez</p>
+                                    <p className="text-xs mt-1">PDF, JPG, PNG (max 10MB)</p>
                                 </div>
                             )}
                             <input
@@ -340,13 +262,13 @@ export default function Documents() {
                                 type="file"
                                 onChange={handleFileChange}
                                 accept=".pdf,.jpg,.jpeg,.png"
-                                style={{ display: 'none' }}
+                                className="hidden"
                             />
                         </div>
 
                         {/* Title */}
-                        <div style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', color: '#94a3b8', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Titre du document *
                             </label>
                             <input
@@ -355,37 +277,19 @@ export default function Documents() {
                                 onChange={(e) => setTitle(e.target.value)}
                                 placeholder="Ex: Bulletin Paie Janvier"
                                 required
-                                style={{
-                                    width: '100%',
-                                    padding: '0.75rem',
-                                    background: 'rgba(255,255,255,0.1)',
-                                    border: '1px solid rgba(255,255,255,0.2)',
-                                    borderRadius: '0.5rem',
-                                    color: 'white',
-                                    fontSize: '0.875rem',
-                                    boxSizing: 'border-box'
-                                }}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
 
                         {/* Category */}
-                        <div style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', color: '#94a3b8', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Catégorie *
                             </label>
                             <select
                                 value={category}
                                 onChange={(e) => setCategory(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '0.75rem',
-                                    background: 'rgba(255,255,255,0.1)',
-                                    border: '1px solid rgba(255,255,255,0.2)',
-                                    borderRadius: '0.5rem',
-                                    color: 'white',
-                                    fontSize: '0.875rem',
-                                    boxSizing: 'border-box'
-                                }}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 {CATEGORIES.map(cat => (
                                     <option key={cat.value} value={cat.value}>{cat.label}</option>
@@ -394,23 +298,14 @@ export default function Documents() {
                         </div>
 
                         {/* Target Employee */}
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', color: '#94a3b8', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Destinataire
                             </label>
                             <select
                                 value={employeeId}
                                 onChange={(e) => setEmployeeId(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '0.75rem',
-                                    background: 'rgba(255,255,255,0.1)',
-                                    border: '1px solid rgba(255,255,255,0.2)',
-                                    borderRadius: '0.5rem',
-                                    color: 'white',
-                                    fontSize: '0.875rem',
-                                    boxSizing: 'border-box'
-                                }}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="">📢 Tout le monde (Document Global)</option>
                                 {employees.map(emp => (
@@ -425,143 +320,94 @@ export default function Documents() {
                         <button
                             type="submit"
                             disabled={!selectedFile || !title || uploading}
-                            style={{
-                                width: '100%',
-                                padding: '0.875rem',
-                                background: (!selectedFile || !title || uploading)
-                                    ? 'rgba(255,255,255,0.1)'
-                                    : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                border: 'none',
-                                borderRadius: '0.5rem',
-                                color: 'white',
-                                cursor: (!selectedFile || !title || uploading) ? 'not-allowed' : 'pointer',
-                                fontWeight: '600',
-                                fontSize: '1rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '0.5rem'
-                            }}
-                        >
-                            {uploading ? (
-                                <>
-                                    <span style={{
-                                        display: 'inline-block',
-                                        width: '1rem',
-                                        height: '1rem',
-                                        border: '2px solid white',
-                                        borderTopColor: 'transparent',
-                                        borderRadius: '50%',
-                                        animation: 'spin 1s linear infinite'
-                                    }}></span>
-                                    Envoi en cours...
-                                </>
-                            ) : (
-                                <>📤 Uploader</>
+                            className={clsx(
+                                'w-full flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition',
+                                (!selectedFile || !title || uploading)
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : 'bg-blue-600 text-white hover:bg-blue-700'
                             )}
+                        >
+                            <Upload size={18} />
+                            {uploading ? 'Envoi en cours...' : 'Uploader'}
                         </button>
                     </form>
                 </div>
 
-                {/* Zone 2: Document History */}
-                <div style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    borderRadius: '1rem',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    overflow: 'hidden'
-                }}>
-                    <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                        <h2 style={{ color: 'white', margin: 0, fontSize: '1.25rem' }}>
-                            📋 Historique ({documents.length} documents)
+                {/* Document History */}
+                <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="flex items-center gap-3 p-4 border-b border-gray-200">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                            <FileText size={20} className="text-purple-600" />
+                        </div>
+                        <h2 className="text-lg font-semibold text-gray-900">
+                            Historique ({documents.length} documents)
                         </h2>
                     </div>
 
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
                             <thead>
-                                <tr style={{ background: 'rgba(0,0,0,0.2)' }}>
-                                    <th style={{ padding: '0.75rem 1rem', color: '#94a3b8', textAlign: 'left', fontWeight: '500', fontSize: '0.875rem' }}>Date</th>
-                                    <th style={{ padding: '0.75rem 1rem', color: '#94a3b8', textAlign: 'left', fontWeight: '500', fontSize: '0.875rem' }}>Titre</th>
-                                    <th style={{ padding: '0.75rem 1rem', color: '#94a3b8', textAlign: 'left', fontWeight: '500', fontSize: '0.875rem' }}>Catégorie</th>
-                                    <th style={{ padding: '0.75rem 1rem', color: '#94a3b8', textAlign: 'left', fontWeight: '500', fontSize: '0.875rem' }}>Cible</th>
-                                    <th style={{ padding: '0.75rem 1rem', color: '#94a3b8', textAlign: 'center', fontWeight: '500', fontSize: '0.875rem' }}>Actions</th>
+                                <tr className="bg-gray-50 border-b border-gray-200">
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Titre</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Catégorie</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cible</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-gray-100">
                                 {documents.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-                                            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📭</div>
+                                        <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
+                                            <FileText size={32} className="mx-auto mb-2 text-gray-300" />
                                             <p>Aucun document envoyé</p>
                                         </td>
                                     </tr>
                                 ) : (
-                                    documents.map((doc, i) => {
+                                    documents.map((doc) => {
                                         const badge = getCategoryBadge(doc.category);
                                         return (
-                                            <tr
-                                                key={doc.id}
-                                                style={{
-                                                    borderBottom: '1px solid rgba(255,255,255,0.05)',
-                                                    background: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.1)'
-                                                }}
-                                            >
-                                                <td style={{ padding: '0.75rem 1rem', color: '#94a3b8', fontSize: '0.875rem' }}>
+                                            <tr key={doc.id} className="hover:bg-gray-50 transition">
+                                                <td className="px-4 py-3 text-sm text-gray-600">
                                                     {new Date(doc.createdAt).toLocaleDateString('fr-FR')}
                                                 </td>
-                                                <td style={{ padding: '0.75rem 1rem', color: 'white', fontWeight: '500' }}>
-                                                    📄 {doc.title}
+                                                <td className="px-4 py-3">
+                                                    <span className="font-medium text-gray-900">{doc.title}</span>
                                                 </td>
-                                                <td style={{ padding: '0.75rem 1rem' }}>
-                                                    <span style={{
-                                                        padding: '0.25rem 0.75rem',
-                                                        borderRadius: '9999px',
-                                                        background: `${badge.color}20`,
-                                                        color: badge.color,
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: '500'
-                                                    }}>
+                                                <td className="px-4 py-3">
+                                                    <span className={clsx(
+                                                        'inline-flex px-2.5 py-1 text-xs font-medium rounded-full',
+                                                        badge.color
+                                                    )}>
                                                         {badge.label}
                                                     </span>
                                                 </td>
-                                                <td style={{ padding: '0.75rem 1rem', color: '#cbd5e1', fontSize: '0.875rem' }}>
+                                                <td className="px-4 py-3 text-sm">
                                                     {doc.isGlobal ? (
-                                                        <span style={{ color: '#60a5fa' }}>📢 Tous</span>
+                                                        <span className="flex items-center gap-1 text-blue-600">
+                                                            <Users size={14} /> Tous
+                                                        </span>
                                                     ) : (
-                                                        <span>👤 {doc.employee?.name || 'Employé'}</span>
+                                                        <span className="text-gray-600">
+                                                            {doc.employee?.name || 'Employé'}
+                                                        </span>
                                                     )}
                                                 </td>
-                                                <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-                                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center justify-center gap-2">
                                                         <a
-                                                            href={`${API_BASE}${doc.url}`}
+                                                            href={doc.url.startsWith('http') ? doc.url : `http://localhost:3000${doc.url}`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            style={{
-                                                                padding: '0.375rem 0.75rem',
-                                                                background: 'rgba(59, 130, 246, 0.2)',
-                                                                border: '1px solid rgba(59, 130, 246, 0.3)',
-                                                                borderRadius: '0.375rem',
-                                                                color: '#60a5fa',
-                                                                textDecoration: 'none',
-                                                                fontSize: '0.75rem'
-                                                            }}
+                                                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
                                                         >
-                                                            Voir
+                                                            <ExternalLink size={16} />
                                                         </a>
                                                         <button
                                                             onClick={() => handleDelete(doc.id, doc.title)}
-                                                            style={{
-                                                                padding: '0.375rem 0.75rem',
-                                                                background: 'rgba(239, 68, 68, 0.2)',
-                                                                border: '1px solid rgba(239, 68, 68, 0.3)',
-                                                                borderRadius: '0.375rem',
-                                                                color: '#f87171',
-                                                                cursor: 'pointer',
-                                                                fontSize: '0.75rem'
-                                                            }}
+                                                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
                                                         >
-                                                            🗑️
+                                                            <Trash2 size={16} />
                                                         </button>
                                                     </div>
                                                 </td>
@@ -574,13 +420,6 @@ export default function Documents() {
                     </div>
                 </div>
             </div>
-
-            {/* CSS Animation */}
-            <style>{`
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
-                }
-            `}</style>
         </div>
     );
 }
