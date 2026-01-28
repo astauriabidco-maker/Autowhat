@@ -18,6 +18,15 @@ model Tenant {
   // Géolocalisation par défaut du site
   defaultLatitude  Float?
   defaultLongitude Float?
+  
+  // Paramètres horaires pour rappels
+  workStartTime String @default("09:00") // HH:MM format
+  maxWorkHours  Int    @default(12)       // Seuil alerte session fantôme
+  
+  // Configuration sectorielle
+  industry   String  @default("BTP") // BTP, RETAIL, CLEANING, SECURITY, OFFICE
+  config     Json?   // { enableGps: true, enablePhotos: true, enableExpenses: true }
+  vocabulary Json?   // { workplace: "Chantier", manager: "Chef" } - surcharges personnalisées
 }
 
 model Employee {
@@ -27,12 +36,21 @@ model Employee {
   role        String   @default("EMPLOYEE") // EMPLOYEE, MANAGER
   password    String?  // Hashé, uniquement pour les MANAGER
   
+  // Leave balance (default 25 days for MVP)
+  leaveBalance Int     @default(25)
+  
+  // Conversational state machine
+  conversationState String?  // WAITING_EXPENSE_PHOTO, WAITING_EXPENSE_AMOUNT, WAITING_EXPENSE_CATEGORY
+  tempExpenseData   Json?    // Temporary data during expense creation workflow
+  
   // Relation Tenant (CRITIQUE)
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
   
   attendances Attendance[]
   leaves      LeaveRequest[]
+  expenses    Expense[]
+  documents   Document[]
 
   // Un numéro est unique pour un tenant donné
   @@unique([phoneNumber, tenantId])
@@ -49,6 +67,9 @@ model Attendance {
   latitude       Float?
   longitude      Float?
   distanceFromSite Int?   // Distance en mètres
+  
+  // Anti-spam pour rappels
+  lastReminderSentAt DateTime?  // Dernière notification envoyée
   
   employeeId String
   employee   Employee  @relation(fields: [employeeId], references: [id])
@@ -69,6 +90,41 @@ model LeaveRequest {
   employee   Employee @relation(fields: [employeeId], references: [id])
   
   tenantId   String
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  date        DateTime @default(now())
+  amount      Float
+  category    String   // REPAS, ESSENCE, HOTEL, MATERIEL
+  photoUrl    String
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  
+  tenantId    String
+  
+  @@index([tenantId])
+}
+
+// --- DOCUMENTS ---
+
+model Document {
+  id          String    @id @default(uuid())
+  title       String    // ex: "Fiche Paie Janvier"
+  category    String    // PAIE, CONTRAT, INTERNE
+  url         String    // Chemin du fichier
+  createdAt   DateTime  @default(now())
+  
+  // Si null, c'est un document global (ex: Règlement Intérieur)
+  employeeId  String?
+  employee    Employee? @relation(fields: [employeeId], references: [id])
+  
+  tenantId    String
+  
+  @@index([tenantId])
+  @@index([employeeId])
 }
 
 // --- SUPER ADMIN (Accès global) ---

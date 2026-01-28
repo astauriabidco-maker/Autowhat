@@ -27,12 +27,14 @@ app.get('/', (req, res) => {
 
 import router from './routes/index';
 import { initLateArrivalJob } from './jobs/lateArrivalJob';
+import { initReminderJobs } from './jobs/reminderJobs';
 
 // API Routes
 app.use(router);
 
 // Initialisation des Jobs (Cron)
 initLateArrivalJob();
+initReminderJobs();
 
 app.listen(PORT, () => {
     console.log(`✅ Serveur démarré sur le port ${PORT}`);

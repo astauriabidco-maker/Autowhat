@@ -117,15 +117,28 @@ export default function Dashboard() {
             {/* Header */}
             <header className="bg-white shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">
-                            📊 Dashboard RH
-                        </h1>
-                        {user && (
-                            <p className="text-sm text-gray-500">
-                                {user.name} • {user.tenant}
-                            </p>
-                        )}
+                    <div className="flex items-center gap-6">
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900">
+                                📊 Dashboard RH
+                            </h1>
+                            {user && (
+                                <p className="text-sm text-gray-500">
+                                    {user.name} • {user.tenant}
+                                </p>
+                            )}
+                        </div>
+                        <nav className="hidden md:flex gap-4 ml-8">
+                            <span className="text-sm text-gray-900 font-medium border-b-2 border-gray-900 pb-1">
+                                📊 Pointages
+                            </span>
+                            <a
+                                href="/expenses"
+                                className="text-sm text-gray-600 hover:text-gray-900 transition"
+                            >
+                                🧾 Frais
+                            </a>
+                        </nav>
                     </div>
                     <button
                         onClick={handleLogout}
