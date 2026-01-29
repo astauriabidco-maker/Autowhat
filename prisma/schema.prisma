@@ -16,6 +16,17 @@ model Tenant {
   employees Employee[]
   sites     Site[]     // Multi-sites support
   
+  // === SaaS Plan & Trial ===
+  plan          String    @default("TRIAL")  // TRIAL, PRO, ENTERPRISE
+  status        String    @default("ACTIVE") // ACTIVE, SUSPENDED
+  trialEndsAt   DateTime?                     // Date de fin d'essai
+  maxEmployees  Int       @default(5)         // Limite technique
+  
+  // === Stripe Billing ===
+  stripeCustomerId      String?   // ID Client Stripe
+  stripeSubscriptionId  String?   // ID Subscription Stripe
+  subscriptionStatus    String?   // active, past_due, canceled
+  
   // Identification légale internationale
   country    String  @default("FR")  // Code ISO : FR, CM, US, CA
   legalName  String?                  // Raison sociale officielle
@@ -36,6 +47,9 @@ model Tenant {
   industry   String  @default("BTP") // Flexible - peut être personnalisé
   config     Json?   // { enableGps: true, enablePhotos: true, enableExpenses: true }
   vocabulary Json?   // { workplace: "Chantier", manager: "Chef" } - surcharges personnalisées
+  
+  // Langue par défaut de l'entreprise (fr, en, es)
+  language   String  @default("fr")
 }
 
 // --- MODÈLE SITE (Multi-Sites) ---
@@ -72,6 +86,9 @@ model Employee {
   // Conversational state machine
   conversationState String?  // WAITING_EXPENSE_PHOTO, WAITING_EXPENSE_AMOUNT, WAITING_EXPENSE_CATEGORY
   tempExpenseData   Json?    // Temporary data during expense creation workflow
+  
+  // Langue des messages WhatsApp (fr, en, es)
+  language   String  @default("fr")
   
   // Relation Tenant (CRITIQUE)
   tenantId    String
@@ -175,4 +192,86 @@ model SuperAdmin {
   password    String   // Hashé avec bcrypt
   name        String
   createdAt   DateTime @default(now())
+}
+
+// --- NOTIFICATIONS (Alertes Manager) ---
+
+model Notification {
+  id          String   @id @default(uuid())
+  managerId   String   // Le Manager destinataire (Employee avec role=MANAGER)
+  type        String   // LATE, ABSENCE, GEOFENCE, EXPENSE
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  // Référence optionnelle à l'employé concerné
+  employeeId  String?
+  
+  // Isolation multi-tenant
+  tenantId    String
+  
+  @@index([managerId])
+  @@index([tenantId])
+  @@index([createdAt])
+}
+
+// --- ADMIN ACTION LOGS (Traçabilité SuperAdmin) ---
+
+model AdminActionLog {
+  id            String   @id @default(uuid())
+  superAdminId  String
+  action        String   // IMPERSONATE, EXTEND_TRIAL, CHANGE_PLAN, SUSPEND, DELETE
+  targetType    String   // TENANT, EMPLOYEE
+  targetId      String
+  targetName    String?
+  details       String?  // JSON details (old plan, new plan, days extended, etc.)
+  createdAt     DateTime @default(now())
+  
+  @@index([superAdminId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// --- MESSAGE LOGS (WhatsApp Stats) ---
+
+model MessageLog {
+  id            String   @id @default(uuid())
+  tenantId      String?  // null for system messages
+  employeeId    String?  // Employee involved (if any)
+  direction     String   // INBOUND, OUTBOUND
+  messageType   String   @default("TEXT") // TEXT, IMAGE, DOCUMENT, LOCATION
+  status        String   @default("SENT") // SENT, DELIVERED, READ, FAILED
+  waMessageId   String?  // WhatsApp message ID for tracking
+  createdAt     DateTime @default(now())
+  
+  @@index([tenantId])
+  @@index([direction])
+  @@index([createdAt])
+}
+
+// --- PLATFORM CONFIGURATION (Single Row) ---
+
+model PlatformConfig {
+  id                 Int      @id @default(1)
+  platformName       String   @default("Antigravity")
+  supportEmail       String   @default("support@example.com")
+  defaultTrialDays   Int      @default(14)
+  maintenanceMode    Boolean  @default(false) // If true, blocks normal user login
+  allowRegistrations Boolean  @default(true)  // If false, hides registration button
+  updatedAt          DateTime @updatedAt
+}
+
+// --- ENCRYPTED INTEGRATIONS VAULT ---
+
+model Integration {
+  id        String   @id @default(uuid())
+  provider  String   // "STRIPE", "SMTP", "WHATSAPP", "GOOGLE_MAPS"
+  key       String   // "SECRET_KEY", "WEBHOOK_SECRET", "API_KEY"
+  value     String   // Encrypted value (AES-256-CBC)
+  isEnabled Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, key])
+  @@index([provider])
 }

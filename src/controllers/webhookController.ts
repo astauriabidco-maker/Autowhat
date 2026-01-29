@@ -9,6 +9,8 @@ import { isWithinRange, checkLocationCompliance } from '../services/locationServ
 import { setConversationState, updateTempExpenseData, createExpense, EXPENSE_CATEGORIES } from '../services/expenseService';
 import { getWeeklySummary, getHistory, formatWeeklySummaryMessage, formatHistoryMessage } from '../services/statsService';
 import { getDocumentsForEmployee, getDocumentById, formatDocumentListMessage } from '../services/documentService';
+import { notifyAllManagers } from '../services/notificationService';
+import { getBotMessage, getEmployeeLanguage } from '../config/i18nBot';
 
 const prisma = new PrismaClient();
 
@@ -92,7 +94,8 @@ async function processCommand(
     command: string,
     employee: any,
     from: string,
-    phoneNumberId?: string
+    phoneNumberId?: string,
+    messageTimestamp?: Date  // Timestamp réel du message WhatsApp (gestion offline)
 ) {
     let responseText: string;
 
@@ -104,7 +107,7 @@ async function processCommand(
         case 'salut': {
             // Check-in
             console.log(`⏰ Processing CHECK-IN for ${employee.name}`);
-            const result = await checkIn(employee);
+            const result = await checkIn(employee, messageTimestamp);
 
             if (result.success) {
                 responseText = `✅ ${result.message} Bon travail ${employee.name} !`;
@@ -121,7 +124,7 @@ async function processCommand(
         case 'ciao': {
             // Check-out
             console.log(`👋 Processing CHECK-OUT for ${employee.name}`);
-            const result = await checkOut(employee);
+            const result = await checkOut(employee, messageTimestamp);
 
             if (result.success) {
                 responseText = `👋 ${result.message} Bonne soirée ${employee.name} !`;
@@ -312,8 +315,16 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                         const messageBody = message.text?.body || '';
                         const phoneNumberId = value.metadata?.phone_number_id;
 
+                        // CRITICAL: Extract the real message timestamp for offline support
+                        // WhatsApp sends Unix epoch timestamp (seconds since 1970)
+                        const whatsappTimestamp = message.timestamp;
+                        const messageTimestamp = whatsappTimestamp
+                            ? new Date(parseInt(whatsappTimestamp) * 1000)
+                            : new Date();
+
                         console.log(`📩 Received ${messageType} message from ${from}`);
                         console.log(`📱 Received on phone ID: ${phoneNumberId}`);
+                        console.log(`🕐 Message timestamp: ${messageTimestamp.toISOString()} (WhatsApp: ${whatsappTimestamp || 'none'})`);
 
                         // 1. Identify User
                         const employee = await identifyUser(`+${from}`);
@@ -424,6 +435,18 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     locationWarning: complianceResult.warning
                                 }
                             });
+
+                            // If out of zone, notify managers
+                            if (complianceResult.warning) {
+                                const distanceKm = complianceResult.distance ? (complianceResult.distance / 1000).toFixed(1) : '?';
+                                await notifyAllManagers(
+                                    employee.tenantId,
+                                    'GEOFENCE',
+                                    'Pointage hors zone',
+                                    `📍 ${employee.name || 'Un employé'} a pointé HORS ZONE (Distance: ${distanceKm} km).`,
+                                    employee.id
+                                );
+                            }
 
                             await sendMessage(from, complianceResult.message, phoneNumberId);
                             continue;
@@ -594,7 +617,7 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 console.log(`🎛️ Interactive reply: ${selectedId} -> ${mappedCommand}`);
 
                                 // Route to unified command processing
-                                await processCommand(mappedCommand, employee, from, phoneNumberId);
+                                await processCommand(mappedCommand, employee, from, phoneNumberId, messageTimestamp);
                                 continue;
                             }
 
@@ -684,7 +707,7 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                         // 6. Process standard text commands
                         const command = messageBody.toLowerCase().trim();
-                        await processCommand(command, employee, from, phoneNumberId);
+                        await processCommand(command, employee, from, phoneNumberId, messageTimestamp);
 
                     } else if (value.statuses) {
                         // Status update (sent, delivered, read) - just log

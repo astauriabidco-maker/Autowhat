@@ -8,13 +8,14 @@ import {
     MapPin,
     Camera,
     Clock,
-    Download,
+    FileDown,
     Filter,
     X,
     ExternalLink,
     Loader2
 } from 'lucide-react';
 import { useSiteContext } from '../context/SiteContext';
+import ExportModal from '../components/ExportModal';
 
 interface Employee {
     id: string;
@@ -199,6 +200,7 @@ export default function Attendance() {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+    const [showExportModal, setShowExportModal] = useState(false);
 
     // Filters
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -231,26 +233,6 @@ export default function Attendance() {
             console.error('Error fetching data:', err);
         } finally {
             setLoading(false);
-        }
-    };
-
-    const handleExport = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get(`/api/export/attendance?period=${period}`, {
-                headers: { Authorization: `Bearer ${token}` },
-                responseType: 'blob'
-            });
-
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `presences_${period}_${selectedDate}.xlsx`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-        } catch (err) {
-            console.error('Export failed:', err);
         }
     };
 
@@ -340,11 +322,11 @@ export default function Attendance() {
 
                     {/* Export Button */}
                     <button
-                        onClick={handleExport}
-                        className="ml-auto flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
+                        onClick={() => setShowExportModal(true)}
+                        className="ml-auto flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition font-medium shadow-md"
                     >
-                        <Download size={18} />
-                        Exporter
+                        <FileDown size={18} />
+                        📤 Exporter
                     </button>
                 </div>
             </div>
@@ -493,6 +475,12 @@ export default function Attendance() {
                     onClose={() => setSelectedRecord(null)}
                 />
             )}
+
+            {/* Export Modal */}
+            <ExportModal
+                isOpen={showExportModal}
+                onClose={() => setShowExportModal(false)}
+            />
         </div>
     );
 }

@@ -1,0 +1,67 @@
+{
+    "common": {
+        "save": "Guardar",
+        "cancel": "Cancelar",
+        "delete": "Eliminar",
+        "edit": "Editar",
+        "add": "Añadir",
+        "search": "Buscar",
+        "loading": "Cargando...",
+        "error": "Error",
+        "success": "Éxito",
+        "actions": "Acciones"
+    },
+    "sidebar": {
+        "overview": "Vista general",
+        "team": "Equipo",
+        "attendance": "Asistencia",
+        "expenses": "Gastos",
+        "documents": "Documentos",
+        "settings": "Configuración",
+        "logout": "Cerrar sesión"
+    },
+    "dashboard": {
+        "title": "Panel de control",
+        "welcome": "Bienvenido",
+        "today": "Hoy",
+        "present": "Presentes",
+        "late": "Tarde",
+        "absent": "Ausentes",
+        "totalHours": "Horas totales",
+        "weeklyStats": "Estadísticas semanales",
+        "recentActivity": "Actividad reciente"
+    },
+    "employees": {
+        "title": "Mi Equipo",
+        "addEmployee": "Añadir empleado",
+        "editEmployee": "Editar empleado",
+        "name": "Nombre",
+        "phone": "Teléfono",
+        "role": "Rol",
+        "site": "Sitio",
+        "status": "Estado",
+        "language": "Idioma del Bot",
+        "workProfile": "Perfil",
+        "manager": "Gerente",
+        "employee": "Empleado",
+        "mobile": "Móvil",
+        "sedentary": "Sedentario",
+        "active": "Activo",
+        "archived": "Archivado"
+    },
+    "attendance": {
+        "title": "Registro de Asistencia",
+        "checkIn": "Entrada",
+        "checkOut": "Salida",
+        "duration": "Duración",
+        "location": "Ubicación",
+        "onSite": "En sitio",
+        "offSite": "Fuera de sitio",
+        "noRecord": "Sin registro"
+    },
+    "languages": {
+        "fr": "Français",
+        "en": "English",
+        "es": "Español"
+    }
+}

@@ -53,13 +53,17 @@ const calculateDuration = (checkIn: Date, checkOut: Date): string => {
  * Enregistre un pointage d'entrée (Check-in)
  * - Vérifie si un pointage est déjà ouvert aujourd'hui
  * - Si non, crée une nouvelle entrée
+ * @param employee - Employé qui pointe
+ * @param messageTimestamp - Optionnel: timestamp du message WhatsApp (pour gestion offline)
  */
-export const checkIn = async (employee: Employee): Promise<CheckInResult> => {
-    // Définir le début et la fin de la journée en UTC
-    const today = new Date();
-    const startOfDay = new Date(today);
+export const checkIn = async (employee: Employee, messageTimestamp?: Date): Promise<CheckInResult> => {
+    // Utiliser le timestamp du message WhatsApp si fourni, sinon l'heure actuelle
+    const checkInTime = messageTimestamp || new Date();
+
+    // Définir le début et la fin de la journée en UTC basé sur le timestamp réel
+    const startOfDay = new Date(checkInTime);
     startOfDay.setUTCHours(0, 0, 0, 0);
-    const endOfDay = new Date(today);
+    const endOfDay = new Date(checkInTime);
     endOfDay.setUTCHours(23, 59, 59, 999);
 
     // Vérifier si un pointage existe déjà aujourd'hui pour cet employé
@@ -83,21 +87,27 @@ export const checkIn = async (employee: Employee): Promise<CheckInResult> => {
         };
     }
 
-    // Créer le pointage d'entrée (UTC)
-    const now = new Date();
+    // Créer le pointage d'entrée avec le timestamp réel
     const attendance = await prisma.attendance.create({
         data: {
-            checkIn: now,
+            checkIn: checkInTime,
             employeeId: employee.id,
             tenantId: employee.tenantId,
             status: 'PRESENT'
         }
     });
 
+    // Log si le timestamp diffère significativement (plus de 5 min)
+    const now = new Date();
+    const timeDiffMinutes = Math.abs(now.getTime() - checkInTime.getTime()) / (1000 * 60);
+    if (timeDiffMinutes > 5) {
+        console.log(`📱 [Offline Mode] Check-in with message timestamp: ${formatTimeInParis(checkInTime)} (received at server: ${formatTimeInParis(now)})`);
+    }
+
     return {
         success: true,
-        message: `Pointage enregistré à ${formatTimeInParis(now)}.`,
-        checkInTime: now
+        message: `Pointage enregistré à ${formatTimeInParis(checkInTime)}.`,
+        checkInTime: checkInTime
     };
 };
 
@@ -105,8 +115,13 @@ export const checkIn = async (employee: Employee): Promise<CheckInResult> => {
  * Enregistre un pointage de sortie (Check-out)
  * - Cherche le dernier pointage ouvert (checkOut is NULL)
  * - Met à jour avec l'heure de sortie
+ * @param employee - Employé qui pointe
+ * @param messageTimestamp - Optionnel: timestamp du message WhatsApp (pour gestion offline)
  */
-export const checkOut = async (employee: Employee): Promise<CheckOutResult> => {
+export const checkOut = async (employee: Employee, messageTimestamp?: Date): Promise<CheckOutResult> => {
+    // Utiliser le timestamp du message WhatsApp si fourni, sinon l'heure actuelle
+    const checkOutTime = messageTimestamp || new Date();
+
     // Chercher le dernier pointage ouvert pour cet employé
     const openAttendance = await prisma.attendance.findFirst({
         where: {
@@ -126,19 +141,25 @@ export const checkOut = async (employee: Employee): Promise<CheckOutResult> => {
         };
     }
 
-    // Mettre à jour avec l'heure de sortie (UTC)
-    const now = new Date();
+    // Mettre à jour avec l'heure de sortie réelle
     await prisma.attendance.update({
         where: { id: openAttendance.id },
-        data: { checkOut: now }
+        data: { checkOut: checkOutTime }
     });
 
-    const duration = calculateDuration(openAttendance.checkIn, now);
+    const duration = calculateDuration(openAttendance.checkIn, checkOutTime);
+
+    // Log si le timestamp diffère significativement (plus de 5 min)
+    const now = new Date();
+    const timeDiffMinutes = Math.abs(now.getTime() - checkOutTime.getTime()) / (1000 * 60);
+    if (timeDiffMinutes > 5) {
+        console.log(`📱 [Offline Mode] Check-out with message timestamp: ${formatTimeInParis(checkOutTime)} (received at server: ${formatTimeInParis(now)})`);
+    }
 
     return {
         success: true,
-        message: `Départ enregistré à ${formatTimeInParis(now)}. Durée de travail : ${duration}.`,
-        checkOutTime: now,
+        message: `Départ enregistré à ${formatTimeInParis(checkOutTime)}. Durée de travail : ${duration}.`,
+        checkOutTime: checkOutTime,
         duration
     };
 };

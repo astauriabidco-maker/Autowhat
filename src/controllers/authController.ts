@@ -31,10 +31,61 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        // Find the user by phone number
+        // Clean phone/email input
+        const cleanInput = phoneNumber.replace(/[\s-]/g, '');
+
+        // First, check if it's a SuperAdmin login (by email)
+        const superAdmin = await prisma.superAdmin.findUnique({
+            where: { email: cleanInput }
+        });
+
+        if (superAdmin) {
+            // SuperAdmin login
+            const isPasswordValid = await bcrypt.compare(password, superAdmin.password);
+            if (!isPasswordValid) {
+                res.status(401).json({ error: 'Identifiants invalides' });
+                return;
+            }
+
+            const token = jwt.sign(
+                {
+                    userId: superAdmin.id,
+                    role: 'SUPERADMIN',
+                    isSuperAdmin: true,
+                },
+                JWT_SECRET,
+                { expiresIn: JWT_EXPIRES_IN }
+            );
+
+            res.status(200).json({
+                message: 'Connexion réussie',
+                token,
+                user: {
+                    id: superAdmin.id,
+                    name: superAdmin.name,
+                    role: 'SUPERADMIN',
+                },
+            });
+            return;
+        }
+
+        // ============================================
+        // MAINTENANCE MODE CHECK (Kill Switch)
+        // SuperAdmins can always login, but regular users are blocked
+        // ============================================
+        const platformConfig = await prisma.platformConfig.findUnique({ where: { id: 1 } });
+        if (platformConfig?.maintenanceMode) {
+            res.status(503).json({
+                error: 'La plateforme est en maintenance. Réessayez dans quelques minutes.',
+                maintenanceMode: true
+            });
+            return;
+        }
+
+        // Find the Employee/Manager by phone number
         const employee = await prisma.employee.findFirst({
             where: {
-                phoneNumber: phoneNumber.replace(/[\s-]/g, ''),
+                phoneNumber: cleanInput,
             },
             include: {
                 tenant: true,
@@ -105,6 +156,28 @@ export const register = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
+        // ============================================
+        // MAINTENANCE MODE CHECK (Kill Switch)
+        // Block all registrations during maintenance
+        // ============================================
+        const platformConfig = await prisma.platformConfig.findUnique({ where: { id: 1 } });
+        if (platformConfig?.maintenanceMode) {
+            res.status(503).json({
+                error: 'La plateforme est en maintenance. Les inscriptions sont temporairement désactivées.',
+                maintenanceMode: true
+            });
+            return;
+        }
+
+        // Also check allowRegistrations flag
+        if (platformConfig && !platformConfig.allowRegistrations) {
+            res.status(403).json({
+                error: 'Les inscriptions sont actuellement fermées.',
+                registrationsClosed: true
+            });
+            return;
+        }
+
         // Clean phone number to E.164 format
         let cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
         if (!cleanPhone.startsWith('+')) {
@@ -131,7 +204,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
         // Transaction: Create Tenant + Site + User
         const result = await prisma.$transaction(async (tx) => {
-            // 1. Create Tenant
+            // 1. Create Tenant with Trial Plan
+            const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // +14 days
             const tenant = await tx.tenant.create({
                 data: {
                     name: companyName,
@@ -139,6 +213,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
                     industry: industryKey,
                     config: JSON.parse(JSON.stringify(template.config)),
                     vocabulary: JSON.parse(JSON.stringify(template.vocabulary)),
+                    // SaaS Trial defaults
+                    plan: 'TRIAL',
+                    trialEndsAt,
+                    maxEmployees: 5,
                 }
             });
 

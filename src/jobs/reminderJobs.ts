@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { PrismaClient } from '@prisma/client';
 import { sendInteractiveButtons } from '../services/whatsappService';
 import { getTenantText } from '../utils/textHelper';
+import { notifyAllManagers } from '../services/notificationService';
 
 const prisma = new PrismaClient();
 
@@ -95,6 +96,15 @@ async function morningNudgeJob() {
                         [
                             { id: 'cmd_hi', title: '✅ Pointer Arrivée' }
                         ]
+                    );
+
+                    // Notify managers about late employee
+                    await notifyAllManagers(
+                        tenant.id,
+                        'LATE',
+                        'Retard de pointage',
+                        `⚠️ ${employee.name || 'Un employé'} n'a toujours pas pointé ce matin.`,
+                        employee.id
                     );
                 }
             }

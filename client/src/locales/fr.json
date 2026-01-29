@@ -1,0 +1,67 @@
+{
+    "common": {
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "delete": "Supprimer",
+        "edit": "Modifier",
+        "add": "Ajouter",
+        "search": "Rechercher",
+        "loading": "Chargement...",
+        "error": "Erreur",
+        "success": "Succès",
+        "actions": "Actions"
+    },
+    "sidebar": {
+        "overview": "Vue d'ensemble",
+        "team": "Équipe",
+        "attendance": "Présences",
+        "expenses": "Notes de Frais",
+        "documents": "Documents",
+        "settings": "Paramètres",
+        "logout": "Déconnexion"
+    },
+    "dashboard": {
+        "title": "Tableau de bord",
+        "welcome": "Bienvenue",
+        "today": "Aujourd'hui",
+        "present": "Présents",
+        "late": "En retard",
+        "absent": "Absents",
+        "totalHours": "Heures totales",
+        "weeklyStats": "Statistiques hebdomadaires",
+        "recentActivity": "Activité récente"
+    },
+    "employees": {
+        "title": "Mon Équipe",
+        "addEmployee": "Ajouter un employé",
+        "editEmployee": "Modifier l'employé",
+        "name": "Nom",
+        "phone": "Téléphone",
+        "role": "Rôle",
+        "site": "Site",
+        "status": "Statut",
+        "language": "Langue du Bot",
+        "workProfile": "Profil",
+        "manager": "Manager",
+        "employee": "Employé",
+        "mobile": "Mobile",
+        "sedentary": "Sédentaire",
+        "active": "Actif",
+        "archived": "Archivé"
+    },
+    "attendance": {
+        "title": "Registre des Présences",
+        "checkIn": "Arrivée",
+        "checkOut": "Départ",
+        "duration": "Durée",
+        "location": "Localisation",
+        "onSite": "Sur site",
+        "offSite": "Hors site",
+        "noRecord": "Aucun pointage"
+    },
+    "languages": {
+        "fr": "Français",
+        "en": "English",
+        "es": "Español"
+    }
+}

@@ -163,3 +163,47 @@ export const updateSettings = async (req: Request, res: Response): Promise<any> 
         return res.status(500).json({ error: 'Erreur serveur' });
     }
 };
+
+/**
+ * Get tenant info for SaaS (plan, trial, quota)
+ * GET /api/tenant/info
+ */
+export const getTenantInfo = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const tenantId = (req as any).user?.tenantId;
+        if (!tenantId) {
+            return res.status(401).json({ error: 'Non autorisé' });
+        }
+
+        const tenant = await prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: {
+                id: true,
+                name: true,
+                plan: true,
+                trialEndsAt: true,
+                maxEmployees: true
+            }
+        });
+
+        if (!tenant) {
+            return res.status(404).json({ error: 'Tenant non trouvé' });
+        }
+
+        // Count current active employees
+        const currentEmployees = await prisma.employee.count({
+            where: {
+                tenantId,
+                role: { not: 'ARCHIVED' }
+            }
+        });
+
+        return res.json({
+            ...tenant,
+            currentEmployees
+        });
+    } catch (error) {
+        console.error('❌ Error fetching tenant info:', error);
+        return res.status(500).json({ error: 'Erreur serveur' });
+    }
+};

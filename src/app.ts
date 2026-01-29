@@ -6,8 +6,17 @@ import path from 'path';
 
 dotenv.config();
 
+// Validate encryption key at startup
+import { validateEncryptionKey } from './utils/crypto';
+validateEncryptionKey();
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// IMPORTANT: Stripe webhook MUST be registered BEFORE body-parser
+// because it needs the raw body for signature verification
+import * as webhookStripe from './controllers/webhookStripe';
+app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), webhookStripe.handleWebhook);
 
 // Middleware de base
 app.use(cors());

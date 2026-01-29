@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, User, Phone, Briefcase, Loader2, Building2 } from 'lucide-react';
+import { X, User, Phone, Briefcase, Loader2, Building2, Globe } from 'lucide-react';
 
 interface AddEmployeeModalProps {
     isOpen: boolean;
@@ -15,7 +15,8 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
         countryCode: '+33',
         position: '',
         workProfile: 'MOBILE', // MOBILE ou SEDENTARY
-        siteId: '' // Site de rattachement pour sédentaire
+        siteId: '', // Site de rattachement pour sédentaire
+        language: 'fr' // Langue du Bot WhatsApp
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -66,7 +67,8 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
                     position: formData.position || 'Employé',
                     role: 'EMPLOYEE',
                     workProfile: formData.workProfile,
-                    siteId: formData.siteId || null
+                    siteId: formData.siteId || null,
+                    language: formData.language
                 })
             });
 
@@ -84,7 +86,8 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
                 countryCode: '+33',
                 position: '',
                 workProfile: 'MOBILE',
-                siteId: ''
+                siteId: '',
+                language: 'fr'
             });
 
             onSuccess();
@@ -273,6 +276,26 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
                                 </select>
                             </div>
                         )}
+
+                        {/* Bot Language Selector */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                                <Globe size={16} className="inline mr-1" />
+                                Langue du Bot WhatsApp
+                            </label>
+                            <select
+                                value={formData.language}
+                                onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                            >
+                                <option value="fr">🇫🇷 Français</option>
+                                <option value="en">🇬🇧 English</option>
+                                <option value="es">🇪🇸 Español</option>
+                            </select>
+                            <p className="mt-1 text-xs text-gray-500">
+                                📱 L'employé recevra les messages WhatsApp dans cette langue
+                            </p>
+                        </div>
 
                         {/* Submit Button */}
                         <button

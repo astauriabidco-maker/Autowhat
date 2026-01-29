@@ -1,0 +1,67 @@
+{
+    "common": {
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "edit": "Edit",
+        "add": "Add",
+        "search": "Search",
+        "loading": "Loading...",
+        "error": "Error",
+        "success": "Success",
+        "actions": "Actions"
+    },
+    "sidebar": {
+        "overview": "Overview",
+        "team": "Team",
+        "attendance": "Attendance",
+        "expenses": "Expenses",
+        "documents": "Documents",
+        "settings": "Settings",
+        "logout": "Logout"
+    },
+    "dashboard": {
+        "title": "Dashboard",
+        "welcome": "Welcome",
+        "today": "Today",
+        "present": "Present",
+        "late": "Late",
+        "absent": "Absent",
+        "totalHours": "Total hours",
+        "weeklyStats": "Weekly statistics",
+        "recentActivity": "Recent activity"
+    },
+    "employees": {
+        "title": "My Team",
+        "addEmployee": "Add employee",
+        "editEmployee": "Edit employee",
+        "name": "Name",
+        "phone": "Phone",
+        "role": "Role",
+        "site": "Site",
+        "status": "Status",
+        "language": "Bot Language",
+        "workProfile": "Profile",
+        "manager": "Manager",
+        "employee": "Employee",
+        "mobile": "Mobile",
+        "sedentary": "Sedentary",
+        "active": "Active",
+        "archived": "Archived"
+    },
+    "attendance": {
+        "title": "Attendance Register",
+        "checkIn": "Check-in",
+        "checkOut": "Check-out",
+        "duration": "Duration",
+        "location": "Location",
+        "onSite": "On site",
+        "offSite": "Off site",
+        "noRecord": "No record"
+    },
+    "languages": {
+        "fr": "Français",
+        "en": "English",
+        "es": "Español"
+    }
+}

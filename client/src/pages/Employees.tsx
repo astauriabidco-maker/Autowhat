@@ -11,7 +11,9 @@ import {
     AlertCircle,
     Users,
     UserCheck,
-    UserX
+    UserX,
+    Lock,
+    FileSpreadsheet
 } from 'lucide-react';
 import AddEmployeeModal from '../components/AddEmployeeModal';
 
@@ -35,6 +37,7 @@ export default function Employees() {
     const [showModal, setShowModal] = useState(false);
     const [showToast, setShowToast] = useState(false);
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
+    const [quotaInfo, setQuotaInfo] = useState<{ maxEmployees: number; currentEmployees: number } | null>(null);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -43,7 +46,23 @@ export default function Employees() {
             return;
         }
         fetchEmployees();
+        fetchQuotaInfo();
     }, [navigate]);
+
+    const fetchQuotaInfo = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.get('/api/tenant/info', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setQuotaInfo({
+                maxEmployees: res.data.maxEmployees,
+                currentEmployees: res.data.currentEmployees
+            });
+        } catch (e) {
+            console.log('Could not fetch quota info');
+        }
+    };
 
     useEffect(() => {
         // Filter employees based on search query
@@ -178,13 +197,55 @@ export default function Employees() {
                     <h1 className="text-2xl font-bold text-gray-900">Mon Équipe</h1>
                     <p className="text-gray-500 mt-1">{employees.length} employé{employees.length > 1 ? 's' : ''} enregistré{employees.length > 1 ? 's' : ''}</p>
                 </div>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition shadow-sm"
-                >
-                    <Plus size={18} />
-                    Ajouter un employé
-                </button>
+                <div className="flex items-center gap-3">
+                    {/* Quota Counter */}
+                    {quotaInfo && (
+                        <span className={`text-sm font-medium px-3 py-1.5 rounded-lg ${quotaInfo.currentEmployees >= quotaInfo.maxEmployees
+                            ? 'bg-red-100 text-red-700'
+                            : quotaInfo.currentEmployees >= quotaInfo.maxEmployees - 1
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}>
+                            {quotaInfo.currentEmployees} / {quotaInfo.maxEmployees} utilisés
+                        </span>
+                    )}
+
+                    {/* Import Button */}
+                    <button
+                        onClick={() => navigate('/import-employees')}
+                        className="flex items-center gap-2 px-4 py-2.5 font-medium rounded-lg transition shadow-sm bg-white border border-gray-200 hover:bg-gray-50 text-gray-700"
+                    >
+                        <FileSpreadsheet size={18} />
+                        Import Excel
+                    </button>
+
+                    {/* Add Button */}
+                    <div className="relative group">
+                        <button
+                            onClick={() => quotaInfo && quotaInfo.currentEmployees < quotaInfo.maxEmployees && setShowModal(true)}
+                            disabled={quotaInfo !== null && quotaInfo.currentEmployees >= quotaInfo.maxEmployees}
+                            className={`flex items-center gap-2 px-4 py-2.5 font-medium rounded-lg transition shadow-sm ${quotaInfo && quotaInfo.currentEmployees >= quotaInfo.maxEmployees
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                                }`}
+                        >
+                            {quotaInfo && quotaInfo.currentEmployees >= quotaInfo.maxEmployees ? (
+                                <Lock size={18} />
+                            ) : (
+                                <Plus size={18} />
+                            )}
+                            Ajouter un employé
+                        </button>
+
+                        {/* Tooltip */}
+                        {quotaInfo && quotaInfo.currentEmployees >= quotaInfo.maxEmployees && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none">
+                                Limite atteinte. Passez à la version Pro.
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Stats Cards */}

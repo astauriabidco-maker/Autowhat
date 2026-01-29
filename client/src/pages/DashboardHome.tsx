@@ -10,7 +10,10 @@ import {
     TrendingUp,
     LogIn,
     LogOut as LogOutIcon,
-    FileText
+    FileText,
+    BarChart3,
+    Target,
+    Timer
 } from 'lucide-react';
 import {
     BarChart,
@@ -19,7 +22,12 @@ import {
     YAxis,
     CartesianGrid,
     Tooltip,
-    ResponsiveContainer
+    ResponsiveContainer,
+    PieChart,
+    Pie,
+    Cell,
+    AreaChart,
+    Area
 } from 'recharts';
 import { useSiteContext } from '../context/SiteContext';
 
@@ -42,12 +50,33 @@ interface ActivityItem {
     details: string;
 }
 
+interface AnalyticsData {
+    punctuality: {
+        onTime: number;
+        late: number;
+        rate: number;
+    };
+    productivityTrend: { date: string; hours: number }[];
+    avgWeekly: {
+        hours: number;
+        minutes: number;
+        formatted: string;
+    };
+    avgDaily: {
+        hours: number;
+        minutes: number;
+        formatted: string;
+    };
+    fillRate: number;
+}
+
 interface DashboardStats {
     totalEmployees: number;
     activeNow: number;
     pendingExpenses: number;
     weeklyActivity: WeeklyData[];
     recentActivity: ActivityItem[];
+    analytics?: AnalyticsData;
 }
 
 export default function DashboardHome() {
@@ -60,6 +89,7 @@ export default function DashboardHome() {
     });
     const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
     const [activities, setActivities] = useState<ActivityItem[]>([]);
+    const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -81,7 +111,7 @@ export default function DashboardHome() {
             const params = selectedSiteId ? { siteId: selectedSiteId } : {};
             const response = await axios.get<DashboardStats>('/api/dashboard/stats', { headers, params });
 
-            const { totalEmployees, activeNow, pendingExpenses, weeklyActivity, recentActivity } = response.data;
+            const { totalEmployees, activeNow, pendingExpenses, weeklyActivity, recentActivity, analytics: analyticsData } = response.data;
 
             setKpis({
                 totalEmployees,
@@ -91,6 +121,9 @@ export default function DashboardHome() {
 
             setWeeklyData(weeklyActivity);
             setActivities(recentActivity);
+            if (analyticsData) {
+                setAnalytics(analyticsData);
+            }
 
         } catch (err: any) {
             if (err.response?.status === 401) {
@@ -212,6 +245,163 @@ export default function DashboardHome() {
                     </div>
                 ))}
             </div>
+
+            {/* 📊 Performance & Analyse Section */}
+            {analytics && (
+                <>
+                    <div className="flex items-center gap-2 mt-4">
+                        <span className="text-xl">📊</span>
+                        <h2 className="text-lg font-bold text-gray-900">Performance & Analyse</h2>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        {/* Ponctualité du mois - Donut Chart */}
+                        <div className="bg-white rounded-xl border border-gray-200 p-6">
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Ponctualité du mois</h3>
+                            <div className="h-48 flex items-center justify-center relative">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={[
+                                                { name: 'À l\'heure', value: analytics.punctuality.onTime },
+                                                { name: 'En retard', value: analytics.punctuality.late }
+                                            ]}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={50}
+                                            outerRadius={70}
+                                            paddingAngle={2}
+                                            dataKey="value"
+                                        >
+                                            <Cell fill="#22c55e" />
+                                            <Cell fill="#f97316" />
+                                        </Pie>
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: '#1e293b',
+                                                border: 'none',
+                                                borderRadius: '8px',
+                                                color: 'white'
+                                            }}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                {/* Central percentage */}
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <div className="text-center">
+                                        <p className="text-2xl font-bold text-gray-900">{analytics.punctuality.rate}%</p>
+                                        <p className="text-xs text-gray-500">ponctualité</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex justify-center gap-4 mt-2 text-xs">
+                                <span className="flex items-center gap-1">
+                                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                                    À l'heure ({analytics.punctuality.onTime})
+                                </span>
+                                <span className="flex items-center gap-1">
+                                    <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                                    Retard ({analytics.punctuality.late})
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Volume de travail - Area Chart */}
+                        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6">
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Volume de travail (30 jours)</h3>
+                            <div className="h-48">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={analytics.productivityTrend}>
+                                        <defs>
+                                            <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis
+                                            dataKey="date"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: '#94a3b8', fontSize: 10 }}
+                                            interval="preserveStartEnd"
+                                        />
+                                        <YAxis
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: '#94a3b8', fontSize: 10 }}
+                                            tickFormatter={(v) => `${v}h`}
+                                            width={35}
+                                        />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: '#1e293b',
+                                                border: 'none',
+                                                borderRadius: '8px',
+                                                color: 'white'
+                                            }}
+                                            formatter={(value) => [`${value}h travaillées`, 'Volume']}
+                                            labelFormatter={(label) => `Le ${label}`}
+                                        />
+                                        <Area
+                                            type="monotone"
+                                            dataKey="hours"
+                                            stroke="#6366f1"
+                                            strokeWidth={2}
+                                            fillOpacity={1}
+                                            fill="url(#colorHours)"
+                                        />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* Insight Cards */}
+                        <div className="space-y-4">
+                            {/* Moyenne Quotidienne */}
+                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                        <Timer size={20} className="text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-blue-600 font-medium">Moyenne Quotidienne</p>
+                                        <p className="text-2xl font-bold text-blue-900">{analytics.avgDaily.formatted}</p>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-blue-600 mt-2">Temps moyen par employé aujourd'hui</p>
+                            </div>
+
+                            {/* Taux de Remplissage */}
+                            <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl border border-emerald-200 p-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-emerald-100 rounded-lg">
+                                        <Target size={20} className="text-emerald-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-emerald-600 font-medium">Taux de Remplissage</p>
+                                        <p className="text-2xl font-bold text-emerald-900">{analytics.fillRate}%</p>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-emerald-600 mt-2">Présents vs effectif total</p>
+                            </div>
+
+                            {/* Moyenne Hebdo */}
+                            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-200 p-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-purple-100 rounded-lg">
+                                        <BarChart3 size={20} className="text-purple-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-purple-600 font-medium">Moyenne Hebdo</p>
+                                        <p className="text-2xl font-bold text-purple-900">{analytics.avgWeekly.formatted}</p>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-purple-600 mt-2">Par employé cette semaine</p>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* Charts & Activity Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

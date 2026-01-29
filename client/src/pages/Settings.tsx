@@ -13,7 +13,10 @@ import {
     Bell,
     Loader2,
     CheckCircle,
-    Globe
+    Globe,
+    CreditCard,
+    ExternalLink,
+    Crown
 } from 'lucide-react';
 import Switch from '../components/ui/Switch';
 import Combobox from '../components/ui/Combobox';
@@ -115,6 +118,10 @@ export default function Settings() {
     const [showToast, setShowToast] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
 
+    // Billing state
+    const [billingPlan, setBillingPlan] = useState<string>('TRIAL');
+    const [billingLoading, setBillingLoading] = useState(false);
+
     const currentCountry = COUNTRIES.find(c => c.code === settings?.country) || COUNTRIES[0];
 
     useEffect(() => {
@@ -124,6 +131,7 @@ export default function Settings() {
             return;
         }
         fetchSettings();
+        fetchBillingStatus();
     }, [navigate]);
 
     const fetchSettings = async () => {
@@ -161,6 +169,52 @@ export default function Settings() {
             console.error('Error loading settings:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchBillingStatus = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.get('/api/billing/status', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setBillingPlan(response.data.plan || 'TRIAL');
+        } catch (err) {
+            console.error('Error loading billing:', err);
+        }
+    };
+
+    const handleSubscribe = async () => {
+        setBillingLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.post('/api/billing/checkout', {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.data.url) {
+                window.location.href = response.data.url;
+            }
+        } catch (err) {
+            console.error('Checkout error:', err);
+        } finally {
+            setBillingLoading(false);
+        }
+    };
+
+    const handleManageBilling = async () => {
+        setBillingLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.post('/api/billing/portal', {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.data.url) {
+                window.location.href = response.data.url;
+            }
+        } catch (err) {
+            console.error('Portal error:', err);
+        } finally {
+            setBillingLoading(false);
         }
     };
 
@@ -429,7 +483,101 @@ export default function Settings() {
                 </div>
             </div>
 
-            {/* Card 3: Vocabulaire du Bot */}
+            {/* Card 3: Mon Abonnement */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2.5 bg-amber-50 rounded-lg">
+                        <CreditCard size={22} className="text-amber-600" />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-semibold text-gray-900">Mon Abonnement</h2>
+                        <p className="text-sm text-gray-500">Gérez votre plan et votre facturation</p>
+                    </div>
+                </div>
+
+                {billingPlan === 'PRO' || billingPlan === 'ENTERPRISE' ? (
+                    // PRO/ENTERPRISE - Already subscribed
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <CheckCircle className="text-green-600" size={24} />
+                            <div>
+                                <p className="font-semibold text-green-700">
+                                    Abonnement {billingPlan} Actif
+                                </p>
+                                <p className="text-sm text-green-600">
+                                    Employés illimités • Toutes les fonctionnalités
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleManageBilling}
+                            disabled={billingLoading}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition"
+                        >
+                            {billingLoading ? (
+                                <Loader2 size={18} className="animate-spin" />
+                            ) : (
+                                <ExternalLink size={18} />
+                            )}
+                            Gérer mon abonnement / Factures
+                        </button>
+                    </div>
+                ) : (
+                    // TRIAL - Show pricing card
+                    <div className="border border-indigo-200 rounded-xl p-6 bg-gradient-to-br from-indigo-50 to-white">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Crown className="text-amber-500" size={24} />
+                            <span className="text-sm font-medium text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded">
+                                Plan PRO
+                            </span>
+                        </div>
+
+                        <div className="mb-4">
+                            <span className="text-4xl font-bold text-gray-900">29€</span>
+                            <span className="text-gray-500">/mois</span>
+                        </div>
+
+                        <ul className="space-y-2 mb-6 text-sm text-gray-600">
+                            <li className="flex items-center gap-2">
+                                <CheckCircle size={16} className="text-green-500" />
+                                Employés illimités
+                            </li>
+                            <li className="flex items-center gap-2">
+                                <CheckCircle size={16} className="text-green-500" />
+                                Toutes les fonctionnalités
+                            </li>
+                            <li className="flex items-center gap-2">
+                                <CheckCircle size={16} className="text-green-500" />
+                                Support prioritaire
+                            </li>
+                            <li className="flex items-center gap-2">
+                                <CheckCircle size={16} className="text-green-500" />
+                                Export Excel & PDF
+                            </li>
+                        </ul>
+
+                        <button
+                            onClick={handleSubscribe}
+                            disabled={billingLoading}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition shadow-md"
+                        >
+                            {billingLoading ? (
+                                <>
+                                    <Loader2 size={18} className="animate-spin" />
+                                    Redirection...
+                                </>
+                            ) : (
+                                <>
+                                    <CreditCard size={18} />
+                                    S'abonner maintenant
+                                </>
+                            )}
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Card 4: Vocabulaire du Bot */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                 <div className="flex items-center gap-3 mb-6">
                     <div className="p-2.5 bg-purple-50 rounded-lg">
@@ -499,8 +647,8 @@ export default function Settings() {
                     onClick={handleSave}
                     disabled={saving || !hasChanges}
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium transition ${hasChanges
-                            ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md'
-                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                         }`}
                 >
                     {saving ? (

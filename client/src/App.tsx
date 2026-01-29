@@ -8,8 +8,21 @@ import Employees from './pages/Employees';
 import Expenses from './pages/Expenses';
 import Documents from './pages/Documents';
 import Settings from './pages/Settings';
+import ImportEmployees from './pages/ImportEmployees';
 import AdminLayout from './layouts/AdminLayout';
+import NetworkStatus from './components/NetworkStatus';
 import { SiteProvider } from './context/SiteContext';
+// SuperAdmin Pages
+import SuperAdminLayout from './layouts/SuperAdminLayout';
+import SuperAdminLogin from './pages/superadmin/Login';
+import SuperAdminOverview from './pages/superadmin/Overview';
+import SuperAdminTenants from './pages/superadmin/TenantsList';
+import SuperAdminRevenue from './pages/superadmin/Revenue';
+import SuperAdminLogs from './pages/superadmin/Logs';
+import SuperAdminSessions from './pages/superadmin/Sessions';
+import PlatformSettings from './pages/superadmin/PlatformSettings';
+import Integrations from './pages/superadmin/Integrations';
+import './i18n'; // Initialize i18n
 import './index.css';
 
 
@@ -22,6 +35,9 @@ function App() {
   return (
     <BrowserRouter>
       <SiteProvider>
+        {/* Global Network Status Banner */}
+        <NetworkStatus />
+
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Landing />} />
@@ -38,6 +54,9 @@ function App() {
           <Route path="/employees" element={
             <ProtectedRoute><Employees /></ProtectedRoute>
           } />
+          <Route path="/import-employees" element={
+            <ProtectedRoute><ImportEmployees /></ProtectedRoute>
+          } />
           <Route path="/expenses" element={
             <ProtectedRoute><Expenses /></ProtectedRoute>
           } />
@@ -47,6 +66,18 @@ function App() {
           <Route path="/settings" element={
             <ProtectedRoute><Settings /></ProtectedRoute>
           } />
+
+          {/* SuperAdmin Routes */}
+          <Route path="/superadmin/login" element={<SuperAdminLogin />} />
+          <Route path="/superadmin" element={<SuperAdminLayout />}>
+            <Route index element={<SuperAdminOverview />} />
+            <Route path="tenants" element={<SuperAdminTenants />} />
+            <Route path="revenue" element={<SuperAdminRevenue />} />
+            <Route path="sessions" element={<SuperAdminSessions />} />
+            <Route path="logs" element={<SuperAdminLogs />} />
+            <Route path="settings" element={<PlatformSettings />} />
+            <Route path="integrations" element={<Integrations />} />
+          </Route>
         </Routes>
       </SiteProvider>
     </BrowserRouter>

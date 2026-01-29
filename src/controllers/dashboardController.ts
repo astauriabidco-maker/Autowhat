@@ -212,6 +212,14 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
             return;
         }
 
+        // Get tenant for workStartTime
+        const tenant = await prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { workStartTime: true }
+        });
+        const workStartTime = tenant?.workStartTime || '09:00';
+        const [workStartHour, workStartMin] = workStartTime.split(':').map(Number);
+
         // Optional siteId filter
         const siteId = req.query.siteId as string | undefined;
         const siteFilter = siteId ? { siteId } : {};
@@ -222,9 +230,11 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
         const endOfDay = new Date(today);
         endOfDay.setUTCHours(23, 59, 59, 999);
 
+        // === KPIs de base ===
+
         // KPI 1: Total employees (filtered by site if provided)
         const totalEmployees = await prisma.employee.count({
-            where: { tenantId, ...siteFilter }
+            where: { tenantId, ...siteFilter, role: { not: 'ARCHIVED' } }
         });
 
         // KPI 2: Currently active (checked in but not out today)
@@ -242,8 +252,135 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
             where: { tenantId, ...siteFilter, status: 'PENDING' }
         });
 
-        // Weekly Activity: Hours worked per day this week
-        const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
+        // === ANALYTICS AVANCÉS ===
+
+        // Date range for 30 days
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+        thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
+
+        // Fetch all attendances from last 30 days for analytics
+        const monthAttendances = await prisma.attendance.findMany({
+            where: {
+                tenantId,
+                ...siteFilter,
+                checkIn: { gte: thirtyDaysAgo }
+            },
+            select: {
+                checkIn: true,
+                checkOut: true
+            }
+        });
+
+        // === 1. Taux de Ponctualité ===
+        let onTimeCount = 0;
+        let lateCount = 0;
+        const TOLERANCE_MINUTES = 15;
+
+        for (const att of monthAttendances) {
+            const checkInDate = new Date(att.checkIn);
+            const checkInHour = checkInDate.getHours();
+            const checkInMin = checkInDate.getMinutes();
+
+            // Calculate minutes since start of day
+            const checkInTotalMin = checkInHour * 60 + checkInMin;
+            const expectedTotalMin = workStartHour * 60 + workStartMin + TOLERANCE_MINUTES;
+
+            if (checkInTotalMin <= expectedTotalMin) {
+                onTimeCount++;
+            } else {
+                lateCount++;
+            }
+        }
+
+        const punctualityRate = monthAttendances.length > 0
+            ? Math.round((onTimeCount / monthAttendances.length) * 100)
+            : 100;
+
+        // === 2. Productivité Trend (heures par jour sur 30 jours) ===
+        const productivityTrend: { date: string; hours: number }[] = [];
+
+        for (let i = 29; i >= 0; i--) {
+            const dayStart = new Date(now);
+            dayStart.setDate(now.getDate() - i);
+            dayStart.setUTCHours(0, 0, 0, 0);
+            const dayEnd = new Date(dayStart);
+            dayEnd.setUTCHours(23, 59, 59, 999);
+
+            let dayMinutes = 0;
+            for (const att of monthAttendances) {
+                const checkInDate = new Date(att.checkIn);
+                if (checkInDate >= dayStart && checkInDate <= dayEnd) {
+                    const checkOut = att.checkOut ? new Date(att.checkOut) : now;
+                    dayMinutes += differenceInMinutes(checkOut, checkInDate);
+                }
+            }
+
+            productivityTrend.push({
+                date: format(dayStart, 'dd/MM', { locale: fr }),
+                hours: Math.round(dayMinutes / 60)
+            });
+        }
+
+        // === 3. Moyenne Hebdo par employé ===
+        const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+        const weekAttendances = monthAttendances.filter(att =>
+            new Date(att.checkIn) >= weekStart
+        );
+
+        let totalWeekMinutes = 0;
+        for (const att of weekAttendances) {
+            const checkOut = att.checkOut ? new Date(att.checkOut) : now;
+            totalWeekMinutes += differenceInMinutes(checkOut, new Date(att.checkIn));
+        }
+
+        // Get unique employees who worked this week
+        const weekEmployeeAttendances = await prisma.attendance.findMany({
+            where: {
+                tenantId,
+                ...siteFilter,
+                checkIn: { gte: weekStart }
+            },
+            select: { employeeId: true },
+            distinct: ['employeeId']
+        });
+        const activeEmployeesThisWeek = weekEmployeeAttendances.length || 1;
+
+        const avgWeeklyMinutesPerEmployee = Math.round(totalWeekMinutes / activeEmployeesThisWeek);
+        const avgWeeklyHours = Math.floor(avgWeeklyMinutesPerEmployee / 60);
+        const avgWeeklyMins = avgWeeklyMinutesPerEmployee % 60;
+
+        // === 4. Moyenne quotidienne (aujourd'hui) ===
+        const todayAttendances = monthAttendances.filter(att => {
+            const checkInDate = new Date(att.checkIn);
+            return checkInDate >= today && checkInDate <= endOfDay;
+        });
+
+        let todayTotalMinutes = 0;
+        for (const att of todayAttendances) {
+            const checkOut = att.checkOut ? new Date(att.checkOut) : now;
+            todayTotalMinutes += differenceInMinutes(checkOut, new Date(att.checkIn));
+        }
+        const avgDailyMinutes = todayAttendances.length > 0
+            ? Math.round(todayTotalMinutes / todayAttendances.length)
+            : 0;
+        const avgDailyHours = Math.floor(avgDailyMinutes / 60);
+        const avgDailyMins = avgDailyMinutes % 60;
+
+        // === 5. Taux de remplissage (présents vs effectif) ===
+        const checkedInToday = await prisma.attendance.groupBy({
+            by: ['employeeId'],
+            where: {
+                tenantId,
+                ...siteFilter,
+                checkIn: { gte: today, lte: endOfDay }
+            }
+        });
+        const fillRate = totalEmployees > 0
+            ? Math.round((checkedInToday.length / totalEmployees) * 100)
+            : 0;
+
+        // === Weekly Activity (pour graphique existant) ===
         const weeklyActivity: { day: string; hours: number }[] = [];
 
         for (let i = 0; i < 7; i++) {
@@ -272,7 +409,7 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
             });
         }
 
-        // Recent Activity: Last 10 events (mix of check-ins, check-outs, and expenses)
+        // Recent Activity: Last 10 events
         const recentAttendances = await prisma.attendance.findMany({
             where: { tenantId, ...siteFilter },
             include: { employee: { select: { name: true } } },
@@ -287,7 +424,6 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
             take: 10
         });
 
-        // Combine and sort by date
         const combinedActivities = [
             ...recentAttendances.map(att => ({
                 type: att.checkOut ? 'CHECKOUT' : 'CHECKIN',
@@ -305,7 +441,6 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
             }))
         ];
 
-        // Sort by time descending and take last 10
         const recentActivity = combinedActivities
             .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
             .slice(0, 10)
@@ -316,11 +451,33 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
             }));
 
         res.status(200).json({
+            // KPIs de base
             totalEmployees,
             activeNow,
             pendingExpenses,
             weeklyActivity,
-            recentActivity
+            recentActivity,
+
+            // Analytics avancés
+            analytics: {
+                punctuality: {
+                    onTime: onTimeCount,
+                    late: lateCount,
+                    rate: punctualityRate
+                },
+                productivityTrend,
+                avgWeekly: {
+                    hours: avgWeeklyHours,
+                    minutes: avgWeeklyMins,
+                    formatted: `${avgWeeklyHours}h${avgWeeklyMins.toString().padStart(2, '0')}`
+                },
+                avgDaily: {
+                    hours: avgDailyHours,
+                    minutes: avgDailyMins,
+                    formatted: `${avgDailyHours}h${avgDailyMins.toString().padStart(2, '0')}`
+                },
+                fillRate
+            }
         });
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);

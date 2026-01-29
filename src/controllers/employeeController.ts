@@ -77,7 +77,47 @@ export const createEmployee = async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        const { name, phoneNumber, role, position, workProfile, siteId } = req.body;
+        // === SaaS CHECKS: Trial & Quota ===
+        const tenant = await prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { plan: true, trialEndsAt: true, maxEmployees: true }
+        });
+
+        if (!tenant) {
+            res.status(404).json({ error: 'Tenant non trouvé' });
+            return;
+        }
+
+        // Check 1: Trial Expiration
+        if (tenant.plan === 'TRIAL' && tenant.trialEndsAt && new Date() > tenant.trialEndsAt) {
+            res.status(403).json({
+                error: 'Période d\'essai terminée. Veuillez passer à la version Pro.',
+                code: 'TRIAL_EXPIRED'
+            });
+            return;
+        }
+
+        // Check 2: Employee Quota
+        const currentCount = await prisma.employee.count({
+            where: {
+                tenantId,
+                role: { not: 'ARCHIVED' }  // Only count active employees
+            }
+        });
+
+        if (currentCount >= tenant.maxEmployees) {
+            res.status(403).json({
+                error: `Limite atteinte (${currentCount}/${tenant.maxEmployees}). Passez à la version Pro pour ajouter plus d'employés.`,
+                code: 'QUOTA_EXCEEDED',
+                current: currentCount,
+                max: tenant.maxEmployees
+            });
+            return;
+        }
+
+        // === END SaaS CHECKS ===
+
+        const { name, phoneNumber, role, position, workProfile, siteId, language } = req.body;
 
         if (!name || !phoneNumber) {
             res.status(400).json({ error: 'Nom et numéro de téléphone requis' });
@@ -104,6 +144,7 @@ export const createEmployee = async (req: Request, res: Response): Promise<void>
                 role: role || 'EMPLOYEE',
                 workProfile: workProfile || 'MOBILE', // Default: Mobile (no GPS restriction)
                 siteId: siteId || null,
+                language: language || 'fr', // Default: French
                 tenantId
             }
         });
