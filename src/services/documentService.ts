@@ -1,22 +1,22 @@
 import { PrismaClient } from '@prisma/client';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import path from 'path';
-import fs from 'fs';
 
 const prisma = new PrismaClient();
 
-// Document categories
-export const DOCUMENT_CATEGORIES = {
-    PAIE: 'Fiche de paie',
-    CONTRAT: 'Contrat',
-    INTERNE: 'Document interne'
+// Document types for HR documents
+export const DOCUMENT_TYPES = {
+    CONTRACT: 'Contrat',
+    CERTIFICATE: 'Certificat/Permis',
+    IDENTITY: 'Pièce d\'identité',
+    OTHER: 'Autre'
 };
 
 interface UploadDocumentParams {
     filePath: string;
-    title: string;
-    category: string;
+    name: string;
+    type: string;
+    expiryDate?: Date | null;
     employeeId: string | null; // null = global document
     tenantId: string;
 }
@@ -25,13 +25,14 @@ interface UploadDocumentParams {
  * Save document record to database
  */
 export async function uploadDocument(params: UploadDocumentParams) {
-    const { filePath, title, category, employeeId, tenantId } = params;
+    const { filePath, name, type, expiryDate, employeeId, tenantId } = params;
 
     const document = await prisma.document.create({
         data: {
-            title,
-            category,
+            name,
+            type,
             url: filePath,
+            expiryDate: expiryDate || null,
             employeeId,
             tenantId
         }
@@ -46,7 +47,7 @@ export async function uploadDocument(params: UploadDocumentParams) {
 export async function getDocumentsForEmployee(
     employeeId: string,
     tenantId: string,
-    limit: number = 5
+    limit: number = 20
 ) {
     const documents = await prisma.document.findMany({
         where: {
@@ -81,6 +82,21 @@ export async function getDocumentsForTenant(tenantId: string) {
 }
 
 /**
+ * Get documents for a specific employee (manager view)
+ */
+export async function getDocumentsForSpecificEmployee(employeeId: string, tenantId: string) {
+    const documents = await prisma.document.findMany({
+        where: {
+            tenantId,
+            employeeId
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    return documents;
+}
+
+/**
  * Get a specific document by ID
  */
 export async function getDocumentById(documentId: string, tenantId: string) {
@@ -93,10 +109,71 @@ export async function getDocumentById(documentId: string, tenantId: string) {
 }
 
 /**
+ * Get documents expiring soon (for cron job)
+ */
+export async function getExpiringDocuments(daysAhead: number = 30) {
+    const now = new Date();
+    const targetDate = new Date();
+    targetDate.setDate(now.getDate() + daysAhead);
+
+    const documents = await prisma.document.findMany({
+        where: {
+            expiryDate: {
+                gte: now,
+                lte: targetDate
+            }
+        },
+        include: {
+            employee: {
+                select: { id: true, name: true, phoneNumber: true, tenantId: true }
+            }
+        }
+    });
+
+    return documents;
+}
+
+/**
+ * Get already expired documents
+ */
+export async function getExpiredDocuments() {
+    const now = new Date();
+
+    const documents = await prisma.document.findMany({
+        where: {
+            expiryDate: {
+                lt: now
+            }
+        },
+        include: {
+            employee: {
+                select: { id: true, name: true, phoneNumber: true, tenantId: true }
+            }
+        }
+    });
+
+    return documents;
+}
+
+/**
+ * Calculate expiry status for a document
+ */
+export function getExpiryStatus(expiryDate: Date | null): 'ok' | 'warning' | 'expired' | 'none' {
+    if (!expiryDate) return 'none';
+
+    const now = new Date();
+    const days = differenceInDays(expiryDate, now);
+
+    if (days < 0) return 'expired';
+    if (days <= 30) return 'warning';
+    return 'ok';
+}
+
+/**
  * Format document list for WhatsApp message
  */
 export function formatDocumentListMessage(
-    documents: { id: string; title: string; category: string; createdAt: Date }[],
+    documents: { id: string; name: string; type: string; createdAt: Date; expiryDate?: Date | null }[],
     employeeName: string
 ): string {
     if (documents.length === 0) {
@@ -105,8 +182,16 @@ export function formatDocumentListMessage(
 
     const lines = documents.map((doc, index) => {
         const dateStr = format(new Date(doc.createdAt), 'dd/MM/yyyy', { locale: fr });
-        const catLabel = DOCUMENT_CATEGORIES[doc.category as keyof typeof DOCUMENT_CATEGORIES] || doc.category;
-        return `${index + 1}. 📄 *${doc.title}*\n   ${catLabel} • ${dateStr}`;
+        const typeLabel = DOCUMENT_TYPES[doc.type as keyof typeof DOCUMENT_TYPES] || doc.type;
+        let expiryInfo = '';
+        if (doc.expiryDate) {
+            const status = getExpiryStatus(doc.expiryDate);
+            const expiryStr = format(new Date(doc.expiryDate), 'dd/MM/yyyy', { locale: fr });
+            expiryInfo = status === 'expired' ? ` ⛔️ Expiré` :
+                status === 'warning' ? ` ⚠️ Expire ${expiryStr}` :
+                    ` • Expire ${expiryStr}`;
+        }
+        return `${index + 1}. 📄 *${doc.name}*\n   ${typeLabel}${expiryInfo}`;
     });
 
     return `📂 *Mes Documents*\n👤 ${employeeName}\n\n${lines.join('\n\n')}\n\n_Répondez avec le numéro (ex: "1") pour télécharger._`;

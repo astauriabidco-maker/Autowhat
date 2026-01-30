@@ -14,6 +14,10 @@ import { getBotMessage, getEmployeeLanguage } from '../config/i18nBot';
 
 const prisma = new PrismaClient();
 
+// Anti-spam cooldown for Magic Link messages (in-memory cache)
+// In production, consider using Redis for persistence across restarts
+const magicLinkCooldowns = new Map<string, number>();
+
 // Expense category buttons (WhatsApp allows max 3 per message, so we use list)
 const EXPENSE_CATEGORY_BUTTONS = [
     { id: 'cat_repas', title: '🍔 Repas' },
@@ -383,8 +387,73 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                         }
 
                         if (!employee) {
-                            // Unknown user
-                            await sendMessage(from, '❌ Numéro non reconnu. Contactez votre RH.', phoneNumberId);
+                            // Check if this is a button reply from an unknown user
+                            if (messageType === 'interactive' && message.interactive?.type === 'button_reply') {
+                                const buttonId = message.interactive?.button_reply?.id;
+
+                                if (buttonId === 'btn_signup') {
+                                    // Generate Magic Link
+                                    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+                                    const magicLinkUrl = `${frontendUrl}/register?phone=%2B${from}&source=whatsapp`;
+
+                                    await sendMessage(
+                                        from,
+                                        `🚀 C'est parti !\n\n` +
+                                        `Cliquez sur ce lien pour créer votre espace Manager :\n\n` +
+                                        `👉 ${magicLinkUrl}\n\n` +
+                                        `✨ Essai gratuit 14 jours !`,
+                                        phoneNumberId
+                                    );
+                                    console.log(`📧 Magic Link sent to ${from} after btn_signup click`);
+                                    continue;
+                                }
+
+                                if (buttonId === 'btn_info') {
+                                    await sendMessage(
+                                        from,
+                                        `📱 *Antigravity* permet de gérer vos équipes terrain via WhatsApp :\n\n` +
+                                        `✅ Pointage par message\n` +
+                                        `✅ Planning automatique\n` +
+                                        `✅ Rapports en temps réel\n\n` +
+                                        `🌐 En savoir plus : www.whatspoint.fr`,
+                                        phoneNumberId
+                                    );
+                                    console.log(`ℹ️ Info message sent to ${from} after btn_info click`);
+                                    continue;
+                                }
+                            }
+
+                            // Unknown user - Send interactive buttons (anti-spam: 1x per 24h)
+                            const cooldownKey = `magic_link_sent_${from}`;
+                            const lastSent = magicLinkCooldowns.get(cooldownKey);
+                            const now = Date.now();
+                            const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+                            if (lastSent && (now - lastSent) < COOLDOWN_MS) {
+                                console.log(`⏳ Welcome already sent to ${from} within 24h, skipping`);
+                                continue;
+                            }
+
+                            // Fetch dynamic bot config from database
+                            const platformConfig = await prisma.platformConfig.findFirst();
+                            const welcomeText = platformConfig?.botWelcomeText || 'Je ne reconnais pas ce numéro. Que voulez-vous faire ?';
+                            const btn1Label = (platformConfig?.botBtn1Label || 'Créer un compte').slice(0, 20); // Max 20 chars
+                            const btn2Label = (platformConfig?.botBtn2Label || 'En savoir plus').slice(0, 20);
+
+                            // Send interactive buttons with dynamic config
+                            await sendInteractiveButtons(
+                                from,
+                                `👋 Bonjour !\n\n${welcomeText}`,
+                                [
+                                    { id: 'btn_signup', title: btn1Label },
+                                    { id: 'btn_info', title: btn2Label }
+                                ],
+                                phoneNumberId
+                            );
+
+                            // Record cooldown
+                            magicLinkCooldowns.set(cooldownKey, now);
+                            console.log(`📧 Interactive welcome buttons sent to unknown number: ${from}`);
                             continue;
                         }
 
@@ -705,6 +774,106 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                             continue;
                         }
 
+                        // 5.7 Handle WAITING_DOC_SELECTION state (user selects document by number)
+                        if (employee.conversationState === 'WAITING_DOC_SELECTION') {
+                            console.log(`📂 Processing DOC SELECTION for ${employee.name}: ${messageBody}`);
+                            const docIndex = parseInt(messageBody.trim()) - 1; // Convert to 0-indexed
+                            const tempData = employee.tempExpenseData as Record<string, any>;
+                            const documentIds = tempData?.documentIds as string[];
+
+                            if (isNaN(docIndex) || docIndex < 0 || !documentIds || docIndex >= documentIds.length) {
+                                await sendMessage(
+                                    from,
+                                    `❌ Numéro invalide. Répondez avec un numéro entre 1 et ${documentIds?.length || 0}.`,
+                                    phoneNumberId
+                                );
+                                continue;
+                            }
+
+                            // Get the selected document
+                            const selectedDocId = documentIds[docIndex];
+                            const document = await getDocumentById(selectedDocId, employee.tenantId);
+
+                            if (!document) {
+                                await sendMessage(from, `❌ Document introuvable.`, phoneNumberId);
+                                await setConversationState(employee.id, null);
+                                continue;
+                            }
+
+                            // Send the document via WhatsApp
+                            const baseUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+                            const documentUrl = `${baseUrl}${document.url}`;
+
+                            try {
+                                await sendDocument(
+                                    from,
+                                    documentUrl,
+                                    document.name,
+                                    `📄 ${document.name}`,
+                                    phoneNumberId
+                                );
+                                console.log(`📤 Document sent to ${employee.name}: ${document.name}`);
+                            } catch (docError) {
+                                console.error('❌ Error sending document:', docError);
+                                await sendMessage(from, `❌ Erreur lors de l'envoi du document. Réessayez plus tard.`, phoneNumberId);
+                            }
+
+                            // Clear state
+                            await setConversationState(employee.id, null);
+                            continue;
+                        }
+
+                        // ====================================================================
+                        // OPT-OUT HANDLING (STOP / REPRENDRE)
+                        // ====================================================================
+                        const normalizedMessage = messageBody.toLowerCase().trim();
+
+                        if (normalizedMessage === 'stop') {
+                            console.log(`🛑 Processing OPT-OUT for ${employee.name}`);
+
+                            try {
+                                await prisma.employee.update({
+                                    where: { id: employee.id },
+                                    data: { isOptedOut: true }
+                                });
+
+                                // Send final confirmation (bypasses opt-out check since it's a system message)
+                                await sendMessage(
+                                    from,
+                                    `✅ Vous êtes désinscrit.\\n\\nVous ne recevrez plus de messages de notre bot.\\n\\n` +
+                                    `Pour vous réinscrire, envoyez *REPRENDRE* ou *START*.`,
+                                    phoneNumberId
+                                );
+                                console.log(`✅ Employee ${employee.name} opted out successfully`);
+                            } catch (optError) {
+                                console.error('❌ Error processing opt-out:', optError);
+                            }
+                            continue;
+                        }
+
+                        if (normalizedMessage === 'reprendre' || normalizedMessage === 'start') {
+                            console.log(`✅ Processing OPT-IN for ${employee.name}`);
+
+                            try {
+                                await prisma.employee.update({
+                                    where: { id: employee.id },
+                                    data: { isOptedOut: false }
+                                });
+
+                                await sendMessage(
+                                    from,
+                                    `🎉 Vous êtes réinscrit !\\n\\nVous recevrez à nouveau nos messages.\\n\\n` +
+                                    `Tapez *Menu* pour voir vos options.`,
+                                    phoneNumberId
+                                );
+                                console.log(`✅ Employee ${employee.name} opted in successfully`);
+                            } catch (optError) {
+                                console.error('❌ Error processing opt-in:', optError);
+                            }
+                            continue;
+                        }
+                        // ====================================================================
+
                         // 6. Process standard text commands
                         const command = messageBody.toLowerCase().trim();
                         await processCommand(command, employee, from, phoneNumberId, messageTimestamp);
@@ -717,10 +886,62 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                 }
             }
             return res.sendStatus(200);
-        } else {
-            // Not a whatsapp event
-            return res.sendStatus(404);
         }
+
+        // ====================================================================
+        // HANDLE META PLATFORM EVENTS (Quality, etc.)
+        // ====================================================================
+        if (body.object === 'whatsapp_business_account') {
+            for (const entry of body.entry || []) {
+                for (const change of entry.changes || []) {
+                    // Handle phone_number_quality_update events from Meta
+                    if (change.field === 'phone_number_quality_update') {
+                        const qualityData = change.value;
+                        console.log(`📊 Meta Quality Update received:`, JSON.stringify(qualityData));
+
+                        const newScore = qualityData?.current_limit?.toUpperCase() || 'GREEN';
+
+                        // Map Meta quality to our values
+                        let scoreValue: string;
+                        if (newScore.includes('RED') || newScore.includes('LOW')) {
+                            scoreValue = 'RED';
+                        } else if (newScore.includes('YELLOW') || newScore.includes('MEDIUM')) {
+                            scoreValue = 'YELLOW';
+                        } else {
+                            scoreValue = 'GREEN';
+                        }
+
+                        try {
+                            // Update platform config with quality score
+                            await prisma.platformConfig.update({
+                                where: { id: 1 },
+                                data: {
+                                    whatsappQualityScore: scoreValue,
+                                    whatsappQualityAlert: new Date()
+                                }
+                            });
+
+                            console.log(`📊 WhatsApp quality score updated to: ${scoreValue}`);
+
+                            // Send critical alert if YELLOW or RED
+                            if (scoreValue !== 'GREEN') {
+                                const alertEmail = process.env.SUPERADMIN_ALERT_EMAIL;
+                                if (alertEmail) {
+                                    console.log(`🚨 CRITICAL: WhatsApp quality is ${scoreValue}! Alert email would be sent to: ${alertEmail}`);
+                                    // TODO: Integrate with email service to send alert
+                                    // await sendCriticalAlert(alertEmail, scoreValue);
+                                }
+                            }
+                        } catch (updateError) {
+                            console.error('❌ Error updating quality score:', updateError);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Not a recognized event
+        return res.sendStatus(200);
     } catch (error) {
         console.error('❌ Error in webhook handler:', error);
         return res.sendStatus(500);

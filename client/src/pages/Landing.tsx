@@ -1,28 +1,90 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
+import axios from 'axios';
 import {
-    Zap,
-    MapPin,
-    Bot,
     MessageCircle,
-    Building2,
-    Sparkles,
-    ShieldCheck,
-    Clock,
-    FileSpreadsheet
+    Check,
+    Users,
+    Loader2,
+    Globe,
+    ChevronDown
 } from 'lucide-react';
+import { VisitorProvider, useVisitor } from '../context/VisitorContext';
+import HeroSection from '../components/landing/HeroSection';
+import Testimonials from '../components/landing/Testimonials';
+import TrustSection from '../components/landing/TrustSection';
+import FeaturesGrid from '../components/landing/FeaturesGrid';
+import EnterpriseSection from '../components/landing/EnterpriseSection';
 
-const SECTORS = [
-    { id: 'btp', label: '🏗️ BTP', desc: 'Pointage chantier avec GPS et photos de progression.' },
-    { id: 'cleaning', label: '🧹 Nettoyage', desc: 'Validation des interventions site par site.' },
-    { id: 'security', label: '🛡️ Sécurité', desc: 'Contrôle des vacations et relèves.' },
-    { id: 'retail', label: '🛒 Commerce', desc: 'Gestion des équipes en magasin.' }
-];
+interface Plan {
+    id: string;
+    stripePriceId: string;
+    name: string;
+    description: string | null;
+    price: number;
+    currency: string;
+    maxEmployees: number;
+    features: string[];
+    isPopular: boolean;
+    sortOrder: number;
+}
 
-export default function Landing() {
+// Currency symbols
+const CURRENCY_SYMBOLS: Record<string, string> = {
+    'EUR': '€',
+    'USD': '$',
+    'XOF': 'FCFA',
+    'GBP': '£',
+    'CHF': 'CHF'
+};
+
+// Language flags
+const LANG_FLAGS: Record<string, string> = {
+    'fr': '🇫🇷',
+    'en': '🇬🇧',
+    'es': '🇪🇸'
+};
+
+// Inner component that uses VisitorContext
+function LandingContent() {
     const navigate = useNavigate();
-    const [activeSector, setActiveSector] = useState('btp');
+    const { t, i18n } = useTranslation();
+    const { countryCode, currency, deviceType } = useVisitor();
+    const [plans, setPlans] = useState<Plan[]>([]);
+    const [loadingPlans, setLoadingPlans] = useState(true);
+    const [showLangMenu, setShowLangMenu] = useState(false);
+
+    const isMobile = deviceType === 'mobile';
+
+    useEffect(() => {
+        // Fetch geo-localized offer
+        axios.get('/api/public/offer')
+            .then(res => {
+                setPlans(res.data.plans);
+            })
+            .catch(err => {
+                console.error('Error fetching offer:', err);
+                axios.get('/api/plans')
+                    .then(res => setPlans(res.data))
+                    .catch(console.error);
+            })
+            .finally(() => setLoadingPlans(false));
+    }, []);
+
+    const formatPrice = (price: number, curr: string) => {
+        const symbol = CURRENCY_SYMBOLS[curr] || curr;
+        if (curr === 'XOF') {
+            return `${price.toLocaleString()} ${symbol}`;
+        }
+        return `${price}${symbol}`;
+    };
+
+    const changeLanguage = (lang: string) => {
+        i18n.changeLanguage(lang);
+        setShowLangMenu(false);
+    };
 
     return (
         <div style={{ minHeight: '100vh', background: '#0f172a' }}>
@@ -31,7 +93,7 @@ export default function Landing() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '1.5rem 5%',
+                padding: isMobile ? '1rem 4%' : '1.5rem 5%',
                 position: 'fixed',
                 top: 0,
                 left: 0,
@@ -47,32 +109,101 @@ export default function Landing() {
                         WhatsPoint
                     </span>
                 </div>
-                <div style={{ display: 'flex', gap: '2rem' }}>
-                    <a href="#features" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.9rem' }}>
-                        Fonctionnalités
-                    </a>
-                    <a href="#sectors" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.9rem' }}>
-                        Secteurs
-                    </a>
-                    <a href="#pricing" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.9rem' }}>
-                        Tarifs
-                    </a>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    <button
-                        onClick={() => navigate('/login')}
-                        style={{
-                            padding: '0.6rem 1.25rem',
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#94a3b8',
-                            cursor: 'pointer',
-                            fontWeight: 500,
-                            fontSize: '0.9rem'
-                        }}
-                    >
-                        Connexion
-                    </button>
+
+                {/* Desktop navigation */}
+                {!isMobile && (
+                    <div style={{ display: 'flex', gap: '2rem' }}>
+                        <a href="#features" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.9rem' }}>
+                            {t('landing.nav.features')}
+                        </a>
+                        <a href="#sectors" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.9rem' }}>
+                            {t('landing.nav.sectors')}
+                        </a>
+                        <a href="#testimonials" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.9rem' }}>
+                            {t('landing.nav.testimonials')}
+                        </a>
+                        <a href="#pricing" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.9rem' }}>
+                            {t('landing.nav.pricing')}
+                        </a>
+                    </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                    {/* Language Selector */}
+                    <div style={{ position: 'relative' }}>
+                        <button
+                            onClick={() => setShowLangMenu(!showLangMenu)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '0.5rem 0.75rem',
+                                background: 'rgba(255,255,255,0.1)',
+                                border: 'none',
+                                borderRadius: '0.5rem',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem'
+                            }}
+                        >
+                            <Globe size={16} />
+                            <span>{LANG_FLAGS[i18n.language] || '🌐'}</span>
+                            <ChevronDown size={14} />
+                        </button>
+                        {showLangMenu && (
+                            <div style={{
+                                position: 'absolute',
+                                top: '100%',
+                                right: 0,
+                                marginTop: '0.5rem',
+                                background: '#1e293b',
+                                borderRadius: '0.5rem',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                overflow: 'hidden',
+                                minWidth: '120px'
+                            }}>
+                                {Object.entries(LANG_FLAGS).map(([lang, flag]) => (
+                                    <button
+                                        key={lang}
+                                        onClick={() => changeLanguage(lang)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            width: '100%',
+                                            padding: '0.75rem 1rem',
+                                            background: i18n.language === lang ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+                                            border: 'none',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            fontSize: '0.85rem',
+                                            textAlign: 'left'
+                                        }}
+                                    >
+                                        <span>{flag}</span>
+                                        <span>{t(`languages.${lang}`)}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {!isMobile && (
+                        <button
+                            onClick={() => navigate('/login')}
+                            style={{
+                                padding: '0.6rem 1.25rem',
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#94a3b8',
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                                fontSize: '0.9rem'
+                            }}
+                        >
+                            {t('common.login')}
+                        </button>
+                    )}
                     <button
                         onClick={() => navigate('/register')}
                         style={{
@@ -86,241 +217,33 @@ export default function Landing() {
                             fontSize: '0.9rem'
                         }}
                     >
-                        Essai Gratuit
+                        {t('common.freeTrial')}
                     </button>
                 </div>
             </nav>
 
-            {/* Hero Section */}
-            <section style={{
-                minHeight: '100vh',
-                background: 'linear-gradient(135deg, #1e3a8a 0%, #312e81 50%, #0f172a 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '0 5%',
-                paddingTop: '80px'
-            }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4rem', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
-                    {/* Left: Text */}
-                    <motion.div
-                        initial={{ opacity: 0, x: -50 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.8 }}
-                    >
-                        <div style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            background: 'rgba(59, 130, 246, 0.2)',
-                            padding: '0.5rem 1rem',
-                            borderRadius: '2rem',
-                            marginBottom: '1.5rem'
-                        }}>
-                            <Sparkles size={16} color="#60a5fa" />
-                            <span style={{ color: '#60a5fa', fontSize: '0.85rem' }}>
-                                Nouveau : Multi-secteurs disponible
-                            </span>
-                        </div>
+            {/* Hero Section - Dynamic based on visitor context */}
+            <HeroSection />
 
-                        <h1 style={{
-                            color: 'white',
-                            fontSize: '3.5rem',
-                            fontWeight: 800,
-                            lineHeight: 1.1,
-                            marginBottom: '1.5rem'
-                        }}>
-                            Vos employés savent déjà utiliser WhatsApp.{' '}
-                            <span style={{ color: '#60a5fa' }}>Pourquoi leur imposer autre chose ?</span>
-                        </h1>
+            {/* Trust Section - Privacy Shield */}
+            <TrustSection />
 
-                        <p style={{
-                            color: '#94a3b8',
-                            fontSize: '1.25rem',
-                            lineHeight: 1.6,
-                            marginBottom: '1rem',
-                            maxWidth: '500px'
-                        }}>
-                            Arrêtez de courir après les feuilles d'heures papier ou les SMS perdus.
-                        </p>
-                        <p style={{
-                            color: '#e2e8f0',
-                            fontSize: '1.25rem',
-                            fontWeight: 600,
-                            lineHeight: 1.6,
-                            marginBottom: '2rem',
-                            maxWidth: '500px'
-                        }}>
-                            ✅ Tout est centralisé, horodaté et prêt pour la paie.
-                        </p>
-
-                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                            <button
-                                onClick={() => navigate('/register')}
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    padding: '1rem 2rem',
-                                    background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                                    border: 'none',
-                                    borderRadius: '0.75rem',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    fontWeight: 600,
-                                    fontSize: '1rem',
-                                    boxShadow: '0 10px 30px rgba(59, 130, 246, 0.4)'
-                                }}
-                            >
-                                🚀 Créer mon compte gratuit
-                            </button>
-                            <a
-                                href="https://wa.me/33612345678?text=Menu"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    padding: '1rem 2rem',
-                                    background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-                                    borderRadius: '0.75rem',
-                                    color: 'white',
-                                    textDecoration: 'none',
-                                    fontWeight: 600,
-                                    fontSize: '1rem',
-                                    boxShadow: '0 10px 30px rgba(34, 197, 94, 0.3)'
-                                }}
-                            >
-                                <MessageCircle size={20} />
-                                Essayer la Démo WhatsApp
-                            </a>
-                        </div>
-                    </motion.div>
-
-                    {/* Right: WhatsApp Mockup */}
-                    <motion.div
-                        initial={{ opacity: 0, x: 50 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.8, delay: 0.2 }}
-                        style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                    >
-                        <div style={{
-                            background: '#1f2937',
-                            borderRadius: '2rem',
-                            padding: '1rem',
-                            boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
-                            width: '320px'
-                        }}>
-                            {/* Phone Header */}
-                            <div style={{
-                                background: '#075e54',
-                                borderRadius: '1rem 1rem 0 0',
-                                padding: '1rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.75rem'
-                            }}>
-                                <div style={{
-                                    width: '40px',
-                                    height: '40px',
-                                    borderRadius: '50%',
-                                    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}>
-                                    <Bot size={20} color="white" />
-                                </div>
-                                <div>
-                                    <div style={{ color: 'white', fontWeight: 600, fontSize: '0.9rem' }}>
-                                        WhatsPoint Bot
-                                    </div>
-                                    <div style={{ color: '#25d366', fontSize: '0.75rem' }}>
-                                        en ligne
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Chat Messages */}
-                            <div style={{
-                                background: '#0b141a',
-                                padding: '1rem',
-                                minHeight: '280px'
-                            }}>
-                                {/* User message */}
-                                <div style={{
-                                    display: 'flex',
-                                    justifyContent: 'flex-end',
-                                    marginBottom: '0.75rem'
-                                }}>
-                                    <div style={{
-                                        background: '#005c4b',
-                                        padding: '0.75rem 1rem',
-                                        borderRadius: '0.75rem 0.75rem 0 0.75rem',
-                                        maxWidth: '80%'
-                                    }}>
-                                        <span style={{ color: 'white', fontSize: '0.9rem' }}>Hi 👋</span>
-                                        <div style={{ color: '#8696a0', fontSize: '0.7rem', textAlign: 'right', marginTop: '0.25rem' }}>
-                                            08:02 ✓✓
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Bot response */}
-                                <div style={{
-                                    display: 'flex',
-                                    justifyContent: 'flex-start',
-                                    marginBottom: '0.75rem'
-                                }}>
-                                    <div style={{
-                                        background: '#1f2c34',
-                                        padding: '0.75rem 1rem',
-                                        borderRadius: '0.75rem 0.75rem 0.75rem 0',
-                                        maxWidth: '85%'
-                                    }}>
-                                        <span style={{ color: 'white', fontSize: '0.9rem' }}>
-                                            ✅ <strong>Pointage enregistré !</strong>
-                                            <br />
-                                            <span style={{ color: '#8696a0' }}>
-                                                📍 Chantier Rivoli<br />
-                                                🕐 08:02
-                                            </span>
-                                        </span>
-                                        <div style={{ color: '#8696a0', fontSize: '0.7rem', marginTop: '0.25rem' }}>
-                                            08:02
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Quick actions */}
-                                <div style={{
-                                    display: 'flex',
-                                    gap: '0.5rem',
-                                    flexWrap: 'wrap',
-                                    marginTop: '1rem'
-                                }}>
-                                    {['📊 Stats', '📄 Documents', '💸 Frais'].map(btn => (
-                                        <div key={btn} style={{
-                                            background: 'rgba(37, 211, 102, 0.1)',
-                                            border: '1px solid #25d366',
-                                            padding: '0.5rem 0.75rem',
-                                            borderRadius: '1rem',
-                                            color: '#25d366',
-                                            fontSize: '0.8rem'
-                                        }}>
-                                            {btn}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </motion.div>
-                </div>
+            {/* Pocket HR Suite - Bento Grid */}
+            <section id="features">
+                <FeaturesGrid />
             </section>
 
-            {/* Features Section */}
-            <section id="features" style={{
-                padding: '6rem 5%',
+            {/* Enterprise Section - Scale Features */}
+            <EnterpriseSection />
+
+            {/* Testimonials Section - Dynamic based on visitor country */}
+            <section id="testimonials">
+                <Testimonials />
+            </section>
+
+            {/* Pricing Section */}
+            <section id="pricing" style={{
+                padding: isMobile ? '4rem 4%' : '6rem 5%',
                 background: '#0f172a'
             }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -331,173 +254,168 @@ export default function Landing() {
                         viewport={{ once: true }}
                         style={{ textAlign: 'center', marginBottom: '4rem' }}
                     >
-                        <h2 style={{ color: 'white', fontSize: '2.5rem', fontWeight: 700, marginBottom: '1rem' }}>
-                            Pourquoi WhatsPoint ?
+                        <h2 style={{ color: 'white', fontSize: isMobile ? '1.75rem' : '2.5rem', fontWeight: 700, marginBottom: '1rem' }}>
+                            {t('landing.pricing.title')}
                         </h2>
                         <p style={{ color: '#64748b', fontSize: '1.1rem', maxWidth: '600px', margin: '0 auto' }}>
-                            La solution la plus simple pour gérer vos équipes terrain
+                            {t('landing.pricing.subtitle')}
                         </p>
+                        {countryCode && (
+                            <p style={{ color: '#3b82f6', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                                📍 {countryCode} • {currency}
+                            </p>
+                        )}
                     </motion.div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem' }}>
-                        {[
-                            {
-                                icon: <Zap size={32} />,
-                                title: 'Déploiement Éclair',
-                                desc: 'Ajoutez vos employés, ils reçoivent un WhatsApp. C\'est tout. Rien à installer.',
-                                color: '#f59e0b'
-                            },
-                            {
-                                icon: <MapPin size={32} />,
-                                title: 'Preuves Terrain',
-                                desc: 'Géolocalisation GPS et Photos obligatoires. Fini les doutes.',
-                                color: '#10b981'
-                            },
-                            {
-                                icon: <Bot size={32} />,
-                                title: '100% Automatisé',
-                                desc: 'Le bot relance les retardataires et génère le fichier Excel de paie.',
-                                color: '#8b5cf6'
-                            }
-                        ].map((feature, idx) => (
-                            <motion.div
-                                key={idx}
-                                initial={{ opacity: 0, y: 30 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.6, delay: idx * 0.1 }}
-                                viewport={{ once: true }}
-                                style={{
-                                    background: 'rgba(255,255,255,0.03)',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    borderRadius: '1rem',
-                                    padding: '2rem',
-                                    textAlign: 'center'
-                                }}
-                            >
-                                <div style={{
-                                    width: '64px',
-                                    height: '64px',
-                                    borderRadius: '1rem',
-                                    background: `${feature.color}20`,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    margin: '0 auto 1.5rem',
-                                    color: feature.color
-                                }}>
-                                    {feature.icon}
-                                </div>
-                                <h3 style={{ color: 'white', fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.75rem' }}>
-                                    {feature.title}
-                                </h3>
-                                <p style={{ color: '#64748b', lineHeight: 1.6 }}>
-                                    {feature.desc}
-                                </p>
-                            </motion.div>
-                        ))}
-                    </div>
+                    {loadingPlans ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
+                            <Loader2 size={32} color="#3b82f6" style={{ animation: 'spin 1s linear infinite' }} />
+                        </div>
+                    ) : (
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: isMobile ? '1fr' : `repeat(${Math.min(plans.length, 3)}, 1fr)`,
+                            gap: '2rem',
+                            alignItems: 'stretch'
+                        }}>
+                            {plans.map((plan, idx) => (
+                                <motion.div
+                                    key={plan.id}
+                                    initial={{ opacity: 0, y: 30 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.6, delay: idx * 0.1 }}
+                                    viewport={{ once: true }}
+                                    style={{
+                                        background: plan.isPopular
+                                            ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)'
+                                            : 'rgba(255,255,255,0.03)',
+                                        border: plan.isPopular
+                                            ? '2px solid #3b82f6'
+                                            : '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '1.5rem',
+                                        padding: '2.5rem 2rem',
+                                        position: 'relative',
+                                        display: 'flex',
+                                        flexDirection: 'column'
+                                    }}
+                                >
+                                    {/* Popular badge */}
+                                    {plan.isPopular && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '-12px',
+                                            left: '50%',
+                                            transform: 'translateX(-50%)',
+                                            background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                                            padding: '0.4rem 1.25rem',
+                                            borderRadius: '2rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.35rem'
+                                        }}>
+                                            <span style={{ color: 'white', fontSize: '0.75rem', fontWeight: 600 }}>
+                                                {t('landing.pricing.recommended')}
+                                            </span>
+                                        </div>
+                                    )}
 
-                    {/* Secondary features */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginTop: '3rem' }}>
-                        {[
-                            { icon: <Clock size={24} />, label: 'Pointage temps réel' },
-                            { icon: <FileSpreadsheet size={24} />, label: 'Export Excel' },
-                            { icon: <ShieldCheck size={24} />, label: 'RGPD compliant' },
-                            { icon: <Building2 size={24} />, label: 'Multi-sites' }
-                        ].map((item, idx) => (
-                            <div key={idx} style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.75rem',
-                                padding: '1rem',
-                                background: 'rgba(255,255,255,0.02)',
-                                borderRadius: '0.75rem',
-                                border: '1px solid rgba(255,255,255,0.05)'
-                            }}>
-                                <div style={{ color: '#3b82f6' }}>{item.icon}</div>
-                                <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>{item.label}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
+                                    {/* Plan name */}
+                                    <h3 style={{
+                                        color: 'white',
+                                        fontSize: '1.5rem',
+                                        fontWeight: 700,
+                                        marginBottom: '0.5rem',
+                                        marginTop: plan.isPopular ? '0.5rem' : 0
+                                    }}>
+                                        {plan.name}
+                                    </h3>
 
-            {/* Sectors Section */}
-            <section id="sectors" style={{
-                padding: '6rem 5%',
-                background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)'
-            }}>
-                <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-                    <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6 }}
-                        viewport={{ once: true }}
-                        style={{ textAlign: 'center', marginBottom: '3rem' }}
-                    >
-                        <h2 style={{ color: 'white', fontSize: '2.5rem', fontWeight: 700, marginBottom: '1rem' }}>
-                            Adapté à votre secteur
-                        </h2>
-                        <p style={{ color: '#64748b', fontSize: '1.1rem' }}>
-                            Vocabulaire et fonctionnalités personnalisés par métier
-                        </p>
-                    </motion.div>
+                                    {/* Description */}
+                                    {plan.description && (
+                                        <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                                            {plan.description}
+                                        </p>
+                                    )}
 
-                    {/* Tabs */}
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        gap: '0.5rem',
-                        marginBottom: '2rem',
-                        flexWrap: 'wrap'
-                    }}>
-                        {SECTORS.map(sector => (
-                            <button
-                                key={sector.id}
-                                onClick={() => setActiveSector(sector.id)}
-                                style={{
-                                    padding: '0.75rem 1.5rem',
-                                    background: activeSector === sector.id
-                                        ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)'
-                                        : 'rgba(255,255,255,0.05)',
-                                    border: 'none',
-                                    borderRadius: '2rem',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    fontWeight: 500,
-                                    fontSize: '0.9rem',
-                                    transition: 'all 0.2s ease'
-                                }}
-                            >
-                                {sector.label}
-                            </button>
-                        ))}
-                    </div>
+                                    {/* Price - Dynamic */}
+                                    <div style={{ marginBottom: '1.5rem' }}>
+                                        <span style={{ color: 'white', fontSize: isMobile ? '2rem' : '3rem', fontWeight: 800 }}>
+                                            {formatPrice(plan.price, plan.currency)}
+                                        </span>
+                                        <span style={{ color: '#64748b', fontSize: '1rem' }}>
+                                            {t('landing.pricing.perMonth')}
+                                        </span>
+                                    </div>
 
-                    {/* Content */}
-                    <motion.div
-                        key={activeSector}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
-                        style={{
-                            background: 'rgba(255,255,255,0.03)',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: '1rem',
-                            padding: '2rem',
-                            textAlign: 'center'
-                        }}
-                    >
-                        <p style={{ color: '#e2e8f0', fontSize: '1.1rem' }}>
-                            {SECTORS.find(s => s.id === activeSector)?.desc}
-                        </p>
-                    </motion.div>
+                                    {/* Employee limit */}
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        padding: '0.75rem 1rem',
+                                        background: 'rgba(59, 130, 246, 0.1)',
+                                        borderRadius: '0.75rem',
+                                        marginBottom: '1.5rem'
+                                    }}>
+                                        <Users size={18} color="#3b82f6" />
+                                        <span style={{ color: '#93c5fd', fontWeight: 600 }}>
+                                            {t('landing.pricing.upToEmployees', { count: plan.maxEmployees })}
+                                        </span>
+                                    </div>
+
+                                    {/* Features */}
+                                    <ul style={{
+                                        listStyle: 'none',
+                                        padding: 0,
+                                        margin: 0,
+                                        marginBottom: '2rem',
+                                        flex: 1
+                                    }}>
+                                        {plan.features.map((feature, fIdx) => (
+                                            <li key={fIdx} style={{
+                                                display: 'flex',
+                                                alignItems: 'flex-start',
+                                                gap: '0.75rem',
+                                                marginBottom: '0.75rem'
+                                            }}>
+                                                <Check size={18} color="#22c55e" style={{ flexShrink: 0, marginTop: '2px' }} />
+                                                <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
+                                                    {feature}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+
+                                    {/* CTA button */}
+                                    <button
+                                        onClick={() => navigate('/register')}
+                                        style={{
+                                            width: '100%',
+                                            padding: '1rem',
+                                            background: plan.isPopular
+                                                ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)'
+                                                : 'rgba(255,255,255,0.1)',
+                                            border: plan.isPopular ? 'none' : '1px solid rgba(255,255,255,0.2)',
+                                            borderRadius: '0.75rem',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            fontWeight: 600,
+                                            fontSize: '1rem',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        {t('landing.pricing.startTrial')}
+                                    </button>
+                                </motion.div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </section>
 
             {/* CTA Section */}
             <section style={{
-                padding: '6rem 5%',
+                padding: isMobile ? '4rem 4%' : '6rem 5%',
                 background: '#0f172a',
                 textAlign: 'center'
             }}>
@@ -511,21 +429,28 @@ export default function Landing() {
                         margin: '0 auto',
                         background: 'linear-gradient(135deg, #1e3a8a 0%, #4f46e5 100%)',
                         borderRadius: '1.5rem',
-                        padding: '4rem 2rem'
+                        padding: isMobile ? '3rem 1.5rem' : '4rem 2rem'
                     }}
                 >
-                    <h2 style={{ color: 'white', fontSize: '2rem', fontWeight: 700, marginBottom: '1rem' }}>
-                        Prêt à simplifier votre gestion d'équipe ?
+                    <h2 style={{ color: 'white', fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 700, marginBottom: '1rem' }}>
+                        {t('landing.cta.title')}
                     </h2>
                     <p style={{ color: '#c7d2fe', marginBottom: '2rem' }}>
-                        Essayez gratuitement pendant 14 jours. Sans engagement.
+                        {t('landing.cta.subtitle')}
                     </p>
-                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <div style={{
+                        display: 'flex',
+                        gap: '1rem',
+                        justifyContent: 'center',
+                        flexWrap: 'wrap',
+                        flexDirection: isMobile ? 'column' : 'row'
+                    }}>
                         <button
                             onClick={() => navigate('/register')}
                             style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
+                                justifyContent: 'center',
                                 gap: '0.5rem',
                                 padding: '1rem 2.5rem',
                                 background: 'white',
@@ -537,7 +462,7 @@ export default function Landing() {
                                 fontSize: '1rem'
                             }}
                         >
-                            🚀 Créer mon compte
+                            {t('landing.cta.button')}
                         </button>
                         <a
                             href="https://wa.me/33612345678?text=Menu"
@@ -546,6 +471,7 @@ export default function Landing() {
                             style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
+                                justifyContent: 'center',
                                 gap: '0.5rem',
                                 padding: '1rem 2rem',
                                 background: 'rgba(255,255,255,0.15)',
@@ -558,7 +484,7 @@ export default function Landing() {
                             }}
                         >
                             <MessageCircle size={20} />
-                            Voir la démo
+                            {t('landing.cta.demo')}
                         </a>
                     </div>
                 </motion.div>
@@ -566,7 +492,7 @@ export default function Landing() {
 
             {/* Footer */}
             <footer style={{
-                padding: '3rem 5%',
+                padding: isMobile ? '2rem 4%' : '3rem 5%',
                 background: '#0f172a',
                 borderTop: '1px solid rgba(255,255,255,0.1)'
             }}>
@@ -574,28 +500,39 @@ export default function Landing() {
                     maxWidth: '1200px',
                     margin: '0 auto',
                     display: 'flex',
+                    flexDirection: isMobile ? 'column' : 'row',
                     justifyContent: 'space-between',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    gap: '1rem'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <MessageCircle size={20} color="#3b82f6" />
                         <span style={{ color: '#64748b', fontSize: '0.9rem' }}>
-                            © 2026 WhatsPoint. Tous droits réservés.
+                            {t('landing.footer.copyright')}
                         </span>
                     </div>
-                    <div style={{ display: 'flex', gap: '2rem' }}>
-                        <a href="/legal" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
-                            Mentions légales
+                    <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        <a href="/legal/notices" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
+                            {t('landing.footer.legal')}
                         </a>
-                        <a href="/privacy" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
-                            Confidentialité
+                        <a href="/legal/privacy" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
+                            {t('landing.footer.privacy')}
                         </a>
                         <a href="mailto:contact@whatspoint.fr" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
-                            Contact
+                            {t('landing.footer.contact')}
                         </a>
                     </div>
                 </div>
             </footer>
         </div>
+    );
+}
+
+// Main export wrapped with VisitorProvider
+export default function Landing() {
+    return (
+        <VisitorProvider>
+            <LandingContent />
+        </VisitorProvider>
     );
 }

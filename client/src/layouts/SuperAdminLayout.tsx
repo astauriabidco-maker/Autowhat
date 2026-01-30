@@ -13,7 +13,15 @@ import {
     ChevronRight,
     Clock,
     Settings,
-    Key
+    Key,
+    Webhook,
+    Headphones,
+    Megaphone,
+    Receipt,
+    FileText,
+    Activity,
+    Phone,
+    Globe
 } from 'lucide-react';
 
 interface NavItem {
@@ -30,11 +38,21 @@ export default function SuperAdminLayout() {
     const navItems: NavItem[] = [
         { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/superadmin' },
         { icon: <Users size={20} />, label: 'Clients', path: '/superadmin/tenants' },
+        { icon: <DollarSign size={20} />, label: 'CRM Leads', path: '/superadmin/leads' },
         { icon: <DollarSign size={20} />, label: 'Revenus', path: '/superadmin/revenue' },
         { icon: <Clock size={20} />, label: 'Sessions', path: '/superadmin/sessions' },
         { icon: <History size={20} />, label: 'Journal', path: '/superadmin/logs' },
         { icon: <Settings size={20} />, label: 'Paramètres', path: '/superadmin/settings' },
-        { icon: <Key size={20} />, label: 'Intégrations', path: '/superadmin/integrations' }
+        { icon: <Key size={20} />, label: 'Intégrations', path: '/superadmin/integrations' },
+        { icon: <DollarSign size={20} />, label: 'Tarifs', path: '/superadmin/plans' },
+        { icon: <Globe size={20} />, label: 'Prix Internationaux', path: '/superadmin/pricing-matrix' },
+        { icon: <Webhook size={20} />, label: 'Webhooks', path: '/superadmin/webhooks' },
+        { icon: <Headphones size={20} />, label: 'Support', path: '/superadmin/support' },
+        { icon: <Megaphone size={20} />, label: 'Marketing', path: '/superadmin/marketing' },
+        { icon: <Receipt size={20} />, label: 'Notes de Frais', path: '/superadmin/expenses' },
+        { icon: <FileText size={20} />, label: 'Documents RH', path: '/superadmin/documents' },
+        { icon: <Phone size={20} />, label: 'Pool Numéros', path: '/superadmin/number-pool' },
+        { icon: <Activity size={20} />, label: 'Santé Serveur', path: '/superadmin/health' }
     ];
 
     useEffect(() => {

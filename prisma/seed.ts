@@ -56,7 +56,6 @@ async function main() {
         },
     });
 
-    // 4. Create test employee (DEXXYS SERVICES)
     await prisma.employee.create({
         data: {
             name: 'DEXXYS SERVICES',
@@ -67,6 +66,54 @@ async function main() {
     });
 
     console.log('✅ Created employees for each tenant.');
+
+    // 5. Seed Subscription Plans (only if not already exist)
+    const existingPlans = await prisma.subscriptionPlan.count();
+    if (existingPlans === 0) {
+        await prisma.subscriptionPlan.createMany({
+            data: [
+                {
+                    stripePriceId: process.env.STRIPE_PRICE_SMALL || 'price_small_placeholder',
+                    name: 'Small',
+                    description: 'Idéal pour les petites équipes',
+                    price: 29.00,
+                    currency: 'EUR',
+                    maxEmployees: 5,
+                    features: "Jusqu'à 5 employés,Pointage WhatsApp illimité,Notes de frais,Tableau de bord,Support email",
+                    isPopular: false,
+                    isActive: true,
+                    sortOrder: 1
+                },
+                {
+                    stripePriceId: process.env.STRIPE_PRICE_MEDIUM || 'price_medium_placeholder',
+                    name: 'Medium',
+                    description: 'Pour les PME en croissance',
+                    price: 99.00,
+                    currency: 'EUR',
+                    maxEmployees: 20,
+                    features: "Jusqu'à 20 employés,Pointage WhatsApp illimité,Notes de frais,Tableau de bord avancé,Multi-sites,Export Excel/PDF,Support prioritaire",
+                    isPopular: true,
+                    isActive: true,
+                    sortOrder: 2
+                },
+                {
+                    stripePriceId: process.env.STRIPE_PRICE_LARGE || 'price_large_placeholder',
+                    name: 'Large',
+                    description: 'Solution complète pour grandes structures',
+                    price: 199.00,
+                    currency: 'EUR',
+                    maxEmployees: 50,
+                    features: "Jusqu'à 50 employés,Pointage WhatsApp illimité,Notes de frais,Tableau de bord avancé,Multi-sites illimités,Export Excel/PDF,Webhooks & API,Support dédié,Onboarding personnalisé",
+                    isPopular: false,
+                    isActive: true,
+                    sortOrder: 3
+                }
+            ]
+        });
+        console.log('✅ Created default subscription plans: Small, Medium, Large');
+    } else {
+        console.log('ℹ️ Subscription plans already exist, skipping seed.');
+    }
 }
 
 main()

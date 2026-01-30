@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { User, Mail, Lock, Phone, Building2, MapPin, Loader2, ArrowRight, ArrowLeft, MessageCircle, Users, Zap } from 'lucide-react';
 
@@ -28,15 +28,25 @@ export default function Register() {
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
+    // Read query params for Magic Link pre-fill
+    const [searchParams] = useSearchParams();
+    const prefillPhone = searchParams.get('phone');
+    const source = searchParams.get('source');
+    const isWhatsAppMagicLink = !!prefillPhone && source === 'whatsapp';
+
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
         password: '',
-        phone: '',
+        phone: prefillPhone || '',
         companyName: '',
         country: 'FR',
         sector: '',
+        registrationSource: source || 'organic',
     });
+
+    // Consent checkbox state (CRITICAL for GDPR)
+    const [agreed, setAgreed] = useState(false);
 
     const updateField = (field: string, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -94,16 +104,16 @@ export default function Register() {
                     {/* Stepper */}
                     <div className="flex items-center gap-3 mb-8">
                         <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${step === 1
-                                ? 'bg-slate-900 text-white'
-                                : 'bg-slate-100 text-slate-500'
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-slate-100 text-slate-500'
                             }`}>
                             <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs">1</span>
                             Administrateur
                         </div>
                         <div className="w-8 h-0.5 bg-slate-200" />
                         <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${step === 2
-                                ? 'bg-slate-900 text-white'
-                                : 'bg-slate-100 text-slate-500'
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-slate-100 text-slate-500'
                             }`}>
                             <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs">2</span>
                             Entreprise
@@ -123,6 +133,21 @@ export default function Register() {
                                         Créez votre compte administrateur
                                     </p>
                                 </div>
+
+                                {/* WhatsApp Magic Link Welcome Banner */}
+                                {isWhatsAppMagicLink && (
+                                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
+                                        <span className="text-2xl">👋</span>
+                                        <div>
+                                            <p className="text-green-800 font-medium text-sm">
+                                                Bienvenue depuis WhatsApp !
+                                            </p>
+                                            <p className="text-green-700 text-xs mt-0.5">
+                                                Complétez votre profil pour activer votre bot.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Full Name */}
                                 <div>
@@ -180,18 +205,27 @@ export default function Register() {
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-2">
                                         Téléphone WhatsApp
+                                        {prefillPhone && (
+                                            <span className="ml-2 text-xs text-green-600 font-normal">✓ Vérifié</span>
+                                        )}
                                     </label>
                                     <div className="relative">
                                         <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                         <input
                                             type="tel"
                                             value={formData.phone}
-                                            onChange={(e) => updateField('phone', e.target.value)}
-                                            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                            onChange={(e) => !prefillPhone && updateField('phone', e.target.value)}
+                                            readOnly={!!prefillPhone}
+                                            className={`w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl transition-all ${prefillPhone
+                                                    ? 'bg-slate-100 text-slate-600 cursor-not-allowed'
+                                                    : 'focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+                                                }`}
                                             placeholder="+33612345678"
                                         />
                                     </div>
-                                    <p className="text-xs text-slate-400 mt-1.5">Format international requis</p>
+                                    <p className="text-xs text-slate-400 mt-1.5">
+                                        {prefillPhone ? 'Numéro pré-rempli depuis WhatsApp' : 'Format international requis'}
+                                    </p>
                                 </div>
 
                                 {error && (
@@ -273,8 +307,8 @@ export default function Register() {
                                                 type="button"
                                                 onClick={() => updateField('sector', s.id)}
                                                 className={`p-4 rounded-xl border-2 transition-all text-left ${formData.sector === s.id
-                                                        ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20'
-                                                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                                    ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20'
+                                                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                                                     }`}
                                             >
                                                 <span className="text-2xl mb-2 block">{s.icon}</span>
@@ -291,6 +325,38 @@ export default function Register() {
                                     </div>
                                 )}
 
+                                {/* Consent Checkbox - CRITICAL FOR GDPR */}
+                                <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                    <input
+                                        type="checkbox"
+                                        id="consent"
+                                        checked={agreed}
+                                        onChange={(e) => setAgreed(e.target.checked)}
+                                        className="mt-0.5 w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                    />
+                                    <label htmlFor="consent" className="text-sm text-slate-600 leading-relaxed cursor-pointer">
+                                        J'accepte les{' '}
+                                        <a
+                                            href="/legal/terms"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-indigo-600 font-medium hover:underline"
+                                        >
+                                            Conditions Générales d'Utilisation
+                                        </a>
+                                        {' '}et la{' '}
+                                        <a
+                                            href="/legal/privacy"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-indigo-600 font-medium hover:underline"
+                                        >
+                                            Politique de Confidentialité
+                                        </a>
+                                        .
+                                    </label>
+                                </div>
+
                                 {/* Buttons */}
                                 <div className="flex gap-3">
                                     <button
@@ -303,8 +369,12 @@ export default function Register() {
                                     </button>
                                     <button
                                         type="submit"
-                                        disabled={loading}
-                                        className="flex-1 py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-slate-900/10 flex items-center justify-center gap-2"
+                                        disabled={loading || !agreed}
+                                        className={`flex-1 py-3.5 px-4 font-semibold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 ${agreed
+                                            ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/10'
+                                            : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                                            }`}
+                                        title={!agreed ? 'Veuillez accepter les CGU pour continuer' : ''}
                                     >
                                         {loading ? (
                                             <>

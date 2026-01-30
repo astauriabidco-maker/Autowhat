@@ -9,7 +9,87 @@
         "loading": "Cargando...",
         "error": "Error",
         "success": "Éxito",
-        "actions": "Acciones"
+        "actions": "Acciones",
+        "login": "Iniciar sesión",
+        "register": "Registrarse",
+        "freeTrial": "Prueba Gratis"
+    },
+    "landing": {
+        "hero": {
+            "badge": "Nuevo: Multi-sector disponible",
+            "title": "Tus empleados ya saben usar WhatsApp.",
+            "titleAccent": "¿Por qué obligarles a usar otra cosa?",
+            "subtitle1": "Deja de perseguir hojas de horas en papel o SMS perdidos.",
+            "subtitle2": "✅ Todo está centralizado, con fecha y listo para la nómina.",
+            "cta": "🚀 Crear mi cuenta gratis",
+            "demo": "Probar la Demo de WhatsApp"
+        },
+        "features": {
+            "title": "¿Por qué WhatsPoint?",
+            "subtitle": "La solución más simple para gestionar tus equipos de campo",
+            "deploy": {
+                "title": "Despliegue Relámpago",
+                "desc": "Añade tus empleados, reciben un WhatsApp. Eso es todo. Nada que instalar."
+            },
+            "proof": {
+                "title": "Pruebas de Campo",
+                "desc": "Geolocalización GPS y fotos obligatorias. Fin de las dudas."
+            },
+            "auto": {
+                "title": "100% Automatizado",
+                "desc": "El bot recuerda a los retrasados y genera el archivo Excel de nóminas."
+            },
+            "realtime": "Fichaje en tiempo real",
+            "excel": "Exportar Excel",
+            "gdpr": "Cumple RGPD",
+            "multisite": "Multi-sitio"
+        },
+        "sectors": {
+            "title": "Adaptado a tu sector",
+            "subtitle": "Vocabulario y funcionalidades personalizadas por profesión",
+            "btp": {
+                "label": "🏗️ Construcción",
+                "desc": "Fichaje en obra con GPS y fotos de progreso."
+            },
+            "cleaning": {
+                "label": "🧹 Limpieza",
+                "desc": "Validación de intervenciones sitio por sitio."
+            },
+            "security": {
+                "label": "🛡️ Seguridad",
+                "desc": "Control de turnos y relevos."
+            },
+            "retail": {
+                "label": "🛒 Comercio",
+                "desc": "Gestión de equipos en tienda."
+            }
+        },
+        "pricing": {
+            "title": "Precios simples y transparentes",
+            "subtitle": "14 días de prueba gratis. Sin compromiso. Sin tarjeta de crédito.",
+            "perMonth": "/mes",
+            "recommended": "Recomendado",
+            "upToEmployees": "Hasta {{count}} empleados",
+            "startTrial": "Comenzar prueba gratis",
+            "enterprise": "Contáctenos"
+        },
+        "cta": {
+            "title": "¿Listo para simplificar la gestión de tu equipo?",
+            "subtitle": "Prueba gratis durante 14 días. Sin compromiso.",
+            "button": "🚀 Crear mi cuenta",
+            "demo": "Ver la demo"
+        },
+        "footer": {
+            "copyright": "© 2026 WhatsPoint. Todos los derechos reservados.",
+            "legal": "Aviso Legal",
+            "privacy": "Privacidad",
+            "contact": "Contacto"
+        },
+        "nav": {
+            "features": "Funcionalidades",
+            "sectors": "Sectores",
+            "pricing": "Precios"
+        }
     },
     "sidebar": {
         "overview": "Vista general",
@@ -25,7 +105,7 @@
         "welcome": "Bienvenido",
         "today": "Hoy",
         "present": "Presentes",
-        "late": "Tarde",
+        "late": "Retrasados",
         "absent": "Ausentes",
         "totalHours": "Horas totales",
         "weeklyStats": "Estadísticas semanales",

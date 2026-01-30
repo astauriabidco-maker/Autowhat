@@ -2,12 +2,18 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import DashboardHome from './pages/DashboardHome';
 import Attendance from './pages/Attendance';
 import Employees from './pages/Employees';
+import EmployeeDetails from './pages/EmployeeDetails';
 import Expenses from './pages/Expenses';
 import Documents from './pages/Documents';
 import Settings from './pages/Settings';
+import IntegrationWhatsApp from './pages/IntegrationWhatsApp';
+import PrivacyShield from './pages/admin/PrivacyShield';
+import OnboardingWizard from './pages/OnboardingWizard';
 import ImportEmployees from './pages/ImportEmployees';
 import AdminLayout from './layouts/AdminLayout';
 import NetworkStatus from './components/NetworkStatus';
@@ -22,6 +28,25 @@ import SuperAdminLogs from './pages/superadmin/Logs';
 import SuperAdminSessions from './pages/superadmin/Sessions';
 import PlatformSettings from './pages/superadmin/PlatformSettings';
 import Integrations from './pages/superadmin/Integrations';
+import PlansManager from './pages/superadmin/PlansManager';
+import Webhooks from './pages/superadmin/Webhooks';
+import SupportInbox from './pages/superadmin/SupportInbox';
+import TenantDetails from './pages/superadmin/TenantDetails';
+import CreateTenant from './pages/superadmin/CreateTenant';
+import CrmLeads from './pages/superadmin/CrmLeads';
+import MarketingStudio from './pages/superadmin/MarketingStudio';
+import ExpensesAdmin from './pages/superadmin/ExpensesAdmin';
+import DocumentsAdmin from './pages/superadmin/DocumentsAdmin';
+import ServerHealth from './pages/superadmin/ServerHealth';
+import NumberPool from './pages/superadmin/NumberPool';
+import PricingMatrix from './pages/superadmin/PricingMatrix';
+import Billing from './pages/Billing';
+import Support from './pages/Support';
+// Legal Pages
+import Terms from './pages/legal/Terms';
+import Privacy from './pages/legal/Privacy';
+import Notices from './pages/legal/Notices';
+import CookieBanner from './components/CookieBanner';
 import './i18n'; // Initialize i18n
 import './index.css';
 
@@ -43,6 +68,16 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+
+          {/* Legal Pages */}
+          <Route path="/legal/terms" element={<Terms />} />
+          <Route path="/legal/privacy" element={<Privacy />} />
+          <Route path="/legal/notices" element={<Notices />} />
+
+          {/* Onboarding (Protected but no AdminLayout) */}
+          <Route path="/onboarding" element={<OnboardingWizard />} />
 
           {/* Protected Routes with Admin Layout */}
           <Route path="/dashboard" element={
@@ -53,6 +88,9 @@ function App() {
           } />
           <Route path="/employees" element={
             <ProtectedRoute><Employees /></ProtectedRoute>
+          } />
+          <Route path="/employees/:id" element={
+            <ProtectedRoute><EmployeeDetails /></ProtectedRoute>
           } />
           <Route path="/import-employees" element={
             <ProtectedRoute><ImportEmployees /></ProtectedRoute>
@@ -66,19 +104,46 @@ function App() {
           <Route path="/settings" element={
             <ProtectedRoute><Settings /></ProtectedRoute>
           } />
+          <Route path="/privacy" element={
+            <ProtectedRoute><PrivacyShield /></ProtectedRoute>
+          } />
+          <Route path="/billing" element={
+            <ProtectedRoute><Billing /></ProtectedRoute>
+          } />
+          <Route path="/support" element={
+            <ProtectedRoute><Support /></ProtectedRoute>
+          } />
+          <Route path="/settings/whatsapp" element={
+            <ProtectedRoute><IntegrationWhatsApp /></ProtectedRoute>
+          } />
 
           {/* SuperAdmin Routes */}
           <Route path="/superadmin/login" element={<SuperAdminLogin />} />
           <Route path="/superadmin" element={<SuperAdminLayout />}>
             <Route index element={<SuperAdminOverview />} />
             <Route path="tenants" element={<SuperAdminTenants />} />
+            <Route path="tenants/create" element={<CreateTenant />} />
+            <Route path="tenants/:id" element={<TenantDetails />} />
             <Route path="revenue" element={<SuperAdminRevenue />} />
             <Route path="sessions" element={<SuperAdminSessions />} />
             <Route path="logs" element={<SuperAdminLogs />} />
             <Route path="settings" element={<PlatformSettings />} />
             <Route path="integrations" element={<Integrations />} />
+            <Route path="plans" element={<PlansManager />} />
+            <Route path="pricing-matrix" element={<PricingMatrix />} />
+            <Route path="webhooks" element={<Webhooks />} />
+            <Route path="support" element={<SupportInbox />} />
+            <Route path="marketing" element={<MarketingStudio />} />
+            <Route path="leads" element={<CrmLeads />} />
+            <Route path="expenses" element={<ExpensesAdmin />} />
+            <Route path="documents" element={<DocumentsAdmin />} />
+            <Route path="health" element={<ServerHealth />} />
+            <Route path="number-pool" element={<NumberPool />} />
           </Route>
         </Routes>
+
+        {/* Cookie Consent Banner */}
+        <CookieBanner />
       </SiteProvider>
     </BrowserRouter>
   );

@@ -53,6 +53,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
                 break;
             }
 
+            case 'customer.subscription.created':
             case 'customer.subscription.updated': {
                 const subscription = event.data.object as Stripe.Subscription;
                 await handleSubscriptionUpdated(subscription);
@@ -85,10 +86,12 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
 
 /**
  * Handle checkout.session.completed
- * Upgrade tenant to PRO plan
+ * Initial subscription setup using metadata from checkout
  */
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
     const tenantId = session.metadata?.tenantId;
+    const planName = session.metadata?.planName;
+    const planLimit = session.metadata?.planLimit;
 
     if (!tenantId) {
         console.error('❌ No tenantId in checkout session metadata');
@@ -98,64 +101,88 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     const customerId = session.customer as string;
     const subscriptionId = session.subscription as string;
 
-    // Update tenant with Stripe info and upgrade to PRO
+    // Use metadata from checkout for initial setup
+    const limit = planLimit ? parseInt(planLimit) : 1000;
+
     await (prisma.tenant.update as any)({
         where: { id: tenantId },
         data: {
-            plan: 'PRO',
+            plan: planName || 'PRO',
             stripeCustomerId: customerId,
             stripeSubscriptionId: subscriptionId,
             subscriptionStatus: 'active',
-            maxEmployees: 1000, // PRO limit
+            maxEmployees: limit,
             trialEndsAt: null  // Clear trial
         }
     });
 
-    console.log(`✅ Tenant ${tenantId} upgraded to PRO (Customer: ${customerId})`);
+    console.log(`✅ Tenant ${tenantId} upgraded to ${planName} (limit: ${limit}, Customer: ${customerId})`);
 }
 
 /**
- * Handle customer.subscription.updated
- * Sync subscription status
+ * Handle customer.subscription.created / customer.subscription.updated
+ * Intelligently sync subscription status and plan limits using DB
  */
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
     const tenantId = subscription.metadata?.tenantId;
 
-    if (!tenantId) {
-        // Try to find by stripeSubscriptionId
-        const tenant = await (prisma.tenant.findFirst as any)({
+    // Extract price ID from subscription items
+    const priceId = subscription.items.data[0]?.price?.id;
+
+    // Find plan from database instead of static config
+    const plan = priceId
+        ? await (prisma as any).subscriptionPlan.findUnique({ where: { stripePriceId: priceId } })
+        : null;
+
+    // Find tenant
+    let tenant: any;
+    if (tenantId) {
+        tenant = await (prisma.tenant.findUnique as any)({ where: { id: tenantId } });
+    } else {
+        // Fallback: find by subscription ID
+        tenant = await (prisma.tenant.findFirst as any)({
             where: { stripeSubscriptionId: subscription.id }
         });
+    }
 
-        if (!tenant) {
-            console.error('❌ Cannot find tenant for subscription update');
-            return;
-        }
-
-        await (prisma.tenant.update as any)({
-            where: { id: tenant.id },
-            data: {
-                subscriptionStatus: subscription.status
-            }
-        });
-
-        console.log(`🔄 Subscription status updated for tenant ${tenant.id}: ${subscription.status}`);
+    if (!tenant) {
+        console.error('❌ Cannot find tenant for subscription update');
         return;
     }
 
-    await (prisma.tenant.update as any)({
-        where: { id: tenantId },
-        data: {
-            subscriptionStatus: subscription.status
+    // Build update data
+    const updateData: any = {
+        stripeSubscriptionId: subscription.id,
+        subscriptionStatus: subscription.status
+    };
+
+    // Only update plan and limits on successful active/trialing status
+    if (subscription.status === 'active' || subscription.status === 'trialing') {
+        if (plan) {
+            updateData.plan = plan.name;
+            updateData.maxEmployees = plan.maxEmployees;
+            updateData.trialEndsAt = null;
+        } else if (subscription.metadata?.planName) {
+            // Fallback to metadata
+            updateData.plan = subscription.metadata.planName;
+            if (subscription.metadata.planLimit) {
+                updateData.maxEmployees = parseInt(subscription.metadata.planLimit);
+            }
         }
+    }
+
+    await (prisma.tenant.update as any)({
+        where: { id: tenant.id },
+        data: updateData
     });
 
-    console.log(`🔄 Subscription status updated for tenant ${tenantId}: ${subscription.status}`);
+    const planInfo = plan ? `Plan: ${plan.name} (limit: ${plan.maxEmployees})` : `Status: ${subscription.status}`;
+    console.log(`🔄 Subscription updated for tenant ${tenant.id} - ${planInfo}`);
 }
 
 /**
  * Handle customer.subscription.deleted
- * Downgrade tenant to FREE/TRIAL
+ * Downgrade tenant to TRIAL with limited employees
  */
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
     // Find tenant by subscription ID
@@ -184,7 +211,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 
 /**
  * Handle invoice.payment_failed
- * Log failed payment (could also notify or suspend)
+ * Set status to past_due but DON'T change maxEmployees (fail-safe)
  */
 async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
     const customerId = invoice.customer as string;
@@ -199,7 +226,8 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
         return;
     }
 
-    // Update subscription status
+    // Update subscription status to past_due only
+    // Do NOT change plan or maxEmployees - this is fail-safe behavior
     await (prisma.tenant.update as any)({
         where: { id: tenant.id },
         data: {
@@ -207,7 +235,8 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
         }
     });
 
-    console.log(`💳 Payment failed for tenant ${tenant.id} - status: past_due`);
+    console.log(`💳 Payment failed for tenant ${tenant.id} - status: past_due (limits preserved)`);
 
     // TODO: Send notification to tenant admin
 }
+

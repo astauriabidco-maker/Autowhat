@@ -16,10 +16,11 @@ import {
     Server,
     CheckCircle,
     XCircle,
-    Loader2
+    Loader2,
+    Scale
 } from 'lucide-react';
 
-type TabType = 'general' | 'team' | 'health';
+type TabType = 'general' | 'team' | 'health' | 'legal';
 
 interface PlatformConfig {
     platformName: string;
@@ -27,6 +28,9 @@ interface PlatformConfig {
     defaultTrialDays: number;
     maintenanceMode: boolean;
     allowRegistrations: boolean;
+    termsOfService: string;
+    privacyPolicy: string;
+    legalNotices: string;
 }
 
 interface SuperAdmin {
@@ -60,7 +64,10 @@ export default function PlatformSettings() {
         supportEmail: '',
         defaultTrialDays: 14,
         maintenanceMode: false,
-        allowRegistrations: true
+        allowRegistrations: true,
+        termsOfService: '',
+        privacyPolicy: '',
+        legalNotices: ''
     });
 
     // Admins state
@@ -150,7 +157,8 @@ export default function PlatformSettings() {
     const tabs = [
         { id: 'general' as TabType, label: 'Général & Business', icon: Settings },
         { id: 'team' as TabType, label: 'Équipe Admin', icon: Users },
-        { id: 'health' as TabType, label: 'État du Système', icon: Activity }
+        { id: 'health' as TabType, label: 'État du Système', icon: Activity },
+        { id: 'legal' as TabType, label: '⚖️ Contenu Légal', icon: Scale }
     ];
 
     if (loading) {
@@ -440,6 +448,72 @@ export default function PlatformSettings() {
                                 status={health.services.redis.status}
                                 configured={health.services.redis.configured}
                             />
+                        </div>
+                    </div>
+                )}
+
+                {/* Legal Content Tab */}
+                {activeTab === 'legal' && (
+                    <div className="space-y-6">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                            <p className="text-blue-800 text-sm">
+                                💡 <strong>Note :</strong> Vous pouvez utiliser des balises HTML simples (&lt;p&gt;, &lt;b&gt;, &lt;br&gt;) ou du texte brut.
+                                Les sauts de ligne seront conservés à l'affichage.
+                            </p>
+                        </div>
+
+                        {/* Terms of Service */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                📜 Conditions Générales d'Utilisation (CGU/CGV)
+                            </label>
+                            <textarea
+                                value={config.termsOfService}
+                                onChange={(e) => setConfig({ ...config, termsOfService: e.target.value })}
+                                rows={20}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 font-mono text-sm"
+                                placeholder="Entrez vos Conditions Générales d'Utilisation ici..."
+                            />
+                        </div>
+
+                        {/* Privacy Policy */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                🔒 Politique de Confidentialité
+                            </label>
+                            <textarea
+                                value={config.privacyPolicy}
+                                onChange={(e) => setConfig({ ...config, privacyPolicy: e.target.value })}
+                                rows={20}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 font-mono text-sm"
+                                placeholder="Entrez votre Politique de Confidentialité ici..."
+                            />
+                        </div>
+
+                        {/* Legal Notices */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                📋 Mentions Légales
+                            </label>
+                            <textarea
+                                value={config.legalNotices}
+                                onChange={(e) => setConfig({ ...config, legalNotices: e.target.value })}
+                                rows={20}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 font-mono text-sm"
+                                placeholder="Entrez vos Mentions Légales ici..."
+                            />
+                        </div>
+
+                        {/* Save Button */}
+                        <div className="pt-6 border-t border-gray-200">
+                            <button
+                                onClick={saveConfig}
+                                disabled={saving}
+                                className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition disabled:opacity-50"
+                            >
+                                {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                                Sauvegarder le Contenu Légal
+                            </button>
                         </div>
                     </div>
                 )}

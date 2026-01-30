@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { dispatchWebhook, WEBHOOK_EVENTS } from './webhookService';
 
 const prisma = new PrismaClient();
 
@@ -97,6 +98,15 @@ export const checkIn = async (employee: Employee, messageTimestamp?: Date): Prom
         }
     });
 
+    // Dispatch webhook event
+    dispatchWebhook(WEBHOOK_EVENTS.CHECK_IN, {
+        attendanceId: attendance.id,
+        employeeId: employee.id,
+        employeeName: employee.name,
+        checkInTime: checkInTime.toISOString(),
+        tenantName: employee.tenant.name
+    }, employee.tenantId);
+
     // Log si le timestamp diffère significativement (plus de 5 min)
     const now = new Date();
     const timeDiffMinutes = Math.abs(now.getTime() - checkInTime.getTime()) / (1000 * 60);
@@ -148,6 +158,17 @@ export const checkOut = async (employee: Employee, messageTimestamp?: Date): Pro
     });
 
     const duration = calculateDuration(openAttendance.checkIn, checkOutTime);
+
+    // Dispatch webhook event
+    dispatchWebhook(WEBHOOK_EVENTS.CHECK_OUT, {
+        attendanceId: openAttendance.id,
+        employeeId: employee.id,
+        employeeName: employee.name,
+        checkInTime: openAttendance.checkIn.toISOString(),
+        checkOutTime: checkOutTime.toISOString(),
+        duration,
+        tenantName: employee.tenant.name
+    }, employee.tenantId);
 
     // Log si le timestamp diffère significativement (plus de 5 min)
     const now = new Date();

@@ -10,10 +10,8 @@ import {
     CheckCircle,
     XCircle,
     Clock,
-    Euro,
-    User,
-    Calendar,
-    Image
+    Image,
+    Download
 } from 'lucide-react';
 import { useSiteContext } from '../context/SiteContext';
 
@@ -210,6 +208,17 @@ export default function Expenses() {
                     <h1 className="text-2xl font-bold text-gray-900">Notes de Frais</h1>
                     <p className="text-gray-500 mt-1">Validation rapide des dépenses</p>
                 </div>
+                <button
+                    onClick={() => {
+                        const token = localStorage.getItem('token');
+                        const now = new Date();
+                        window.open(`/api/expenses/export?month=${now.getMonth() + 1}&year=${now.getFullYear()}&token=${token}`, '_blank');
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+                >
+                    <Download size={18} />
+                    Export CSV
+                </button>
             </div>
 
             {/* Stats Cards - Revolut Style */}

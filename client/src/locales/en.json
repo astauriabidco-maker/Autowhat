@@ -9,7 +9,191 @@
         "loading": "Loading...",
         "error": "Error",
         "success": "Success",
-        "actions": "Actions"
+        "actions": "Actions",
+        "login": "Login",
+        "register": "Sign Up",
+        "freeTrial": "Free Trial"
+    },
+    "landing": {
+        "hero": {
+            "badge": "The complete HR Suite that fits in WhatsApp",
+            "title": "Your employees already know how to use WhatsApp.",
+            "title.btp": "Manage your construction crews in 2 minutes a day.",
+            "title.cleaning": "Validate every intervention with a message.",
+            "title.security": "Track your security agents in real-time.",
+            "title.generic": "Simplify field team management.",
+            "title.social": "Join 500+ companies who trust us.",
+            "titleAccent": "Why force them to use something else?",
+            "subtitle1": "Stop chasing paper timesheets or lost SMS.",
+            "subtitle.btp": "GPS, site photos and automatic payroll export.",
+            "subtitle.cleaning": "Every site validated, every intervention tracked.",
+            "subtitle.security": "Shifts, rounds and handovers under total control.",
+            "subtitle2": "✅ Everything is centralized, timestamped and ready for payroll.",
+            "cta": "🚀 Create my free account",
+            "cta.btp": "🏗️ Try for Construction",
+            "cta.cleaning": "🧹 Try for Cleaning",
+            "demo": "Try the WhatsApp Demo",
+            "badges": {
+                "gdpr": "GDPR Compliant",
+                "encrypted": "Encrypted",
+                "noApp": "No app to install"
+            }
+        },
+        "trust": {
+            "title": "Your data doesn't belong to Meta.",
+            "subtitle": "WhatsApp is the channel. Never the owner of your information.",
+            "stealth": {
+                "title": "Stealth Mode",
+                "desc": "Our algorithms anonymize project names before they reach WhatsApp."
+            },
+            "retention": {
+                "title": "Auto-Destruction",
+                "desc": "Your archives are automatically deleted according to your GDPR rules."
+            },
+            "isolation": {
+                "title": "Isolation",
+                "desc": "Each company has its own isolated database. Zero mixing."
+            },
+            "badges": {
+                "encrypted": "AES-256 Encryption",
+                "gdpr": "GDPR Compliant",
+                "audit": "Annually Audited"
+            }
+        },
+        "suite": {
+            "badge": "POCKET HR SUITE",
+            "title": "Much more than a time clock.",
+            "subtitle": "A complete HR suite accessible from WhatsApp. Your managers love the dashboard.",
+            "gps": {
+                "title": "GPS Attendance",
+                "desc": "A \"Hi\" is enough. GPS automatically verifies the employee is on site.",
+                "f1": "Automatic site verification",
+                "f2": "Excel export for payroll",
+                "f3": "Geolocalized history"
+            },
+            "expenses": {
+                "title": "Expense Reports",
+                "desc": "One photo of the receipt, and it's accounted for. AI extracts the amounts.",
+                "badge": "Smart OCR"
+            },
+            "docs": {
+                "title": "Document Vault",
+                "desc": "Contracts, permits and certifications accessible in the field.",
+                "badge": "Offline Access"
+            },
+            "support": {
+                "title": "Integrated Support",
+                "desc": "Your teams talk to us directly via WhatsApp. Response < 2h.",
+                "badge": "SLA 2 hours"
+            },
+            "dashboard": {
+                "title": "Manager Dashboard",
+                "desc": "While your teams clock in on WhatsApp, you control everything from a modern interface."
+            }
+        },
+        "enterprise": {
+            "badge": "ENTERPRISE & SCALE",
+            "title": "Ready for large accounts.",
+            "subtitle": "The same features as market leaders, at a fraction of the price.",
+            "byon": {
+                "title": "BYON - Bring Your Own Number",
+                "desc": "Connect your own official WhatsApp Business line. Keep your historical number.",
+                "highlight": "Verified number ✓"
+            },
+            "global": {
+                "title": "Global Infrastructure",
+                "desc": "Local numbers available in 150+ countries. Deploy internationally in 24h.",
+                "highlight": "150+ countries"
+            },
+            "antiban": {
+                "title": "Anti-Ban Protection",
+                "desc": "Traffic smoothing algorithms and smart rotation for 99.9% deliverability.",
+                "highlight": "99.9% uptime"
+            },
+            "cta": {
+                "title": "Need a custom deployment?",
+                "desc": "Our team configures your instance in less than 48h.",
+                "b1": "Guaranteed SLA",
+                "b2": "Dedicated Account Manager",
+                "b3": "Training Included",
+                "button": "Contact sales"
+            }
+        },
+        "features": {
+            "title": "Why WhatsPoint?",
+            "subtitle": "The simplest solution to manage your field teams",
+            "deploy": {
+                "title": "Lightning Deployment",
+                "desc": "Add your employees, they get a WhatsApp. That's it. Nothing to install."
+            },
+            "proof": {
+                "title": "Field Proof",
+                "desc": "GPS location and mandatory photos. No more doubts."
+            },
+            "auto": {
+                "title": "100% Automated",
+                "desc": "The bot reminds latecomers and generates the payroll Excel file."
+            },
+            "realtime": "Real-time attendance",
+            "excel": "Excel Export",
+            "gdpr": "GDPR compliant",
+            "multisite": "Multi-site"
+        },
+        "sectors": {
+            "title": "Tailored to your industry",
+            "subtitle": "Customized vocabulary and features by profession",
+            "btp": {
+                "label": "🏗️ Construction",
+                "desc": "Site attendance with GPS and progress photos."
+            },
+            "cleaning": {
+                "label": "🧹 Cleaning",
+                "desc": "Site-by-site intervention validation."
+            },
+            "security": {
+                "label": "🛡️ Security",
+                "desc": "Shift control and handovers."
+            },
+            "retail": {
+                "label": "🛒 Retail",
+                "desc": "Store team management."
+            }
+        },
+        "testimonials": {
+            "title": "They trust us",
+            "subtitle": "Discover what our clients say about WhatsPoint",
+            "companies": "Companies",
+            "employees": "Employees managed",
+            "rating": "Average rating"
+        },
+        "pricing": {
+            "title": "Simple and transparent pricing",
+            "subtitle": "14-day free trial. No commitment. No credit card.",
+            "perMonth": "/month",
+            "recommended": "Recommended",
+            "upToEmployees": "Up to {{count}} employees",
+            "startTrial": "Start free trial",
+            "enterprise": "Contact us"
+        },
+        "cta": {
+            "title": "Ready to simplify your team management?",
+            "subtitle": "Try free for 14 days. No commitment.",
+            "button": "🚀 Create my account",
+            "demo": "See the demo"
+        },
+        "footer": {
+            "copyright": "© 2026 WhatsPoint. All rights reserved.",
+            "legal": "Legal Notice",
+            "privacy": "Privacy",
+            "contact": "Contact"
+        },
+        "nav": {
+            "features": "HR Suite",
+            "sectors": "Sectors",
+            "pricing": "Pricing",
+            "testimonials": "Testimonials",
+            "enterprise": "Enterprise"
+        }
     },
     "sidebar": {
         "overview": "Overview",
@@ -28,7 +212,7 @@
         "late": "Late",
         "absent": "Absent",
         "totalHours": "Total hours",
-        "weeklyStats": "Weekly statistics",
+        "weeklyStats": "Weekly stats",
         "recentActivity": "Recent activity"
     },
     "employees": {
@@ -51,12 +235,12 @@
     },
     "attendance": {
         "title": "Attendance Register",
-        "checkIn": "Check-in",
-        "checkOut": "Check-out",
+        "checkIn": "Check In",
+        "checkOut": "Check Out",
         "duration": "Duration",
         "location": "Location",
-        "onSite": "On site",
-        "offSite": "Off site",
+        "onSite": "On-site",
+        "offSite": "Off-site",
         "noRecord": "No record"
     },
     "languages": {

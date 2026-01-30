@@ -15,7 +15,8 @@ import {
     ChevronRight,
     AlertTriangle,
     X,
-    Shield
+    Shield,
+    Headphones
 } from 'lucide-react';
 import SiteSelector from './components/SiteSelector';
 import TrialBanner from './components/TrialBanner';
@@ -34,6 +35,7 @@ const navItems: NavItem[] = [
     { icon: <Clock size={20} />, label: 'Présences', path: '/attendance' },
     { icon: <Receipt size={20} />, label: 'Note de Frais', path: '/expenses' },
     { icon: <FolderOpen size={20} />, label: 'Documents', path: '/documents' },
+    { icon: <Headphones size={20} />, label: 'Support', path: '/support' },
     { icon: <Settings size={20} />, label: 'Paramètres', path: '/settings' },
 ];
 
@@ -70,7 +72,26 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             }
         };
         fetchTenantInfo();
-    }, []);
+
+        // Check onboarding status for managers
+        const checkOnboarding = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+
+                const res = await axios.get('/api/user/onboarding-status', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                if (res.data.needsOnboarding) {
+                    navigate('/onboarding');
+                }
+            } catch (e) {
+                console.log('Could not check onboarding status');
+            }
+        };
+        checkOnboarding();
+    }, [navigate]);
 
     // Check for impersonation mode on mount and route changes
     useEffect(() => {

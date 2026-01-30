@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, Users, Calendar, Building2 } from 'lucide-react';
+import { DollarSign, TrendingUp, Users, Calendar, Building2, PieChart as PieIcon } from 'lucide-react';
+import {
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    PieChart, Pie, Cell, Legend,
+    BarChart, Bar
+} from 'recharts';
 
 interface RevenueStats {
     totalMRR: number;
@@ -15,6 +20,31 @@ interface RevenueStats {
     }[];
 }
 
+interface AnalyticsData {
+    mrrHistory: {
+        month: string;
+        mrr: number;
+        pro: number;
+        enterprise: number;
+        trial: number;
+        total: number;
+    }[];
+    planDistribution: {
+        trial: number;
+        pro: number;
+        enterprise: number;
+    };
+    funnel: {
+        signups: number;
+        activeTrials: number;
+        converted: number;
+        conversionRate: number;
+        expiredTrials: number;
+    };
+    currentMRR: number;
+    projectedARR: number;
+}
+
 // Pricing configuration (should match your actual pricing)
 const PLAN_PRICING = {
     TRIAL: 0,
@@ -22,55 +52,48 @@ const PLAN_PRICING = {
     ENTERPRISE: 99 // €/month
 };
 
+// Chart colors
+const COLORS = {
+    trial: '#9ca3af',
+    pro: '#3b82f6',
+    enterprise: '#8b5cf6',
+    mrr: '#10b981',
+    arr: '#6366f1'
+};
+
 export default function Revenue() {
     const [stats, setStats] = useState<RevenueStats | null>(null);
+    const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchRevenueData();
+        fetchData();
     }, []);
 
-    const fetchRevenueData = async () => {
+    const fetchData = async () => {
         try {
             const token = localStorage.getItem('superadmin_token');
-            const response = await fetch('/admin/stats', {
+
+            // Fetch analytics data
+            const analyticsRes = await fetch('/admin/analytics', {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            if (response.ok) {
-                const data = await response.json();
+            if (analyticsRes.ok) {
+                const analyticsData = await analyticsRes.json();
+                setAnalytics(analyticsData);
 
-                // Calculate revenue stats from tenants data
-                const tenantsRes = await fetch('/admin/tenants/list?page=1&limit=100', {
-                    headers: { Authorization: `Bearer ${token}` }
+                // Set stats from analytics
+                setStats({
+                    totalMRR: analyticsData.currentMRR,
+                    trialCount: analyticsData.planDistribution.trial,
+                    proCount: analyticsData.planDistribution.pro,
+                    enterpriseCount: analyticsData.planDistribution.enterprise,
+                    tenantsByPlan: []
                 });
-
-                if (tenantsRes.ok) {
-                    const tenantsData = await tenantsRes.json();
-
-                    let trialCount = 0;
-                    let proCount = 0;
-                    let enterpriseCount = 0;
-
-                    tenantsData.tenants.forEach((t: any) => {
-                        if (t.plan === 'TRIAL') trialCount++;
-                        else if (t.plan === 'PRO') proCount++;
-                        else if (t.plan === 'ENTERPRISE') enterpriseCount++;
-                    });
-
-                    const totalMRR = (proCount * PLAN_PRICING.PRO) + (enterpriseCount * PLAN_PRICING.ENTERPRISE);
-
-                    setStats({
-                        totalMRR,
-                        trialCount,
-                        proCount,
-                        enterpriseCount,
-                        tenantsByPlan: tenantsData.tenants
-                    });
-                }
             }
         } catch (error) {
-            console.error('Error fetching revenue data:', error);
+            console.error('Error fetching data:', error);
         } finally {
             setLoading(false);
         }
@@ -84,17 +107,30 @@ export default function Revenue() {
         );
     }
 
-    const projectedARR = (stats?.totalMRR || 0) * 12;
-    const conversionRate = stats && stats.trialCount > 0
-        ? ((stats.proCount + stats.enterpriseCount) / (stats.trialCount + stats.proCount + stats.enterpriseCount) * 100).toFixed(1)
-        : '0';
+    const projectedARR = analytics?.projectedARR || 0;
+    const conversionRate = analytics?.funnel.conversionRate || 0;
+
+    // Prepare pie chart data
+    const pieData = analytics ? [
+        { name: 'Trial', value: analytics.planDistribution.trial, color: COLORS.trial },
+        { name: 'Pro', value: analytics.planDistribution.pro, color: COLORS.pro },
+        { name: 'Enterprise', value: analytics.planDistribution.enterprise, color: COLORS.enterprise }
+    ].filter(d => d.value > 0) : [];
+
+    // Prepare funnel data
+    const funnelData = analytics ? [
+        { name: 'Inscriptions', value: analytics.funnel.signups, fill: '#6b7280' },
+        { name: 'Trials Actifs', value: analytics.funnel.activeTrials, fill: COLORS.trial },
+        { name: 'Convertis', value: analytics.funnel.converted, fill: COLORS.pro },
+        { name: 'Expirés', value: analytics.funnel.expiredTrials, fill: '#ef4444' }
+    ] : [];
 
     return (
         <div className="space-y-6">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-gray-900">Revenus</h1>
-                <p className="text-gray-500">Suivi des revenus et conversions</p>
+                <h1 className="text-2xl font-bold text-gray-900">Revenus & Analytics</h1>
+                <p className="text-gray-500">Suivi des revenus, conversions et tendances</p>
             </div>
 
             {/* KPI Cards */}
@@ -107,7 +143,7 @@ export default function Revenue() {
                         </div>
                         <div>
                             <p className="text-sm text-green-100">MRR</p>
-                            <p className="text-3xl font-bold">{stats?.totalMRR || 0}€</p>
+                            <p className="text-3xl font-bold">{analytics?.currentMRR || 0}€</p>
                         </div>
                     </div>
                 </div>
@@ -146,15 +182,106 @@ export default function Revenue() {
                         </div>
                         <div>
                             <p className="text-sm text-orange-100">Clients Payants</p>
-                            <p className="text-3xl font-bold">{(stats?.proCount || 0) + (stats?.enterpriseCount || 0)}</p>
+                            <p className="text-3xl font-bold">{analytics?.funnel.converted || 0}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Plan Distribution */}
+            {/* Charts Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* MRR Trend Chart */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <TrendingUp size={20} className="text-green-500" />
+                        Évolution MRR (6 mois)
+                    </h2>
+                    <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={analytics?.mrrHistory || []}>
+                                <defs>
+                                    <linearGradient id="mrrGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={COLORS.mrr} stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor={COLORS.mrr} stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#9ca3af" />
+                                <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" tickFormatter={(v) => `${v}€`} />
+                                <Tooltip
+                                    formatter={(value: number) => [`${value}€`, 'MRR']}
+                                    contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="mrr"
+                                    stroke={COLORS.mrr}
+                                    strokeWidth={3}
+                                    fill="url(#mrrGradient)"
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Plan Distribution Pie */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <PieIcon size={20} className="text-purple-500" />
+                        Répartition par Plan
+                    </h2>
+                    <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={pieData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={90}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                    labelLine={false}
+                                >
+                                    {pieData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Legend />
+                                <Tooltip />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </div>
+
+            {/* Conversion Funnel */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Répartition par Plan</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <Users size={20} className="text-blue-500" />
+                    Entonnoir de Conversion
+                </h2>
+                <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={funnelData} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <XAxis type="number" tick={{ fontSize: 12 }} stroke="#9ca3af" />
+                            <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} stroke="#9ca3af" width={100} />
+                            <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }} />
+                            <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                                {funnelData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* Plan Distribution Cards */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Détail par Plan</h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Trial */}

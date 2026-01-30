@@ -9,7 +9,191 @@
         "loading": "Chargement...",
         "error": "Erreur",
         "success": "Succès",
-        "actions": "Actions"
+        "actions": "Actions",
+        "login": "Connexion",
+        "register": "S'inscrire",
+        "freeTrial": "Essai Gratuit"
+    },
+    "landing": {
+        "hero": {
+            "badge": "La Suite RH complète qui tient dans WhatsApp",
+            "title": "Vos employés savent déjà utiliser WhatsApp.",
+            "title.btp": "Gérez vos équipes BTP en 2 minutes par jour.",
+            "title.cleaning": "Validez chaque intervention en un message.",
+            "title.security": "Suivez vos agents de sécurité en temps réel.",
+            "title.generic": "Simplifiez la gestion de vos équipes terrain.",
+            "title.social": "Rejoignez 500+ entreprises qui nous font confiance.",
+            "titleAccent": "Pourquoi leur imposer autre chose ?",
+            "subtitle1": "Arrêtez de courir après les feuilles d'heures papier ou les SMS perdus.",
+            "subtitle.btp": "GPS, photos de chantier et export paie automatique.",
+            "subtitle.cleaning": "Chaque site validé, chaque intervention tracée.",
+            "subtitle.security": "Vacations, rondes et relèves sous contrôle total.",
+            "subtitle2": "✅ Tout est centralisé, horodaté et prêt pour la paie.",
+            "cta": "🚀 Créer mon compte gratuit",
+            "cta.btp": "🏗️ Essayer pour le BTP",
+            "cta.cleaning": "🧹 Essayer pour le Nettoyage",
+            "demo": "Essayer la Démo WhatsApp",
+            "badges": {
+                "gdpr": "Conforme RGPD",
+                "encrypted": "Chiffré",
+                "noApp": "Pas d'app à installer"
+            }
+        },
+        "trust": {
+            "title": "Vos données n'appartiennent pas à Meta.",
+            "subtitle": "WhatsApp est le canal. Jamais le propriétaire de vos informations.",
+            "stealth": {
+                "title": "Mode Furtif",
+                "desc": "Nos algorithmes anonymisent les noms de chantiers avant qu'ils n'atteignent WhatsApp."
+            },
+            "retention": {
+                "title": "Auto-Destruction",
+                "desc": "Vos archives sont supprimées automatiquement selon vos règles RGPD."
+            },
+            "isolation": {
+                "title": "Cloisonnement",
+                "desc": "Chaque entreprise possède sa base de données isolée. Zéro mélange."
+            },
+            "badges": {
+                "encrypted": "Chiffrement AES-256",
+                "gdpr": "Conforme RGPD",
+                "audit": "Audité annuellement"
+            }
+        },
+        "suite": {
+            "badge": "POCKET HR SUITE",
+            "title": "Bien plus qu'une pointeuse.",
+            "subtitle": "Une suite RH complète accessible depuis WhatsApp. Vos managers adorent le dashboard.",
+            "gps": {
+                "title": "Pointage GPS",
+                "desc": "Un \"Hi\" suffit. Le GPS vérifie automatiquement que l'employé est bien sur site.",
+                "f1": "Vérification site automatique",
+                "f2": "Export Excel pour la paie",
+                "f3": "Historique géolocalisé"
+            },
+            "expenses": {
+                "title": "Notes de Frais",
+                "desc": "Une photo du ticket, et c'est comptabilisé. L'IA extrait les montants.",
+                "badge": "OCR Intelligent"
+            },
+            "docs": {
+                "title": "Coffre-fort Doc",
+                "desc": "Contrats, permis et habilitations accessibles sur le terrain.",
+                "badge": "Accès Hors-Ligne"
+            },
+            "support": {
+                "title": "Support Intégré",
+                "desc": "Vos équipes nous parlent directement via WhatsApp. Réponse < 2h.",
+                "badge": "SLA 2 heures"
+            },
+            "dashboard": {
+                "title": "Dashboard Manager",
+                "desc": "Pendant que vos équipes pointent sur WhatsApp, vous pilotez tout depuis une interface moderne."
+            }
+        },
+        "enterprise": {
+            "badge": "ENTERPRISE & SCALE",
+            "title": "Prêt pour les grands comptes.",
+            "subtitle": "Les mêmes fonctionnalités que les leaders du marché, à une fraction du prix.",
+            "byon": {
+                "title": "BYON - Bring Your Own Number",
+                "desc": "Connectez votre propre ligne WhatsApp Business officielle. Gardez votre numéro historique.",
+                "highlight": "Numéro vérifié ✓"
+            },
+            "global": {
+                "title": "Infrastructure Globale",
+                "desc": "Numéros locaux disponibles dans plus de 150 pays. Déployez à l'international en 24h.",
+                "highlight": "150+ pays"
+            },
+            "antiban": {
+                "title": "Protection Anti-Ban",
+                "desc": "Algorithmes de lissage de trafic et rotation intelligente pour une délivrabilité de 99.9%.",
+                "highlight": "99.9% uptime"
+            },
+            "cta": {
+                "title": "Besoin d'un déploiement sur-mesure ?",
+                "desc": "Notre équipe configure votre instance en moins de 48h.",
+                "b1": "SLA Garanti",
+                "b2": "Account Manager Dédié",
+                "b3": "Formation Incluse",
+                "button": "Contacter les ventes"
+            }
+        },
+        "features": {
+            "title": "Pourquoi WhatsPoint ?",
+            "subtitle": "La solution la plus simple pour gérer vos équipes terrain",
+            "deploy": {
+                "title": "Déploiement Éclair",
+                "desc": "Ajoutez vos employés, ils reçoivent un WhatsApp. C'est tout. Rien à installer."
+            },
+            "proof": {
+                "title": "Preuves Terrain",
+                "desc": "Géolocalisation GPS et Photos obligatoires. Fini les doutes."
+            },
+            "auto": {
+                "title": "100% Automatisé",
+                "desc": "Le bot relance les retardataires et génère le fichier Excel de paie."
+            },
+            "realtime": "Pointage temps réel",
+            "excel": "Export Excel",
+            "gdpr": "RGPD compliant",
+            "multisite": "Multi-sites"
+        },
+        "sectors": {
+            "title": "Adapté à votre secteur",
+            "subtitle": "Vocabulaire et fonctionnalités personnalisés par métier",
+            "btp": {
+                "label": "🏗️ BTP",
+                "desc": "Pointage chantier avec GPS et photos de progression."
+            },
+            "cleaning": {
+                "label": "🧹 Nettoyage",
+                "desc": "Validation des interventions site par site."
+            },
+            "security": {
+                "label": "🛡️ Sécurité",
+                "desc": "Contrôle des vacations et relèves."
+            },
+            "retail": {
+                "label": "🛒 Commerce",
+                "desc": "Gestion des équipes en magasin."
+            }
+        },
+        "testimonials": {
+            "title": "Ils nous font confiance",
+            "subtitle": "Découvrez ce que nos clients disent de WhatsPoint",
+            "companies": "Entreprises",
+            "employees": "Employés gérés",
+            "rating": "Note moyenne"
+        },
+        "pricing": {
+            "title": "Tarifs simples et transparents",
+            "subtitle": "14 jours d'essai gratuit. Sans engagement. Sans carte bancaire.",
+            "perMonth": "/mois",
+            "recommended": "Recommandé",
+            "upToEmployees": "Jusqu'à {{count}} employés",
+            "startTrial": "Commencer l'essai gratuit",
+            "enterprise": "Contactez-nous"
+        },
+        "cta": {
+            "title": "Prêt à simplifier votre gestion d'équipe ?",
+            "subtitle": "Essayez gratuitement pendant 14 jours. Sans engagement.",
+            "button": "🚀 Créer mon compte",
+            "demo": "Voir la démo"
+        },
+        "footer": {
+            "copyright": "© 2026 WhatsPoint. Tous droits réservés.",
+            "legal": "Mentions légales",
+            "privacy": "Confidentialité",
+            "contact": "Contact"
+        },
+        "nav": {
+            "features": "Suite HR",
+            "sectors": "Secteurs",
+            "pricing": "Tarifs",
+            "testimonials": "Témoignages",
+            "enterprise": "Enterprise"
+        }
     },
     "sidebar": {
         "overview": "Vue d'ensemble",

@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { PrismaClient } from '@prisma/client';
-import { uploadDocument, getDocumentsForTenant, getEmployeesForTenant, DOCUMENT_CATEGORIES } from '../services/documentService';
+import { uploadDocument, getDocumentsForTenant, getDocumentsForSpecificEmployee, getEmployeesForTenant, DOCUMENT_TYPES, getExpiryStatus } from '../services/documentService';
 import { sendMessage } from '../services/whatsappService';
 
 const prisma = new PrismaClient();
@@ -55,30 +55,31 @@ export const uploadDocumentHandler = async (req: Request, res: Response): Promis
             return res.status(400).json({ error: 'Aucun fichier fourni' });
         }
 
-        const { title, category, employeeId } = req.body;
+        const { name, type, expiryDate, employeeId } = req.body;
 
-        if (!title || !category) {
-            return res.status(400).json({ error: 'Titre et catégorie requis' });
+        if (!name || !type) {
+            return res.status(400).json({ error: 'Nom et type requis' });
         }
 
-        if (!DOCUMENT_CATEGORIES[category as keyof typeof DOCUMENT_CATEGORIES]) {
-            return res.status(400).json({ error: 'Catégorie invalide. Utilisez PAIE, CONTRAT ou INTERNE.' });
+        if (!DOCUMENT_TYPES[type as keyof typeof DOCUMENT_TYPES]) {
+            return res.status(400).json({ error: 'Type invalide. Utilisez CONTRACT, CERTIFICATE, IDENTITY ou OTHER.' });
         }
 
         const filePath = `/uploads/documents/${req.file.filename}`;
 
         const document = await uploadDocument({
             filePath,
-            title,
-            category,
+            name,
+            type,
+            expiryDate: expiryDate ? new Date(expiryDate) : null,
             employeeId: employeeId || null,
             tenantId
         });
 
-        console.log(`📄 Document uploaded: ${title} by tenant ${tenantId}`);
+        console.log(`📄 Document uploaded: ${name} by tenant ${tenantId}`);
 
         // Send WhatsApp notification
-        const notificationMessage = `🔔 *Nouveau document reçu*\n\n📄 *${title}*\n\n_Tapez 'Documents' pour le consulter._`;
+        const notificationMessage = `🔔 *Nouveau document reçu*\n\n📄 *${name}*\n\n_Tapez '!doc' pour consulter vos documents._`;
 
         if (employeeId) {
             // Send to specific employee
@@ -106,9 +107,10 @@ export const uploadDocumentHandler = async (req: Request, res: Response): Promis
             success: true,
             document: {
                 id: document.id,
-                title: document.title,
-                category: document.category,
+                name: document.name,
+                type: document.type,
                 url: document.url,
+                expiryDate: document.expiryDate,
                 createdAt: document.createdAt
             }
         });
@@ -133,10 +135,12 @@ export const getDocuments = async (req: Request, res: Response): Promise<any> =>
 
         const formatted = documents.map(doc => ({
             id: doc.id,
-            title: doc.title,
-            category: doc.category,
-            categoryLabel: DOCUMENT_CATEGORIES[doc.category as keyof typeof DOCUMENT_CATEGORIES] || doc.category,
+            name: doc.name,
+            type: doc.type,
+            typeLabel: DOCUMENT_TYPES[doc.type as keyof typeof DOCUMENT_TYPES] || doc.type,
             url: doc.url,
+            expiryDate: doc.expiryDate,
+            expiryStatus: getExpiryStatus(doc.expiryDate),
             createdAt: doc.createdAt,
             employee: doc.employee ? {
                 id: doc.employee.id,
@@ -152,6 +156,56 @@ export const getDocuments = async (req: Request, res: Response): Promise<any> =>
         });
     } catch (error) {
         console.error('❌ Error fetching documents:', error);
+        return res.status(500).json({ error: 'Erreur serveur' });
+    }
+};
+
+/**
+ * Get documents for a specific employee
+ * GET /api/employees/:id/documents
+ */
+export const getEmployeeDocuments = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const tenantId = (req as any).user?.tenantId;
+        if (!tenantId) {
+            return res.status(401).json({ error: 'Non autorisé' });
+        }
+
+        const employeeId = req.params.id as string;
+
+        // Verify employee belongs to tenant
+        const employee = await prisma.employee.findFirst({
+            where: { id: employeeId, tenantId }
+        });
+
+        if (!employee) {
+            return res.status(404).json({ error: 'Employé non trouvé' });
+        }
+
+        const documents = await getDocumentsForSpecificEmployee(employeeId, tenantId);
+
+        const formatted = documents.map(doc => ({
+            id: doc.id,
+            name: doc.name,
+            type: doc.type,
+            typeLabel: DOCUMENT_TYPES[doc.type as keyof typeof DOCUMENT_TYPES] || doc.type,
+            url: doc.url,
+            expiryDate: doc.expiryDate,
+            expiryStatus: getExpiryStatus(doc.expiryDate),
+            createdAt: doc.createdAt
+        }));
+
+        return res.json({
+            employee: {
+                id: employee.id,
+                name: employee.name || 'Employé',
+                phoneNumber: employee.phoneNumber
+            },
+            count: formatted.length,
+            documents: formatted
+        });
+    } catch (error) {
+        console.error('❌ Error fetching employee documents:', error);
         return res.status(500).json({ error: 'Erreur serveur' });
     }
 };
@@ -215,11 +269,154 @@ export const deleteDocument = async (req: Request, res: Response): Promise<any> 
             where: { id: id as string }
         });
 
-        console.log(`🗑️ Document deleted: ${document.title}`);
+        console.log(`🗑️ Document deleted: ${document.name}`);
 
         return res.json({ success: true, message: 'Document supprimé' });
     } catch (error) {
         console.error('❌ Error deleting document:', error);
+        return res.status(500).json({ error: 'Erreur serveur' });
+    }
+};
+
+// ==================== SUPER ADMIN ENDPOINTS ====================
+
+/**
+ * Get all documents across all tenants (SuperAdmin)
+ * GET /superadmin/documents
+ */
+export const getSuperAdminDocuments = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { tenantId, type, expiryStatus } = req.query;
+
+        const whereClause: any = {};
+
+        // Filter by tenant
+        if (tenantId && tenantId !== 'all') {
+            whereClause.tenantId = tenantId as string;
+        }
+
+        // Filter by document type
+        if (type && type !== 'all') {
+            whereClause.type = type as string;
+        }
+
+        const documents = await prisma.document.findMany({
+            where: whereClause,
+            include: {
+                employee: {
+                    select: { id: true, name: true, phoneNumber: true, tenantId: true }
+                }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 200
+        });
+
+        // Get tenant names for display
+        const tenantIds = [...new Set(documents.map(d => d.tenantId))];
+        const tenants = await prisma.tenant.findMany({
+            where: { id: { in: tenantIds } },
+            select: { id: true, name: true }
+        });
+        const tenantMap = new Map(tenants.map(t => [t.id, t.name]));
+
+        // Format and filter by expiry status if needed
+        let formatted = documents.map(doc => {
+            const status = getExpiryStatus(doc.expiryDate);
+            return {
+                id: doc.id,
+                name: doc.name,
+                type: doc.type,
+                typeLabel: DOCUMENT_TYPES[doc.type as keyof typeof DOCUMENT_TYPES] || doc.type,
+                url: doc.url,
+                expiryDate: doc.expiryDate,
+                expiryStatus: status,
+                createdAt: doc.createdAt,
+                tenantId: doc.tenantId,
+                tenantName: tenantMap.get(doc.tenantId) || 'Unknown',
+                employee: doc.employee ? {
+                    id: doc.employee.id,
+                    name: doc.employee.name || 'Employé',
+                    phoneNumber: doc.employee.phoneNumber
+                } : null,
+                isGlobal: !doc.employee
+            };
+        });
+
+        // Filter by expiry status
+        if (expiryStatus && expiryStatus !== 'all') {
+            formatted = formatted.filter(d => d.expiryStatus === expiryStatus);
+        }
+
+        return res.json({
+            count: formatted.length,
+            documents: formatted
+        });
+    } catch (error) {
+        console.error('❌ Error fetching SuperAdmin documents:', error);
+        return res.status(500).json({ error: 'Erreur serveur' });
+    }
+};
+
+/**
+ * Get document statistics across all tenants (SuperAdmin)
+ * GET /superadmin/documents/stats
+ */
+export const getSuperAdminDocumentStats = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const now = new Date();
+        const in30Days = new Date();
+        in30Days.setDate(now.getDate() + 30);
+
+        // Get all documents with expiry dates
+        const allDocuments = await prisma.document.findMany({
+            where: {
+                expiryDate: { not: null }
+            },
+            select: {
+                id: true,
+                expiryDate: true,
+                tenantId: true
+            }
+        });
+
+        // Calculate stats
+        let expired = 0;
+        let expiringSoon = 0;
+
+        for (const doc of allDocuments) {
+            if (doc.expiryDate) {
+                if (doc.expiryDate < now) {
+                    expired++;
+                } else if (doc.expiryDate <= in30Days) {
+                    expiringSoon++;
+                }
+            }
+        }
+
+        // Count totals
+        const [totalDocuments, totalTenants] = await Promise.all([
+            prisma.document.count(),
+            prisma.document.groupBy({
+                by: ['tenantId'],
+                _count: { id: true }
+            })
+        ]);
+
+        // Get tenants for filter dropdown
+        const tenants = await prisma.tenant.findMany({
+            select: { id: true, name: true },
+            orderBy: { name: 'asc' }
+        });
+
+        return res.json({
+            totalDocuments,
+            expired,
+            expiringSoon,
+            tenantsWithDocs: totalTenants.length,
+            tenants
+        });
+    } catch (error) {
+        console.error('❌ Error fetching SuperAdmin document stats:', error);
         return res.status(500).json({ error: 'Erreur serveur' });
     }
 };

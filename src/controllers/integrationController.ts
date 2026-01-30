@@ -14,7 +14,7 @@ const PROVIDER_DEFINITIONS: Record<string, { name: string; icon: string; keys: s
     STRIPE: {
         name: 'Stripe Paiements',
         icon: 'CreditCard',
-        keys: ['SECRET_KEY', 'PUBLISHABLE_KEY', 'WEBHOOK_SECRET'],
+        keys: ['SECRET_KEY', 'PUBLISHABLE_KEY', 'WEBHOOK_SECRET', 'PRICE_SMALL', 'PRICE_MEDIUM', 'PRICE_LARGE'],
     },
     SMTP: {
         name: 'Email SMTP',

@@ -1,23 +1,103 @@
-import axios from 'axios';
-
 /**
- * Sends a WhatsApp message via the Meta Graph API.
- * @param to Recipient's phone number as a string (E.164, no '+' usually required by API but we'll see).
- * @param text The message body text.
- * @param phoneNumberId Optional phone ID to send from (uses env default if not provided).
+ * WhatsApp Service
+ * Sends messages via Meta Graph API with BYON (Bring Your Own Number) support.
+ * 
+ * Architecture (with Queue):
+ * - Public functions: Check blacklist/opt-out, then add to queue
+ * - Raw functions: Actually send via Meta API (called by queue worker)
+ * 
+ * All functions accept an optional config parameter:
+ * - If provided: Uses the tenant's own credentials (BYON/Enterprise)
+ * - If not provided: Falls back to system default credentials (shared number)
  */
-export const sendMessage = async (to: string, text: string, phoneNumberId?: string) => {
-    const token = process.env.WHATSAPP_API_TOKEN || process.env.WHATSAPP_TOKEN;
-    const phoneId = phoneNumberId || process.env.WHATSAPP_PHONE_ID;
 
-    if (!token || !phoneId) {
-        console.error('❌ Missing WHATSAPP_API_TOKEN or WHATSAPP_PHONE_ID in .env');
-        return;
+import axios from 'axios';
+import { PrismaClient } from '@prisma/client';
+import { WhatsAppCredentials, getDefaultConfig } from './whatsappConfigService';
+import { addToQueue, WhatsAppJob } from './queueService';
+import { isRedisEnabled } from './redisConnection';
+
+const prisma = new PrismaClient();
+
+// Type for backward compatibility: accepts either config object or legacy phoneNumberId string
+export type ConfigOrPhoneId = WhatsAppCredentials | string | undefined;
+
+// Helper to get credentials (handles both new config object and legacy string phoneNumberId)
+function resolveCredentials(configOrPhoneId?: ConfigOrPhoneId): WhatsAppCredentials {
+    // If it's a WhatsAppCredentials object
+    if (configOrPhoneId && typeof configOrPhoneId === 'object') {
+        return configOrPhoneId;
     }
 
-    console.log(`🔧 DEBUG - Sending from phoneId: ${phoneId} (param: ${phoneNumberId}, env: ${process.env.WHATSAPP_PHONE_ID})`);
+    // If it's a legacy string phoneNumberId, use it with default token
+    if (typeof configOrPhoneId === 'string') {
+        const defaultConfig = getDefaultConfig();
+        return {
+            phoneNumberId: configOrPhoneId,
+            accessToken: defaultConfig.accessToken
+        };
+    }
 
-    const url = `https://graph.facebook.com/v17.0/${phoneId}/messages`;
+    // No config provided - use defaults
+    return getDefaultConfig();
+}
+
+// ============================================================================
+// BLACKLIST / OPT-OUT CHECK
+// ============================================================================
+
+/**
+ * Check if a phone number is opted out (blacklisted)
+ * Returns true if the recipient should NOT receive messages
+ */
+async function isBlacklisted(phoneNumber: string): Promise<boolean> {
+    try {
+        // Clean phone number (remove + if present)
+        const cleanNumber = phoneNumber.startsWith('+') ? phoneNumber.slice(1) : phoneNumber;
+
+        // Check if any employee with this phone has opted out
+        const employee = await prisma.employee.findFirst({
+            where: {
+                phoneNumber: {
+                    contains: cleanNumber
+                },
+                isOptedOut: true
+            }
+        });
+
+        if (employee) {
+            console.log(`🚫 Message blocked: ${phoneNumber} has opted out`);
+            return true;
+        }
+
+        return false;
+    } catch (error) {
+        console.error('Error checking blacklist:', error);
+        return false; // On error, allow message (fail-open)
+    }
+}
+
+// ============================================================================
+// RAW SEND FUNCTIONS (Internal - Used by Queue Worker)
+// ============================================================================
+
+/**
+ * INTERNAL: Sends a WhatsApp message directly via the Meta Graph API.
+ * Called by the queue worker. Do not call directly from application code.
+ */
+export const sendRawMessage = async (
+    to: string,
+    text: string,
+    config?: ConfigOrPhoneId
+): Promise<{ success: boolean; error?: string; statusCode?: number }> => {
+    const { phoneNumberId, accessToken } = resolveCredentials(config);
+
+    if (!accessToken || !phoneNumberId) {
+        console.error('❌ Missing WhatsApp credentials');
+        return { success: false, error: 'Missing credentials' };
+    }
+
+    const url = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
 
     try {
         await axios.post(
@@ -30,41 +110,41 @@ export const sendMessage = async (to: string, text: string, phoneNumberId?: stri
             },
             {
                 headers: {
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${accessToken}`,
                     'Content-Type': 'application/json',
                 },
             }
         );
         console.log(`✅ Message sent to ${to}`);
+        return { success: true };
     } catch (error: any) {
-        console.error('❌ Error sending WhatsApp message:', error.response?.data || error.message);
+        const statusCode = error.response?.status;
+        const errorMessage = error.response?.data?.error?.message || error.message;
+        console.error('❌ Error sending WhatsApp message:', errorMessage);
+
+        // Return status code for rate limit detection
+        return { success: false, error: errorMessage, statusCode };
     }
 };
 
 /**
- * Sends a WhatsApp interactive list message (native menu).
- * @param to Recipient's phone number
- * @param bodyText The body text displayed above the list
- * @param buttonText The text shown on the button that opens the list
- * @param sections Array of sections with rows (items)
- * @param phoneNumberId Optional phone ID to send from
+ * INTERNAL: Sends a WhatsApp interactive list message directly.
  */
-export const sendInteractiveList = async (
+export const sendRawInteractiveList = async (
     to: string,
     bodyText: string,
     buttonText: string,
     sections: any[],
-    phoneNumberId?: string
-) => {
-    const token = process.env.WHATSAPP_API_TOKEN || process.env.WHATSAPP_TOKEN;
-    const phoneId = phoneNumberId || process.env.WHATSAPP_PHONE_ID;
+    config?: ConfigOrPhoneId
+): Promise<{ success: boolean; error?: string; statusCode?: number }> => {
+    const { phoneNumberId, accessToken } = resolveCredentials(config);
 
-    if (!token || !phoneId) {
-        console.error('❌ Missing WHATSAPP_API_TOKEN or WHATSAPP_PHONE_ID in .env');
-        return;
+    if (!accessToken || !phoneNumberId) {
+        console.error('❌ Missing WhatsApp credentials');
+        return { success: false, error: 'Missing credentials' };
     }
 
-    const url = `https://graph.facebook.com/v17.0/${phoneId}/messages`;
+    const url = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
 
     try {
         await axios.post(
@@ -85,39 +165,38 @@ export const sendInteractiveList = async (
             },
             {
                 headers: {
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${accessToken}`,
                     'Content-Type': 'application/json',
                 }
             }
         );
         console.log(`✅ Interactive list sent to ${to}`);
+        return { success: true };
     } catch (error: any) {
-        console.error('❌ Error sending WhatsApp interactive list:', error.response?.data || error.message);
+        const statusCode = error.response?.status;
+        const errorMessage = error.response?.data?.error?.message || error.message;
+        console.error('❌ Error sending WhatsApp interactive list:', errorMessage);
+        return { success: false, error: errorMessage, statusCode };
     }
 };
 
 /**
- * Sends a WhatsApp interactive button message (up to 3 buttons).
- * @param to Recipient's phone number
- * @param bodyText The body text displayed above the buttons
- * @param buttons Array of buttons (max 3) with id and title
- * @param phoneNumberId Optional phone ID to send from
+ * INTERNAL: Sends a WhatsApp interactive button message directly.
  */
-export const sendInteractiveButtons = async (
+export const sendRawInteractiveButtons = async (
     to: string,
     bodyText: string,
     buttons: { id: string; title: string }[],
-    phoneNumberId?: string
-) => {
-    const token = process.env.WHATSAPP_API_TOKEN || process.env.WHATSAPP_TOKEN;
-    const phoneId = phoneNumberId || process.env.WHATSAPP_PHONE_ID;
+    config?: ConfigOrPhoneId
+): Promise<{ success: boolean; error?: string; statusCode?: number }> => {
+    const { phoneNumberId, accessToken } = resolveCredentials(config);
 
-    if (!token || !phoneId) {
-        console.error('❌ Missing WHATSAPP_API_TOKEN or WHATSAPP_PHONE_ID in .env');
-        return;
+    if (!accessToken || !phoneNumberId) {
+        console.error('❌ Missing WhatsApp credentials');
+        return { success: false, error: 'Missing credentials' };
     }
 
-    const url = `https://graph.facebook.com/v17.0/${phoneId}/messages`;
+    const url = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
 
     // Format buttons for WhatsApp API
     const formattedButtons = buttons.slice(0, 3).map(btn => ({
@@ -146,43 +225,39 @@ export const sendInteractiveButtons = async (
             },
             {
                 headers: {
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${accessToken}`,
                     'Content-Type': 'application/json',
                 }
             }
         );
         console.log(`✅ Interactive buttons sent to ${to}`);
+        return { success: true };
     } catch (error: any) {
-        console.error('❌ Error sending WhatsApp interactive buttons:', error.response?.data || error.message);
+        const statusCode = error.response?.status;
+        const errorMessage = error.response?.data?.error?.message || error.message;
+        console.error('❌ Error sending WhatsApp interactive buttons:', errorMessage);
+        return { success: false, error: errorMessage, statusCode };
     }
 };
 
 /**
- * Sends a document (PDF, etc.) via WhatsApp.
- * Note: WhatsApp requires the document to be accessible via public URL or pre-uploaded media ID.
- * For local files, we need to use a public URL (via ngrok or similar).
- * @param to Recipient's phone number
- * @param documentUrl Public URL of the document
- * @param filename Display filename
- * @param caption Optional caption
- * @param phoneNumberId Optional phone ID to send from
+ * INTERNAL: Sends a document via WhatsApp directly.
  */
-export const sendDocument = async (
+export const sendRawDocument = async (
     to: string,
     documentUrl: string,
     filename: string,
     caption?: string,
-    phoneNumberId?: string
-) => {
-    const token = process.env.WHATSAPP_API_TOKEN || process.env.WHATSAPP_TOKEN;
-    const phoneId = phoneNumberId || process.env.WHATSAPP_PHONE_ID;
+    config?: ConfigOrPhoneId
+): Promise<{ success: boolean; error?: string; statusCode?: number }> => {
+    const { phoneNumberId, accessToken } = resolveCredentials(config);
 
-    if (!token || !phoneId) {
-        console.error('❌ Missing WHATSAPP_API_TOKEN or WHATSAPP_PHONE_ID in .env');
-        return;
+    if (!accessToken || !phoneNumberId) {
+        console.error('❌ Missing WhatsApp credentials');
+        return { success: false, error: 'Missing credentials' };
     }
 
-    const url = `https://graph.facebook.com/v17.0/${phoneId}/messages`;
+    const url = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
 
     try {
         await axios.post(
@@ -200,13 +275,190 @@ export const sendDocument = async (
             },
             {
                 headers: {
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${accessToken}`,
                     'Content-Type': 'application/json',
                 }
             }
         );
         console.log(`✅ Document "${filename}" sent to ${to}`);
+        return { success: true };
     } catch (error: any) {
-        console.error('❌ Error sending WhatsApp document:', error.response?.data || error.message);
+        const statusCode = error.response?.status;
+        const errorMessage = error.response?.data?.error?.message || error.message;
+        console.error('❌ Error sending WhatsApp document:', errorMessage);
+        return { success: false, error: errorMessage, statusCode };
+    }
+};
+
+// ============================================================================
+// PUBLIC SEND FUNCTIONS (App-facing - Uses Queue)
+// ============================================================================
+
+/**
+ * Sends a WhatsApp message via the queue (rate-limited).
+ * Checks opt-out status before queueing.
+ * @param to Recipient's phone number as a string (E.164 format without '+')
+ * @param text The message body text.
+ * @param config Optional WhatsApp credentials for BYON
+ */
+export const sendMessage = async (
+    to: string,
+    text: string,
+    config?: ConfigOrPhoneId
+) => {
+    // Check blacklist first
+    if (await isBlacklisted(to)) {
+        return; // Silently drop
+    }
+
+    // If queue is disabled, send directly
+    if (!isRedisEnabled()) {
+        await sendRawMessage(to, text, config);
+        return;
+    }
+
+    // Add to queue
+    const job: WhatsAppJob = {
+        type: 'text',
+        to,
+        payload: { text },
+        config: resolveCredentials(config)
+    };
+
+    await addToQueue(job);
+};
+
+/**
+ * Sends a WhatsApp interactive list message via the queue.
+ */
+export const sendInteractiveList = async (
+    to: string,
+    bodyText: string,
+    buttonText: string,
+    sections: any[],
+    config?: ConfigOrPhoneId
+) => {
+    // Check blacklist first
+    if (await isBlacklisted(to)) {
+        return;
+    }
+
+    if (!isRedisEnabled()) {
+        await sendRawInteractiveList(to, bodyText, buttonText, sections, config);
+        return;
+    }
+
+    const job: WhatsAppJob = {
+        type: 'interactive_list',
+        to,
+        payload: { bodyText, buttonText, sections },
+        config: resolveCredentials(config)
+    };
+
+    await addToQueue(job);
+};
+
+/**
+ * Sends a WhatsApp interactive button message via the queue.
+ */
+export const sendInteractiveButtons = async (
+    to: string,
+    bodyText: string,
+    buttons: { id: string; title: string }[],
+    config?: ConfigOrPhoneId
+) => {
+    // Check blacklist first
+    if (await isBlacklisted(to)) {
+        return;
+    }
+
+    if (!isRedisEnabled()) {
+        await sendRawInteractiveButtons(to, bodyText, buttons, config);
+        return;
+    }
+
+    const job: WhatsAppJob = {
+        type: 'interactive_buttons',
+        to,
+        payload: { bodyText, buttons },
+        config: resolveCredentials(config)
+    };
+
+    await addToQueue(job);
+};
+
+/**
+ * Sends a document via WhatsApp through the queue.
+ */
+export const sendDocument = async (
+    to: string,
+    documentUrl: string,
+    filename: string,
+    caption?: string,
+    config?: ConfigOrPhoneId
+) => {
+    // Check blacklist first
+    if (await isBlacklisted(to)) {
+        return;
+    }
+
+    if (!isRedisEnabled()) {
+        await sendRawDocument(to, documentUrl, filename, caption, config);
+        return;
+    }
+
+    const job: WhatsAppJob = {
+        type: 'document',
+        to,
+        payload: { documentUrl, filename, caption },
+        config: resolveCredentials(config)
+    };
+
+    await addToQueue(job);
+};
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Test WhatsApp connection by sending a test message.
+ * Used to verify BYON credentials are valid.
+ * Note: This bypasses the queue for immediate feedback.
+ */
+export const testConnection = async (
+    to: string,
+    credentials: WhatsAppCredentials
+): Promise<{ success: boolean; error?: string }> => {
+    const { phoneNumberId, accessToken, displayName } = credentials;
+
+    if (!accessToken || !phoneNumberId) {
+        return { success: false, error: 'Credentials manquantes' };
+    }
+
+    const url = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
+    const testMessage = `✅ Test de connexion réussi !\n\n📱 Votre numéro WhatsApp marque blanche "${displayName || 'BYON'}" est correctement configuré.`;
+
+    try {
+        await axios.post(
+            url,
+            {
+                messaging_product: 'whatsapp',
+                to: to,
+                type: 'text',
+                text: { body: testMessage },
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+        return { success: true };
+    } catch (error: any) {
+        const errorMessage = error.response?.data?.error?.message || error.message;
+        console.error('❌ WhatsApp connection test failed:', errorMessage);
+        return { success: false, error: errorMessage };
     }
 };

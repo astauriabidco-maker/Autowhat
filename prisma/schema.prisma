@@ -48,8 +48,146 @@ model Tenant {
   config     Json?   // { enableGps: true, enablePhotos: true, enableExpenses: true }
   vocabulary Json?   // { workplace: "Chantier", manager: "Chef" } - surcharges personnalisées
   
+  // === Privacy Suite ===
+  isPrivacyModeEnabled Boolean  @default(false)  // Anonymise les données envoyées à WhatsApp
+  dataRetentionDays    Int      @default(365)    // 0 = Illimité, sinon jours avant purge
+  lastPurgeDate        DateTime?                  // Date de la dernière purge automatique
+  
+  // === CRM / Sales ===
+  lastLoginAt          DateTime?                  // Dernière connexion admin
+  
   // Langue par défaut de l'entreprise (fr, en, es)
   language   String  @default("fr")
+  
+  // === Assigned System Number (from Pool) ===
+  assignedSystemNumberId String?
+  assignedSystemNumber   SystemPhoneNumber? @relation(fields: [assignedSystemNumberId], references: [id])
+  
+  // Relations
+  tickets        Ticket[]
+  leadNotes      LeadNote[]
+  expenses       Expense[]
+  whatsAppConfig WhatsAppConfig?  // BYON - Marque blanche WhatsApp
+}
+
+// --- MODÈLE NUMBER POOL (Numéros Système Partagés) ---
+
+model SystemPhoneNumber {
+  id            String   @id @default(uuid())
+  phoneNumberId String   @unique  // Meta Phone Number ID
+  displayNumber String             // Human readable: "+33612345678"
+  countryCode   String             // ISO: "FR", "US", "ES", "DEFAULT"
+  accessToken   String   @db.Text  // System User Token (sensitive)
+  wabaId        String             // WhatsApp Business Account ID
+  isActive      Boolean  @default(true)
+  tenantCount   Int      @default(0)  // For load balancing
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Tenants assigned to this number
+  tenants       Tenant[]
+  
+  @@index([countryCode, isActive])
+}
+
+// --- MODÈLE BYON WHATSAPP (Marque Blanche) ---
+
+model WhatsAppConfig {
+  id            String   @id @default(uuid())
+  phoneNumberId String   @unique  // ID Meta du numéro de téléphone
+  accessToken   String   @db.Text // Token System User (sensible)
+  wabaId        String?           // WhatsApp Business Account ID
+  displayName   String?           // Nom affiché (ex: "Vinci RH")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  tenantId      String   @unique
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// --- MODÈLE NOTES CRM (SuperAdmin) ---
+
+model LeadNote {
+  id        String   @id @default(uuid())
+  tenantId  String?
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  externalLeadId String?
+  externalLead  ExternalLead? @relation(fields: [externalLeadId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+  createdBy String   // SuperAdmin ID
+  
+  @@index([tenantId])
+  @@index([externalLeadId])
+}
+
+// --- MODÈLE LEADS MANUELS (Prospects non inscrits) ---
+
+model ExternalLead {
+  id           String   @id @default(uuid())
+  companyName  String
+  contactName  String
+  email        String?
+  phone        String?
+  source       String   @default("MANUAL") // MANUAL, SALON, REFERRAL, INBOUND, OUTBOUND
+  status       String   @default("NEW")     // NEW, CONTACTED, QUALIFIED, WON, LOST
+  temperature  String   @default("COLD")    // HOT, WARM, COLD
+  notes        LeadNote[]
+  
+  // Suivi commercial
+  nextAction   String?               // "Rappeler", "Envoyer démo", etc.
+  nextActionAt DateTime?
+  assignedTo   String?               // SuperAdmin ID assigné
+  
+  // Conversion
+  convertedToTenantId String?        // Si converti en client
+  convertedAt         DateTime?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([status])
+  @@index([temperature])
+}
+
+// --- MODÈLE AUTOMATISATION CRM ---
+
+model AutomationRule {
+  id              String   @id @default(uuid())
+  name            String   // "Relance J+1"
+  description     String?
+  trigger         String   // DAYS_SINCE_SIGNUP, TRIAL_EXPIRES_IN, TRIAL_EXPIRED_DAYS, NO_ACTIVITY_DAYS
+  triggerValue    Int      // Nombre de jours
+  channel         String   @default("EMAIL") // EMAIL, WHATSAPP
+  templateSubject String?
+  templateBody    String   @db.Text
+  isActive        Boolean  @default(true)
+  executionTime   String   @default("10:00")
+  lastExecutedAt  DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  executions      AutomationExecution[]
+  
+  @@index([isActive])
+}
+
+model AutomationExecution {
+  id        String   @id @default(uuid())
+  ruleId    String
+  rule      AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  tenantId  String?
+  leadId    String?
+  recipient String?  // Email ou téléphone
+  status    String   // SUCCESS, FAILED
+  error     String?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([ruleId])
+  @@index([createdAt])
 }
 
 // --- MODÈLE SITE (Multi-Sites) ---
@@ -76,6 +214,9 @@ model Employee {
   name        String?
   role        String   @default("EMPLOYEE") // EMPLOYEE, MANAGER
   password    String?  // Hashé, uniquement pour les MANAGER
+  resetToken       String?   // Token de réinitialisation de mot de passe (UUID)
+  resetTokenExpiry DateTime? // Date d'expiration du token (1h)
+  hasCompletedOnboarding Boolean @default(false) // For MANAGER: track wizard completion
   
   // Profil de poste pour géofencing
   workProfile String   @default("MOBILE") // MOBILE = pas de restriction, SEDENTARY = doit être sur site
@@ -90,6 +231,9 @@ model Employee {
   // Langue des messages WhatsApp (fr, en, es)
   language   String  @default("fr")
   
+  // Opt-out WhatsApp (STOP command)
+  isOptedOut Boolean @default(false)
+  
   // Relation Tenant (CRITIQUE)
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
@@ -102,6 +246,7 @@ model Employee {
   leaves      LeaveRequest[]
   expenses    Expense[]
   documents   Document[]
+  tickets     Ticket[]
 
   // Un numéro est unique pour un tenant donné
   @@unique([phoneNumber, tenantId])
@@ -150,38 +295,47 @@ model LeaveRequest {
 model Expense {
   id          String   @id @default(uuid())
   date        DateTime @default(now())
-  amount      Float
-  category    String   // REPAS, ESSENCE, HOTEL, MATERIEL
+  amount      Float?   // Peut être vide au début (extraction depuis légende)
+  currency    String   @default("EUR")
+  category    String   @default("OTHER") // MEAL, FUEL, PARKING, TRANSPORT, HOTEL, OTHER
+  description String?  // Légende originale de l'image
   photoUrl    String
   status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
   
+  validatedAt DateTime?
+  validatedBy String?  // User ID du manager qui valide
+  
   employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id])
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   
   tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   siteId      String?   // Multi-sites filter
   
   @@index([tenantId])
+  @@index([tenantId, status])
   @@index([siteId])
 }
 
-// --- DOCUMENTS ---
+// --- DOCUMENTS RH ---
 
 model Document {
   id          String    @id @default(uuid())
-  title       String    // ex: "Fiche Paie Janvier"
-  category    String    // PAIE, CONTRAT, INTERNE
+  name        String    // ex: "Permis Poids Lourd", "Contrat de travail"
+  type        String    // CONTRACT, CERTIFICATE, IDENTITY, OTHER
   url         String    // Chemin du fichier
+  expiryDate  DateTime? // Date d'expiration pour alertes
   createdAt   DateTime  @default(now())
   
   // Si null, c'est un document global (ex: Règlement Intérieur)
   employeeId  String?
-  employee    Employee? @relation(fields: [employeeId], references: [id])
+  employee    Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   
   tenantId    String
   
   @@index([tenantId])
   @@index([employeeId])
+  @@index([expiryDate])
 }
 
 // --- SUPER ADMIN (Accès global) ---
@@ -260,6 +414,21 @@ model PlatformConfig {
   maintenanceMode    Boolean  @default(false) // If true, blocks normal user login
   allowRegistrations Boolean  @default(true)  // If false, hides registration button
   updatedAt          DateTime @updatedAt
+
+  // Legal Content (CMS)
+  termsOfService     String?  @db.Text
+  privacyPolicy      String?  @db.Text
+  legalNotices       String?  @db.Text
+
+  // === Bot WhatsApp Configuration ===
+  botWelcomeText       String  @default("Je ne reconnais pas ce numéro. Que voulez-vous faire ?")
+  botBtn1Label         String  @default("Créer un compte")
+  botBtn2Label         String  @default("En savoir plus")
+  whatsappPhoneNumber  String?  // Numéro du bot sans +, ex: "33612345678"
+  
+  // === WhatsApp Quality Monitoring ===
+  whatsappQualityScore String?   // GREEN, YELLOW, RED (from Meta webhook)
+  whatsappQualityAlert DateTime? // Last quality alert timestamp
 }
 
 // --- ENCRYPTED INTEGRATIONS VAULT ---
@@ -274,4 +443,134 @@ model Integration {
 
   @@unique([provider, key])
   @@index([provider])
+}
+
+// --- OUTGOING WEBHOOKS ---
+
+model WebhookConfig {
+  id          String   @id @default(uuid())
+  name        String   // Human-readable name
+  url         String   // Target URL
+  secret      String?  // HMAC secret for signature verification
+  events      String[] // Array of event types: ["check_in", "check_out", "expense.submitted"]
+  isActive    Boolean  @default(true)
+  
+  // Scope: null = global (SuperAdmin), tenantId = per-tenant
+  tenantId    String?
+  
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lastTriggeredAt DateTime?
+  
+  // Stats
+  successCount Int @default(0)
+  failureCount Int @default(0)
+  
+  logs        WebhookLog[]
+  
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+model WebhookLog {
+  id            String   @id @default(uuid())
+  webhookId     String
+  webhook       WebhookConfig @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  
+  eventType     String   // "check_in", "expense.submitted", etc.
+  payload       Json     // The sent payload
+  
+  // Response
+  statusCode    Int?
+  responseBody  String?  @db.Text
+  error         String?
+  
+  // Timing
+  duration      Int?     // Response time in ms
+  createdAt     DateTime @default(now())
+  
+  @@index([webhookId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+// --- SUPPORT TICKETING ---
+
+model Ticket {
+  id        String   @id @default(uuid())
+  subject   String
+  status    String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  priority  String   @default("NORMAL") // LOW, NORMAL, URGENT
+  
+  // Author (Manager who created ticket)
+  userId    String
+  user      Employee @relation(fields: [userId], references: [id])
+  
+  // Tenant scope
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  
+  messages  TicketMessage[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([tenantId])
+  @@index([status])
+  @@index([userId])
+}
+
+model TicketMessage {
+  id        String   @id @default(uuid())
+  content   String   @db.Text
+  
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  senderId  String   // ID of Employee or SuperAdmin
+  isAdmin   Boolean  @default(false) // True if response from support
+  
+  createdAt DateTime @default(now())
+  
+  @@index([ticketId])
+}
+
+// --- SUBSCRIPTION PLANS (Dynamic Pricing) ---
+
+model SubscriptionPlan {
+  id            String   @id @default(uuid())
+  stripePriceId String   @unique // L'ID par défaut (EUR) - price_...
+  name          String   // ex: "Medium"
+  description   String?  // ex: "Pour les PME en croissance"
+  price         Float    // Prix par défaut (EUR)
+  currency      String   @default("EUR")
+  maxEmployees  Int      // ex: 30
+  features      String   // Liste des features séparées par des virgules ou JSON string
+  isPopular     Boolean  @default(false) // Pour mettre en avant (Badge)
+  isActive      Boolean  @default(true)  // Si false, n'apparait plus sur le site
+  sortOrder     Int      @default(0)     // Pour gérer l'ordre d'affichage
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Prix régionaux pour différentes zones géographiques
+  regionalPricing RegionalPricing[]
+}
+
+// --- REGIONAL PRICING (Geo-PPP) ---
+
+model RegionalPricing {
+  id            String   @id @default(uuid())
+  planId        String
+  plan          SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  countryCode   String   // "FR", "US", "SN" ou zone "*AFRICA_WEST", "DEFAULT"
+  currency      String   // "EUR", "USD", "XOF"
+  price         Float    // Prix adapté (ex: 15000 pour XOF)
+  stripePriceId String   // ID Stripe correspondant à cette devise
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([planId, countryCode])
+  @@index([countryCode])
 }

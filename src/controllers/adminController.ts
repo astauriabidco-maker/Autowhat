@@ -7,6 +7,12 @@ const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = '24h';
 
+// Pricing configuration (module-level for reuse)
+const PLAN_PRICES = {
+    PRO: 29,
+    ENTERPRISE: 99
+};
+
 /**
  * POST /admin/login
  * Authenticates a Super Admin and returns a JWT token.
@@ -215,12 +221,6 @@ export const getGlobalStats = async (req: Request, res: Response): Promise<void>
         const endOfDay = new Date(today);
         endOfDay.setUTCHours(23, 59, 59, 999);
 
-        // Pricing configuration
-        const PLAN_PRICES = {
-            PRO: 29,
-            ENTERPRISE: 99
-        };
-
         const [
             totalTenants,
             totalEmployees,
@@ -299,6 +299,102 @@ export const getGlobalStats = async (req: Request, res: Response): Promise<void>
     } catch (error) {
         console.error('Error fetching stats:', error);
         res.status(500).json({ error: 'Erreur interne du serveur' });
+    }
+};
+
+/**
+ * GET /admin/analytics
+ * Returns historical analytics data for charts (MRR trend, conversion funnel).
+ */
+export const getAnalytics = async (req: Request, res: Response): Promise<void> => {
+    try {
+        // Get all tenants with their plan and creation date
+        const tenants = await prisma.tenant.findMany({
+            select: {
+                id: true,
+                name: true,
+                plan: true,
+                createdAt: true,
+                trialEndsAt: true,
+                _count: { select: { employees: true } }
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        // Generate last 6 months data
+        const months = [];
+        const now = new Date();
+        for (let i = 5; i >= 0; i--) {
+            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            months.push({
+                month: date.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
+                date: date
+            });
+        }
+
+        // Calculate MRR for each month
+        const mrrHistory = months.map(({ month, date }) => {
+            const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
+
+            let pro = 0;
+            let enterprise = 0;
+            let trial = 0;
+
+            tenants.forEach((t: any) => {
+                if (new Date(t.createdAt) <= endOfMonth) {
+                    if (t.plan === 'PRO') pro++;
+                    else if (t.plan === 'ENTERPRISE') enterprise++;
+                    else if (t.plan === 'TRIAL') trial++;
+                }
+            });
+
+            const mrr = (pro * PLAN_PRICES.PRO) + (enterprise * PLAN_PRICES.ENTERPRISE);
+
+            return {
+                month,
+                mrr,
+                pro,
+                enterprise,
+                trial,
+                total: pro + enterprise + trial
+            };
+        });
+
+        // Current plan counts
+        const planDistribution = {
+            trial: tenants.filter((t: any) => t.plan === 'TRIAL').length,
+            pro: tenants.filter((t: any) => t.plan === 'PRO').length,
+            enterprise: tenants.filter((t: any) => t.plan === 'ENTERPRISE').length
+        };
+
+        // Conversion funnel
+        const totalSignups = tenants.length;
+        const converted = planDistribution.pro + planDistribution.enterprise;
+        const conversionRate = totalSignups > 0 ? ((converted / totalSignups) * 100).toFixed(1) : '0';
+
+        // Churn: trials that expired without converting
+        const expiredTrials = tenants.filter((t: any) => {
+            if (t.plan !== 'TRIAL') return false;
+            if (!t.trialEndsAt) return false;
+            return new Date(t.trialEndsAt) < now;
+        }).length;
+
+        res.status(200).json({
+            mrrHistory,
+            planDistribution,
+            funnel: {
+                signups: totalSignups,
+                activeTrials: planDistribution.trial,
+                converted,
+                conversionRate: parseFloat(conversionRate),
+                expiredTrials
+            },
+            currentMRR: mrrHistory[mrrHistory.length - 1]?.mrr || 0,
+            projectedARR: (mrrHistory[mrrHistory.length - 1]?.mrr || 0) * 12
+        });
+    } catch (error) {
+        console.error('Error fetching analytics:', error);
+        res.status(500).json({ error: 'Erreur lors de la récupération des analytics' });
     }
 };
 
@@ -856,7 +952,21 @@ export const getConfig = async (req: Request, res: Response): Promise<void> => {
 // Updates the platform configuration
 export const updateConfig = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { platformName, supportEmail, defaultTrialDays, maintenanceMode, allowRegistrations } = req.body;
+        const {
+            platformName,
+            supportEmail,
+            defaultTrialDays,
+            maintenanceMode,
+            allowRegistrations,
+            termsOfService,
+            privacyPolicy,
+            legalNotices,
+            // Bot WhatsApp Configuration
+            botWelcomeText,
+            botBtn1Label,
+            botBtn2Label,
+            whatsappPhoneNumber
+        } = req.body;
 
         const config = await prisma.platformConfig.update({
             where: { id: 1 },
@@ -865,7 +975,15 @@ export const updateConfig = async (req: Request, res: Response): Promise<void> =
                 ...(supportEmail !== undefined && { supportEmail }),
                 ...(defaultTrialDays !== undefined && { defaultTrialDays: parseInt(defaultTrialDays) }),
                 ...(maintenanceMode !== undefined && { maintenanceMode }),
-                ...(allowRegistrations !== undefined && { allowRegistrations })
+                ...(allowRegistrations !== undefined && { allowRegistrations }),
+                ...(termsOfService !== undefined && { termsOfService }),
+                ...(privacyPolicy !== undefined && { privacyPolicy }),
+                ...(legalNotices !== undefined && { legalNotices }),
+                // Bot config
+                ...(botWelcomeText !== undefined && { botWelcomeText }),
+                ...(botBtn1Label !== undefined && { botBtn1Label }),
+                ...(botBtn2Label !== undefined && { botBtn2Label }),
+                ...(whatsappPhoneNumber !== undefined && { whatsappPhoneNumber })
             }
         });
 
@@ -890,6 +1008,34 @@ export const updateConfig = async (req: Request, res: Response): Promise<void> =
     } catch (error: any) {
         console.error('Error updating config:', error);
         res.status(500).json({ error: 'Erreur lors de la mise à jour de la configuration' });
+    }
+};
+
+// GET /api/config/legal
+// Returns legal content for public pages (NO AUTH REQUIRED)
+export const getLegalContent = async (req: Request, res: Response): Promise<void> => {
+    try {
+        let config = await prisma.platformConfig.findUnique({
+            where: { id: 1 },
+            select: {
+                termsOfService: true,
+                privacyPolicy: true,
+                legalNotices: true
+            }
+        });
+
+        // Create default config if not exists
+        if (!config) {
+            await prisma.platformConfig.create({
+                data: { id: 1 }
+            });
+            config = { termsOfService: null, privacyPolicy: null, legalNotices: null };
+        }
+
+        res.status(200).json(config);
+    } catch (error: any) {
+        console.error('Error fetching legal content:', error);
+        res.status(500).json({ error: 'Erreur lors de la récupération du contenu légal' });
     }
 };
 
@@ -1039,5 +1185,269 @@ export const getHealth = async (req: Request, res: Response): Promise<void> => {
             status: 'error',
             error: 'Erreur lors de la vérification du système'
         });
+    }
+};
+
+// ==========================================
+// MANUAL TENANT MANAGEMENT (CRM)
+// ==========================================
+
+/**
+ * POST /admin/tenants/create
+ * Creates a tenant manually with admin user (for offline/phone sales)
+ */
+export const createTenant = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { companyName, adminEmail, adminName, password, plan = 'TRIAL' } = req.body;
+        const superAdmin = req.superAdmin;
+
+        if (!companyName || !adminEmail || !adminName || !password) {
+            res.status(400).json({ error: 'Tous les champs sont requis: companyName, adminEmail, adminName, password' });
+            return;
+        }
+
+        // Check if email already exists
+        const existingEmployee = await prisma.employee.findFirst({
+            where: { phoneNumber: adminEmail }
+        });
+        if (existingEmployee) {
+            res.status(400).json({ error: 'Un utilisateur avec cet email existe déjà' });
+            return;
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        // Determine plan limits
+        const planLimits: Record<string, { maxEmployees: number; trialDays?: number }> = {
+            TRIAL: { maxEmployees: 5, trialDays: 14 },
+            PRO: { maxEmployees: 50 },
+            ENTERPRISE: { maxEmployees: 500 }
+        };
+        const limits = planLimits[plan] || planLimits.TRIAL;
+
+        // Create Tenant + Admin in transaction
+        const result = await prisma.$transaction(async (tx) => {
+            // Create Tenant
+            const tenant = await tx.tenant.create({
+                data: {
+                    name: companyName,
+                    plan,
+                    status: 'ACTIVE',
+                    maxEmployees: limits.maxEmployees,
+                    trialEndsAt: limits.trialDays
+                        ? new Date(Date.now() + limits.trialDays * 24 * 60 * 60 * 1000)
+                        : null
+                }
+            });
+
+            // Create Admin Employee
+            const adminEmployee = await tx.employee.create({
+                data: {
+                    name: adminName,
+                    phoneNumber: adminEmail, // Using email as phone for admin
+                    role: 'MANAGER',
+                    tenantId: tenant.id,
+                    password: hashedPassword
+                }
+            });
+
+            return { tenant, admin: adminEmployee };
+        });
+
+        // Log action
+        if (superAdmin) {
+            await logAdminAction(
+                superAdmin.id,
+                'CREATE_TENANT',
+                'TENANT',
+                result.tenant.id,
+                companyName,
+                { adminEmail, plan }
+            );
+        }
+
+        console.log(`🏢 Manual tenant created: ${companyName} (${plan})`);
+
+        res.status(201).json({
+            message: 'Client créé avec succès',
+            tenant: result.tenant,
+            admin: {
+                id: result.admin.id,
+                name: result.admin.name,
+                email: adminEmail
+            }
+        });
+    } catch (error: any) {
+        console.error('Error creating tenant:', error);
+        res.status(500).json({ error: 'Erreur lors de la création du client' });
+    }
+};
+
+/**
+ * PUT /admin/tenants/:id/plan-override
+ * Force a plan without Stripe payment (for manual billing, gifts, etc.)
+ */
+export const planOverride = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const id = req.params.id as string;
+        const { planName, maxEmployees, overrideEndDate, reason } = req.body;
+        const superAdmin = req.superAdmin;
+
+        if (!planName) {
+            res.status(400).json({ error: 'planName requis' });
+            return;
+        }
+
+        const tenant = await prisma.tenant.findUnique({ where: { id } });
+        if (!tenant) {
+            res.status(404).json({ error: 'Tenant non trouvé' });
+            return;
+        }
+
+        const oldPlan = tenant.plan;
+        const oldMaxEmployees = tenant.maxEmployees;
+
+        // Update tenant with override
+        const updatedTenant = await prisma.tenant.update({
+            where: { id },
+            data: {
+                plan: planName,
+                maxEmployees: maxEmployees || (planName === 'ENTERPRISE' ? 500 : planName === 'PRO' ? 50 : 5),
+                // Clear trial if upgrading, or set override end date
+                trialEndsAt: overrideEndDate ? new Date(overrideEndDate) : null,
+                status: 'ACTIVE'
+            }
+        });
+
+        // Log action
+        if (superAdmin) {
+            await logAdminAction(
+                superAdmin.id,
+                'PLAN_OVERRIDE',
+                'TENANT',
+                id,
+                tenant.name,
+                {
+                    oldPlan,
+                    newPlan: planName,
+                    oldMaxEmployees,
+                    newMaxEmployees: updatedTenant.maxEmployees,
+                    overrideEndDate,
+                    reason: reason || 'Manual override by SuperAdmin'
+                }
+            );
+        }
+
+        console.log(`⚡ Plan override: ${tenant.name} -> ${planName} (max: ${updatedTenant.maxEmployees})`);
+
+        res.status(200).json({
+            message: `Plan forcé: ${oldPlan} → ${planName}`,
+            tenant: {
+                id: updatedTenant.id,
+                name: updatedTenant.name,
+                plan: updatedTenant.plan,
+                maxEmployees: updatedTenant.maxEmployees,
+                status: updatedTenant.status
+            }
+        });
+    } catch (error: any) {
+        console.error('Error overriding plan:', error);
+        res.status(500).json({ error: 'Erreur lors du changement de plan' });
+    }
+};
+
+/**
+ * GET /admin/tenants/:id/full-details
+ * Returns complete tenant details with employees, stats, and invoices
+ */
+export const getTenantFullDetails = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const id = req.params.id as string;
+
+        // Get basic tenant info
+        const tenant = await prisma.tenant.findUnique({
+            where: { id }
+        });
+
+        if (!tenant) {
+            res.status(404).json({ error: 'Tenant non trouvé' });
+            return;
+        }
+
+        // Get employees separately
+        const employees = await prisma.employee.findMany({
+            where: { tenantId: id },
+            select: {
+                id: true,
+                name: true,
+                phoneNumber: true,
+                role: true
+            },
+            orderBy: { name: 'asc' }
+        });
+
+        // Get sites separately
+        const sites = await prisma.site.findMany({
+            where: { tenantId: id },
+            select: {
+                id: true,
+                name: true
+            }
+        });
+
+        // Get usage stats (last 30 days)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const [attendanceCount, activeEmployees, totalEmployees] = await Promise.all([
+            prisma.attendance.count({
+                where: {
+                    employee: { tenantId: id },
+                    checkIn: { gte: thirtyDaysAgo }
+                }
+            }),
+            prisma.employee.count({
+                where: {
+                    tenantId: id,
+                    attendances: {
+                        some: { checkIn: { gte: thirtyDaysAgo } }
+                    }
+                }
+            }),
+            prisma.employee.count({
+                where: { tenantId: id }
+            })
+        ]);
+
+        // Calculate MRR
+        const mrr = tenant.plan === 'PRO' ? 29 : tenant.plan === 'ENTERPRISE' ? 99 : 0;
+
+        res.status(200).json({
+            tenant: {
+                id: tenant.id,
+                name: tenant.name,
+                plan: tenant.plan,
+                status: tenant.status,
+                maxEmployees: tenant.maxEmployees,
+                trialEndsAt: tenant.trialEndsAt,
+                createdAt: tenant.createdAt,
+                country: tenant.country,
+                legalName: tenant.legalName,
+                stripeCustomerId: tenant.stripeCustomerId
+            },
+            stats: {
+                totalEmployees,
+                activeEmployees,
+                attendanceLast30Days: attendanceCount,
+                totalSites: sites.length,
+                mrr
+            },
+            employees,
+            sites
+        });
+    } catch (error: any) {
+        console.error('Error fetching tenant full details:', error);
+        res.status(500).json({ error: 'Erreur lors de la récupération des détails' });
     }
 };

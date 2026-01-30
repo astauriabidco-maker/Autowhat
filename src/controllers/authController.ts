@@ -2,11 +2,15 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { getTemplate } from '../config/industryTemplates';
+import { sendWelcomeEmail, sendPasswordResetEmail } from '../services/emailService';
+import { assignNumberToTenant } from '../services/numberAllocationService';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = '24h';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5174';
 
 // Timezones par pays
 const TIMEZONES: Record<string, string> = {
@@ -256,6 +260,25 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
         console.log(`✅ New tenant registered: ${companyName} (${industryKey})`);
 
+        // 📞 Assign system phone number from pool (async, don't block response)
+        const tenantCountry = country || 'FR';
+        assignNumberToTenant(result.tenant.id, tenantCountry)
+            .then(assignedNumber => {
+                if (assignedNumber) {
+                    console.log(`📞 Assigned ${assignedNumber.displayNumber} to ${companyName}`);
+                } else {
+                    console.warn(`⚠️ No system number available for ${companyName} (${tenantCountry})`);
+                }
+            })
+            .catch(err => console.error('Number allocation failed:', err));
+
+        // 📧 Send welcome email (async, don't block response)
+        sendWelcomeEmail({
+            email,
+            name: fullName,
+            tenantName: companyName,
+        }).catch(err => console.error('Welcome email failed:', err));
+
         res.status(201).json({
             success: true,
             message: 'Inscription réussie ! Bienvenue sur AutoWhats.',
@@ -273,3 +296,133 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 };
 
+/**
+ * POST /auth/forgot-password
+ * Sends a password reset email with a secure token.
+ */
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            res.status(400).json({ error: 'Email requis' });
+            return;
+        }
+
+        // We need to find the manager by phone - but email is passed
+        // In this system, managers login with phone, so we check if email matches phone pattern
+        // Or search by cleaned input
+        const cleanInput = email.replace(/[\s-]/g, '');
+
+        const employee = await prisma.employee.findFirst({
+            where: {
+                phoneNumber: cleanInput,
+                role: 'MANAGER',
+            },
+        });
+
+        // Also check by name that might be an email
+        const employeeByName = !employee ? await prisma.employee.findFirst({
+            where: {
+                name: { contains: email, mode: 'insensitive' },
+                role: 'MANAGER',
+            },
+        }) : null;
+
+        const manager = employee || employeeByName;
+
+        // Always return success to prevent email enumeration
+        if (!manager) {
+            console.log(`Password reset requested for unknown: ${email}`);
+            res.status(200).json({
+                message: 'Si ce compte existe, un email de réinitialisation a été envoyé.'
+            });
+            return;
+        }
+
+        // Generate secure token
+        const resetToken = crypto.randomUUID();
+        const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+        // Save token to database
+        await prisma.employee.update({
+            where: { id: manager.id },
+            data: {
+                resetToken,
+                resetTokenExpiry,
+            },
+        });
+
+        // Send email (using phone as email for now, or name if it's an email)
+        const targetEmail = email.includes('@') ? email : `${manager.phoneNumber}@example.com`;
+        const resetUrl = `${FRONTEND_URL}/reset-password`;
+
+        await sendPasswordResetEmail(targetEmail, resetToken, resetUrl);
+
+        console.log(`🔑 Password reset token generated for ${manager.name}`);
+
+        res.status(200).json({
+            message: 'Si ce compte existe, un email de réinitialisation a été envoyé.'
+        });
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        res.status(500).json({ error: 'Erreur lors de la demande de réinitialisation' });
+    }
+};
+
+/**
+ * POST /auth/reset-password
+ * Validates a reset token and updates the password.
+ */
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { token, password } = req.body;
+
+        if (!token || !password) {
+            res.status(400).json({ error: 'Token et nouveau mot de passe requis' });
+            return;
+        }
+
+        if (password.length < 6) {
+            res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
+            return;
+        }
+
+        // Find employee with valid token
+        const employee = await prisma.employee.findFirst({
+            where: {
+                resetToken: token,
+                resetTokenExpiry: {
+                    gt: new Date(), // Token must not be expired
+                },
+            },
+        });
+
+        if (!employee) {
+            res.status(400).json({ error: 'Lien de réinitialisation invalide ou expiré' });
+            return;
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Update password and clear reset token
+        await prisma.employee.update({
+            where: { id: employee.id },
+            data: {
+                password: hashedPassword,
+                resetToken: null,
+                resetTokenExpiry: null,
+            },
+        });
+
+        console.log(`✅ Password reset successful for ${employee.name}`);
+
+        res.status(200).json({
+            message: 'Mot de passe mis à jour avec succès. Vous pouvez maintenant vous connecter.'
+        });
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.status(500).json({ error: 'Erreur lors de la réinitialisation du mot de passe' });
+    }
+};
