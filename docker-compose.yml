@@ -5,9 +5,9 @@ services:
     image: postgres:15-alpine
     restart: always
     environment:
-      POSTGRES_USER: johndoe
-      POSTGRES_PASSWORD: randompassword
-      POSTGRES_DB: autowhats
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret_dev
+      POSTGRES_DB: whatsapp_hub
     ports:
       - "5432:5432"
     volumes:

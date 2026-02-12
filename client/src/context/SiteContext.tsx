@@ -27,6 +27,15 @@ export function SiteProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         const fetchSites = async () => {
+            // Skip site fetching if we are in superadmin area (unless impersonating)
+            const isSuperAdminPath = window.location.pathname.startsWith('/superadmin');
+            const isImpersonating = !!sessionStorage.getItem('superadmin_original_token');
+
+            if (isSuperAdminPath && !isImpersonating) {
+                setIsLoading(false);
+                return;
+            }
+
             const token = localStorage.getItem('token');
             if (!token) {
                 setIsLoading(false);
@@ -51,7 +60,8 @@ export function SiteProvider({ children }: { children: ReactNode }) {
                 });
                 setSites(response.data.sites || []);
             } catch (error) {
-                console.error('Error fetching sites:', error);
+                // Handle 401/403 silently to avoid console spam in SuperAdmin mode
+                console.warn('Site fetching skipped or failed (expected in some modes):', error);
             } finally {
                 setIsLoading(false);
             }

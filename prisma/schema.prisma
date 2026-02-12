@@ -68,6 +68,13 @@ model Tenant {
   leadNotes      LeadNote[]
   expenses       Expense[]
   whatsAppConfig WhatsAppConfig?  // BYON - Marque blanche WhatsApp
+  customers          Customer[]         // FSM - Clients
+  interventions      Intervention[]     // FSM - Interventions
+  interventionTypes  InterventionType[] // FSM - Types d'interventions personnalisés
+  recurringInterventions RecurringIntervention[] // FSM - Récurrences
+  parts              Part[]             // FSM - Pièces & Matériel
+  quotes             Quote[]            // FSM - Devis
+  interventionRequests InterventionRequest[] // FSM - Demandes WhatsApp
 }
 
 // --- MODÈLE NUMBER POOL (Numéros Système Partagés) ---
@@ -245,8 +252,10 @@ model Employee {
   attendances Attendance[]
   leaves      LeaveRequest[]
   expenses    Expense[]
-  documents   Document[]
-  tickets     Ticket[]
+  documents      Document[]
+  tickets        Ticket[]
+  interventions  Intervention[]   // FSM - Interventions assignées
+  recurringInterventions RecurringIntervention[] // FSM - Récurrences assignées
 
   // Un numéro est unique pour un tenant donné
   @@unique([phoneNumber, tenantId])
@@ -574,3 +583,406 @@ model RegionalPricing {
   @@unique([planId, countryCode])
   @@index([countryCode])
 }
+
+// --- FIELD SERVICE MANAGEMENT (FSM) ---
+
+enum InterventionStatus {
+  SCHEDULED
+  EN_ROUTE
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+}
+
+model InterventionType {
+  id              String   @id @default(uuid())
+  name            String   // Ex: "Dépannage plomberie", "Installation électrique"
+  description     String?  @db.Text // Description détaillée du type
+  color           String   @default("#3b82f6") // Couleur HEX pour le calendrier
+  icon            String?  // Nom d'icône lucide (ex: "wrench", "zap", "thermometer")
+  defaultDuration Int      @default(60) // Durée par défaut en minutes
+  isActive        Boolean  @default(true) // Permet d'archiver sans supprimer
+  sortOrder       Int      @default(0) // Ordre d'affichage
+
+  // Champs métier optionnels
+  requiresReport    Boolean @default(false) // Rapport obligatoire ?
+  requiresSignature Boolean @default(true)  // Signature client obligatoire ?
+  requiresPhotos    Boolean @default(false) // Photos obligatoires ?
+
+  // Relations
+  tenantId      String
+  tenant        Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  interventions Intervention[]
+  recurringInterventions RecurringIntervention[]
+  quotes         Quote[]
+  interventionRequests InterventionRequest[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+}
+
+model Customer {
+  id          String   @id @default(uuid())
+  companyName String
+  contactName String
+  email       String?
+  phone       String?
+  address     String?   // Adresse principale (legacy / affichage rapide)
+  country     String?   @default("FR") // Code pays ISO
+  accessCode  String?   // Code d'accès global
+  notes       String?   @db.Text // Instructions permanentes
+
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  sites         CustomerSite[]
+  interventions Intervention[]
+  recurringInterventions RecurringIntervention[]
+  quotes        Quote[]
+  interventionRequests InterventionRequest[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model CustomerSite {
+  id          String   @id @default(uuid())
+  name        String   // Ex: "Siège social", "Entrepôt Nord", "Agence Lyon"
+  isMainSite  Boolean  @default(false)
+
+  // Adresse complète
+  address     String   // Numéro + Rue
+  address2    String?  // Complément (bâtiment, étage, code porte…)
+  city        String
+  postalCode  String
+  country     String   @default("FR")
+
+  // Coordonnées GPS (pour carte & validation)
+  latitude    Float?
+  longitude   Float?
+
+  // Contact local sur site
+  contactName  String?
+  contactPhone String?
+  contactEmail String?
+
+  // Accès
+  accessCode   String?  // Digicode, badge, parking…
+  accessNotes  String?  @db.Text // Instructions détaillées pour accéder au site
+
+  // Relation
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  interventions Intervention[]
+  recurringInterventions RecurringIntervention[]
+  quotes        Quote[]
+  interventionRequests InterventionRequest[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([customerId])
+}
+
+model Intervention {
+  id          String   @id @default(uuid())
+  title       String
+  description String?  @db.Text
+
+  // Type d'intervention (dynamique, défini par le partenaire)
+  interventionTypeId String?
+  interventionType   InterventionType? @relation(fields: [interventionTypeId], references: [id])
+
+  status      InterventionStatus @default(SCHEDULED)
+
+  scheduledStart DateTime
+  scheduledEnd   DateTime
+  realStart      DateTime?
+  realEnd        DateTime?
+
+  reportContent  String?   @db.Text
+  reportPhotos   Json?     // String[] - URLs des photos
+  signatureUrl   String?
+  pdfUrl         String?   // Lien vers le rapport final généré
+  signatureToken String?   @unique // Token unique pour la page de signature publique
+
+  // Récurrence
+  recurringInterventionId String?
+  recurringIntervention   RecurringIntervention? @relation(fields: [recurringInterventionId], references: [id])
+
+  // Relations
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  customerSiteId String?  // Site spécifique d'intervention (optionnel)
+  customerSite   CustomerSite? @relation(fields: [customerSiteId], references: [id])
+
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Relations pièces & devis
+  parts       InterventionPart[]
+  quoteId     String?  // Lien vers le devis parent (si créé depuis un devis)
+  interventionRequest InterventionRequest?  // Demande WhatsApp source
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([employeeId])
+  @@index([status])
+  @@index([scheduledStart])
+  @@index([signatureToken])
+  @@index([recurringInterventionId])
+}
+
+// =============================================
+// RECURRING INTERVENTIONS 🔄
+// =============================================
+
+model RecurringIntervention {
+  id              String   @id @default(uuid())
+  title           String   // Ex: "Maintenance climatisation"
+  description     String?  @db.Text
+
+  // Récurrence
+  frequency       String   // DAILY, WEEKLY, BIWEEKLY, MONTHLY, QUARTERLY, BIANNUAL, ANNUAL
+  intervalValue   Int      @default(1) // ex: tous les 2 mois si frequency=MONTHLY et interval=2
+  dayOfWeek       Int?     // 0–6 (dimanche–samedi) pour WEEKLY  
+  dayOfMonth      Int?     // 1–31 pour MONTHLY/QUARTERLY  
+  preferredTime   String   @default("09:00") // HH:mm
+
+  // Dates
+  startDate       DateTime // Date de première occurrence
+  endDate         DateTime? // Date de fin (null = infini)
+  nextOccurrence  DateTime? // Prochaine occurrence calculée
+  lastGenerated   DateTime? // Dernière génération d'intervention
+
+  // Configuration
+  isActive        Boolean  @default(true)
+  autoAssign      Boolean  @default(true) // Assigner auto au même technicien
+
+  // Relations
+  interventionTypeId String?
+  interventionType   InterventionType? @relation(fields: [interventionTypeId], references: [id])
+
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  customerSiteId String?
+  customerSite   CustomerSite? @relation(fields: [customerSiteId], references: [id])
+
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id])
+
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Interventions générées
+  interventions Intervention[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([isActive, nextOccurrence])
+  @@index([tenantId, isActive])
+}
+
+// =============================================
+// PIÈCES & MATÉRIEL 🔧
+// =============================================
+
+model Part {
+  id            String   @id @default(uuid())
+  reference     String   // Référence/code article (ex: "PLB-001")
+  name          String   // Ex: "Joint torique 32mm"
+  description   String?  @db.Text
+  category      String   @default("GENERAL") // PLUMBING, ELECTRICAL, HVAC, GENERAL, OTHER
+
+  // Stock & tarification
+  unitPrice     Float    @default(0)    // Prix unitaire HT
+  costPrice     Float    @default(0)    // Prix d'achat / prix de revient
+  stockQuantity Int      @default(0)    // Stock actuel
+  minStock      Int      @default(0)    // Seuil d'alerte stock bas
+  unit          String   @default("pce") // pce, m, m², kg, L, forfait
+
+  isActive      Boolean  @default(true)
+
+  // Relations
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  interventionParts InterventionPart[]
+  quoteLineItems    QuoteLineItem[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+  @@index([tenantId, category])
+  @@unique([tenantId, reference])
+}
+
+model InterventionPart {
+  id             String   @id @default(uuid())
+  quantity       Int      @default(1)
+  unitPrice      Float    // Prix unitaire au moment de l'utilisation (snapshot)
+  totalPrice     Float    // quantity × unitPrice
+
+  interventionId String
+  intervention   Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+
+  partId         String
+  part           Part @relation(fields: [partId], references: [id])
+
+  createdAt      DateTime @default(now())
+
+  @@index([interventionId])
+  @@index([partId])
+}
+
+// =============================================
+// DEVIS & FACTURATION 💰
+// =============================================
+
+model Quote {
+  id            String   @id @default(uuid())
+  reference     String   // Ex: "DEV-2026-001"
+  status        String   @default("DRAFT") // DRAFT, SENT, ACCEPTED, REJECTED, CONVERTED, EXPIRED
+
+  // Dates
+  issueDate     DateTime @default(now())
+  validUntil    DateTime?  // Date d'expiration du devis
+  acceptedAt    DateTime?
+  convertedAt   DateTime?  // Quand converti en intervention
+
+  // Montants
+  subtotal      Float    @default(0) // Total HT
+  taxRate       Float    @default(20) // Taux TVA en %
+  taxAmount     Float    @default(0) // Montant TVA
+  totalAmount   Float    @default(0) // Total TTC
+  discount      Float    @default(0) // Remise en €
+
+  // Contenu
+  notes         String?  @db.Text // Conditions, remarques
+  pdfUrl        String?  // URL du PDF généré
+
+  // Conversion tracking
+  convertedInterventionId String? // ID de l'intervention créée
+
+  // Relations
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  customerSiteId String?
+  customerSite   CustomerSite? @relation(fields: [customerSiteId], references: [id])
+
+  interventionTypeId String?
+  interventionType   InterventionType? @relation(fields: [interventionTypeId], references: [id])
+
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Lignes du devis
+  lineItems     QuoteLineItem[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([tenantId, status])
+  @@unique([tenantId, reference])
+}
+
+model QuoteLineItem {
+  id          String  @id @default(uuid())
+  description String  // Libellé de la ligne
+  quantity    Float   @default(1)
+  unitPrice   Float   @default(0)
+  totalPrice  Float   @default(0) // quantity × unitPrice
+  type        String  @default("SERVICE") // SERVICE, PART, LABOR, TRAVEL, OTHER
+
+  // Lien optionnel vers une pièce
+  partId      String?
+  part        Part?   @relation(fields: [partId], references: [id])
+
+  quoteId     String
+  quote       Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  sortOrder   Int     @default(0)
+
+  @@index([quoteId])
+}
+
+// =============================================
+// INTERVENTION REQUESTS (WhatsApp Bot → Manager) 📩
+// =============================================
+
+enum InterventionRequestStatus {
+  PENDING    // Reçue, en attente de traitement
+  APPROVED   // Validée par le manager, prête à planifier
+  PLANNED    // Convertie en intervention planifiée
+  REJECTED   // Refusée par le manager
+}
+
+model InterventionRequest {
+  id          String   @id @default(uuid())
+
+  // Contenu de la demande
+  message     String   @db.Text   // Message original du client
+  photoUrl    String?              // Photo jointe (si envoyée)
+  urgency     String   @default("NORMAL")  // NORMAL, URGENT
+
+  // Infos contact WhatsApp
+  senderPhone String               // Numéro WhatsApp du demandeur
+  senderName  String?              // Nom du contact WhatsApp (profil)
+
+  // Matching client (auto ou manuel)
+  customerId     String?
+  customer       Customer?     @relation(fields: [customerId], references: [id])
+  customerSiteId String?
+  customerSite   CustomerSite? @relation(fields: [customerSiteId], references: [id])
+
+  // Classification (peut être deviné par le bot ou assigné par le manager)
+  interventionTypeId String?
+  interventionType   InterventionType? @relation(fields: [interventionTypeId], references: [id])
+
+  // Statut & workflow
+  status         InterventionRequestStatus @default(PENDING)
+  managerNotes   String?   @db.Text   // Notes du manager lors du traitement
+  rejectionReason String?              // Motif de refus
+
+  // Lien vers l'intervention créée (quand PLANNED)
+  interventionId String?  @unique
+  intervention   Intervention? @relation(fields: [interventionId], references: [id])
+
+  // Traitement
+  processedAt    DateTime?              // Date de traitement
+  processedById  String?                // Manager qui a traité
+
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([senderPhone])
+  @@index([customerId])
+}
+

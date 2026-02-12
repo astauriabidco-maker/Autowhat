@@ -248,5 +248,116 @@ router.get('/admin/number-pool/:id/tenants', authenticateSuperAdmin, numberPoolC
 // Debug Routes
 router.use('/debug', debugRoutes);
 
-export default router;
+// =============================================
+// FIELD SERVICE MANAGEMENT (FSM) Routes
+// =============================================
+import * as opsController from '../controllers/opsController';
 
+// Customer CRM Routes (Protected - Manager only)
+router.get('/api/customers', authenticateManager, opsController.getCustomers);
+router.get('/api/customers/:id', authenticateManager, opsController.getCustomerById);
+router.post('/api/customers', authenticateManager, opsController.createCustomer);
+router.put('/api/customers/:id', authenticateManager, opsController.updateCustomer);
+router.delete('/api/customers/:id', authenticateManager, opsController.deleteCustomer);
+router.post('/api/customers/import-csv', authenticateManager, opsController.importCustomersCSV);
+
+// Customer Sites Routes (Protected - Manager only)
+router.get('/api/customers/:id/sites', authenticateManager, opsController.getCustomerSites);
+router.post('/api/customers/:id/sites', authenticateManager, opsController.createCustomerSite);
+router.put('/api/customers/:customerId/sites/:siteId', authenticateManager, opsController.updateCustomerSite);
+router.delete('/api/customers/:customerId/sites/:siteId', authenticateManager, opsController.deleteCustomerSite);
+
+// Intervention Type Routes (Protected - Manager only)
+router.get('/api/intervention-types', authenticateManager, opsController.getInterventionTypes);
+router.post('/api/intervention-types', authenticateManager, opsController.createInterventionType);
+router.put('/api/intervention-types/:id', authenticateManager, opsController.updateInterventionType);
+router.delete('/api/intervention-types/:id', authenticateManager, opsController.deleteInterventionType);
+router.patch('/api/intervention-types/reorder', authenticateManager, opsController.reorderInterventionTypes);
+
+// Intervention Routes (Protected - Manager only)
+router.get('/api/interventions', authenticateManager, opsController.getInterventions);
+router.post('/api/interventions', authenticateManager, opsController.createIntervention);
+router.put('/api/interventions/:id', authenticateManager, opsController.updateIntervention);
+router.patch('/api/interventions/:id/status', authenticateManager, opsController.updateInterventionStatus);
+router.patch('/api/interventions/:id/report', authenticateManager, opsController.submitReport);
+router.delete('/api/interventions/:id', authenticateManager, opsController.deleteIntervention);
+
+// Public Signature Routes (No Auth - Token protected)
+router.get('/api/public/intervention/:token', opsController.getInterventionByToken);
+router.post('/api/public/intervention/:token/sign', opsController.signIntervention);
+
+// Operations Dashboard & Notifications
+router.get('/api/operations/dashboard', authenticateManager, opsController.getOperationsDashboard);
+router.post('/api/interventions/:id/notify', authenticateManager, opsController.sendInterventionNotification);
+router.post('/api/operations/daily-briefing', authenticateManager, opsController.sendDailyBriefing);
+
+// ========== LEVEL 2 — RECURRING, PARTS, QUOTES, CUSTOMER HISTORY ==========
+import * as opsL2 from '../controllers/opsLevel2Controller';
+
+// Recurring Interventions
+router.get('/api/recurring-interventions', authenticateManager, opsL2.getRecurringInterventions);
+router.post('/api/recurring-interventions', authenticateManager, opsL2.createRecurringIntervention);
+router.put('/api/recurring-interventions/:id', authenticateManager, opsL2.updateRecurringIntervention);
+router.delete('/api/recurring-interventions/:id', authenticateManager, opsL2.deleteRecurringIntervention);
+router.post('/api/recurring-interventions/:id/generate', authenticateManager, opsL2.generateRecurringOccurrence);
+
+// Parts & Materials
+router.get('/api/parts', authenticateManager, opsL2.getParts);
+router.post('/api/parts', authenticateManager, opsL2.createPart);
+router.put('/api/parts/:id', authenticateManager, opsL2.updatePart);
+router.delete('/api/parts/:id', authenticateManager, opsL2.deletePart);
+router.patch('/api/parts/:id/stock', authenticateManager, opsL2.adjustPartStock);
+
+// Intervention Parts (pieces used per intervention)
+router.get('/api/interventions/:id/parts', authenticateManager, opsL2.getInterventionParts);
+router.post('/api/interventions/:id/parts', authenticateManager, opsL2.addInterventionPart);
+router.delete('/api/interventions/:id/parts/:partLineId', authenticateManager, opsL2.removeInterventionPart);
+
+// Quotes (Devis)
+router.get('/api/quotes', authenticateManager, opsL2.getQuotes);
+router.get('/api/quotes/:id', authenticateManager, opsL2.getQuoteById);
+router.post('/api/quotes', authenticateManager, opsL2.createQuote);
+router.put('/api/quotes/:id', authenticateManager, opsL2.updateQuote);
+router.delete('/api/quotes/:id', authenticateManager, opsL2.deleteQuote);
+router.post('/api/quotes/:id/convert', authenticateManager, opsL2.convertQuoteToIntervention);
+
+// Customer History (enriched)
+router.get('/api/customers/:id/history', authenticateManager, opsL2.getCustomerHistory);
+
+// ========== PDF GENERATION ==========
+import { generateQuotePdf, generateInterventionReportPdf } from '../services/opsPdfService';
+
+router.get('/api/quotes/:id/pdf', authenticateManager, async (req, res) => {
+    try {
+        const tenantId = (req as any).user!.tenantId;
+        const quoteId = req.params.id as string;
+        await generateQuotePdf(quoteId, tenantId, res);
+    } catch (error: any) {
+        console.error('Error generating quote PDF:', error);
+        if (!res.headersSent) res.status(500).json({ error: error.message || 'PDF generation failed' });
+    }
+});
+
+router.get('/api/interventions/:id/pdf', authenticateManager, async (req, res) => {
+    try {
+        const tenantId = (req as any).user!.tenantId;
+        const interventionId = req.params.id as string;
+        await generateInterventionReportPdf(interventionId, tenantId, res);
+    } catch (error: any) {
+        console.error('Error generating intervention PDF:', error);
+        if (!res.headersSent) res.status(500).json({ error: error.message || 'PDF generation failed' });
+    }
+});
+
+// ========== INTERVENTION REQUESTS (WhatsApp → Manager) ==========
+import * as intReqCtrl from '../controllers/interventionRequestController';
+router.get('/api/intervention-requests', authenticateManager, intReqCtrl.listRequests);
+router.get('/api/intervention-requests/stats', authenticateManager, intReqCtrl.getStats);
+router.get('/api/intervention-requests/:id', authenticateManager, intReqCtrl.getRequest);
+router.put('/api/intervention-requests/:id', authenticateManager, intReqCtrl.updateRequest);
+router.post('/api/intervention-requests/:id/approve', authenticateManager, intReqCtrl.approveRequest);
+router.post('/api/intervention-requests/:id/reject', authenticateManager, intReqCtrl.rejectRequest);
+router.post('/api/intervention-requests/:id/plan', authenticateManager, intReqCtrl.planRequest);
+router.delete('/api/intervention-requests/:id', authenticateManager, intReqCtrl.deleteRequest);
+
+export default router;

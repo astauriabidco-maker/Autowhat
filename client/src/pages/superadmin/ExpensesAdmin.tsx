@@ -108,7 +108,7 @@ export default function ExpensesAdmin() {
             setExpenses(expensesRes.data.expenses);
 
             // Fetch tenants for filter
-            const tenantsRes = await axios.get<{ tenants: Tenant[] }>('/superadmin/tenants', { headers });
+            const tenantsRes = await axios.get<{ tenants: Tenant[] }>('/admin/tenants', { headers });
             setTenants(tenantsRes.data.tenants || []);
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -125,7 +125,8 @@ export default function ExpensesAdmin() {
         });
     };
 
-    const formatPhotoUrl = (url: string) => {
+    const formatPhotoUrl = (url: string | null | undefined) => {
+        if (!url) return '';
         return url.startsWith('http') ? url : `http://localhost:3000${url}`;
     };
 

@@ -1,8 +1,6 @@
 import PDFDocument from 'pdfkit';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { Response } from 'express';
-
-const prisma = new PrismaClient();
 
 /**
  * Format date in Paris timezone

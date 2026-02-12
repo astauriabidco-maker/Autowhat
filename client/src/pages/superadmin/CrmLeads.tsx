@@ -162,8 +162,8 @@ export default function CrmLeads() {
         try {
             setLoading(true);
             const [tenantRes, externalRes] = await Promise.all([
-                axios.get('/api/superadmin/leads', { headers }),
-                axios.get('/api/superadmin/external-leads', { headers })
+                axios.get('/superadmin/leads', { headers }),
+                axios.get('/superadmin/external-leads', { headers })
             ]);
             setTenantLeads((tenantRes.data.leads || []).map((l: Lead) => ({ ...l, type: 'TENANT' as const })));
             setExternalLeads((externalRes.data.leads || []).map((l: Lead) => ({
@@ -181,8 +181,8 @@ export default function CrmLeads() {
     const fetchAutomations = async () => {
         try {
             const [rulesRes, statsRes] = await Promise.all([
-                axios.get('/api/superadmin/automations', { headers }),
-                axios.get('/api/superadmin/automations/stats', { headers })
+                axios.get('/superadmin/automations', { headers }),
+                axios.get('/superadmin/automations/stats', { headers })
             ]);
             setRules(rulesRes.data);
             setStats(statsRes.data);
@@ -222,7 +222,7 @@ export default function CrmLeads() {
     const handleSendRelance = async (lead: Lead, templateType: 'help' | 'expiring' | 'extension') => {
         try {
             setSendingEmail(true);
-            await axios.post(`/api/superadmin/leads/${lead.id}/relance`, { templateType }, { headers });
+            await axios.post(`/superadmin/leads/${lead.id}/relance`, { templateType }, { headers });
             alert('Email de relance envoyé !');
             fetchLeads();
         } catch (error) {
@@ -237,8 +237,8 @@ export default function CrmLeads() {
         if (!selectedLead || !noteContent.trim()) return;
         try {
             const endpoint = selectedLead.type === 'EXTERNAL'
-                ? `/api/superadmin/external-leads/${selectedLead.id}/notes`
-                : `/api/superadmin/leads/${selectedLead.id}/notes`;
+                ? `/superadmin/external-leads/${selectedLead.id}/notes`
+                : `/superadmin/leads/${selectedLead.id}/notes`;
             await axios.post(endpoint, { content: noteContent }, { headers });
             setNoteContent('');
             setSelectedLead(null);
@@ -251,7 +251,7 @@ export default function CrmLeads() {
     const handleCreateLead = async () => {
         if (!newLead.companyName || !newLead.contactName) return;
         try {
-            await axios.post('/api/superadmin/external-leads', newLead, { headers });
+            await axios.post('/superadmin/external-leads', newLead, { headers });
             setShowCreateModal(false);
             setNewLead({ companyName: '', contactName: '', email: '', phone: '', source: 'MANUAL', temperature: 'COLD' });
             setActiveTab('external');
@@ -266,7 +266,7 @@ export default function CrmLeads() {
 
     const handleToggleRule = async (id: string) => {
         try {
-            await axios.patch(`/api/superadmin/automations/${id}/toggle`, {}, { headers });
+            await axios.patch(`/superadmin/automations/${id}/toggle`, {}, { headers });
             fetchAutomations();
         } catch (error) {
             console.error('Error toggling rule:', error);
@@ -276,7 +276,7 @@ export default function CrmLeads() {
     const handleDeleteRule = async (id: string) => {
         if (!confirm('Supprimer cette règle ?')) return;
         try {
-            await axios.delete(`/api/superadmin/automations/${id}`, { headers });
+            await axios.delete(`/superadmin/automations/${id}`, { headers });
             fetchAutomations();
         } catch (error) {
             console.error('Error deleting rule:', error);
@@ -316,9 +316,9 @@ export default function CrmLeads() {
     const handleSubmitRule = async () => {
         try {
             if (editingRule) {
-                await axios.put(`/api/superadmin/automations/${editingRule.id}`, ruleForm, { headers });
+                await axios.put(`/superadmin/automations/${editingRule.id}`, ruleForm, { headers });
             } else {
-                await axios.post('/api/superadmin/automations', ruleForm, { headers });
+                await axios.post('/superadmin/automations', ruleForm, { headers });
             }
             setShowRuleModal(false);
             fetchAutomations();
@@ -334,7 +334,7 @@ export default function CrmLeads() {
             return;
         }
         try {
-            const res = await axios.get(`/api/superadmin/automations/${ruleId}/logs?limit=10`, { headers });
+            const res = await axios.get(`/superadmin/automations/${ruleId}/logs?limit=10`, { headers });
             setLogs(res.data);
             setExpandedLogs(ruleId);
         } catch (error) {

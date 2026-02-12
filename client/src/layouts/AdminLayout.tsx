@@ -16,7 +16,16 @@ import {
     AlertTriangle,
     X,
     Shield,
-    Headphones
+    Headphones,
+    Building2,
+    CalendarClock,
+    FileText,
+    SquareStack,
+    BarChart3,
+    Package,
+    RefreshCw,
+    FileSpreadsheet,
+    Map
 } from 'lucide-react';
 import SiteSelector from './components/SiteSelector';
 import TrialBanner from './components/TrialBanner';
@@ -29,15 +38,44 @@ interface NavItem {
     path: string;
 }
 
-const navItems: NavItem[] = [
-    { icon: <LayoutDashboard size={20} />, label: 'Vue d\'ensemble', path: '/dashboard' },
-    { icon: <Users size={20} />, label: 'Équipe', path: '/employees' },
-    { icon: <Clock size={20} />, label: 'Présences', path: '/attendance' },
-    { icon: <Receipt size={20} />, label: 'Note de Frais', path: '/expenses' },
-    { icon: <FolderOpen size={20} />, label: 'Documents', path: '/documents' },
+interface NavSection {
+    title: string;
+    items: NavItem[];
+}
+
+const navSections: NavSection[] = [
+    {
+        title: 'GESTION RH',
+        items: [
+            { icon: <LayoutDashboard size={20} />, label: 'Vue d\'ensemble', path: '/dashboard' },
+            { icon: <Users size={20} />, label: 'Collaborateurs', path: '/employees' },
+            { icon: <Clock size={20} />, label: 'Pointages', path: '/attendance' },
+            { icon: <Receipt size={20} />, label: 'Note de Frais', path: '/expenses' },
+            { icon: <FolderOpen size={20} />, label: 'Documents', path: '/documents' },
+        ],
+    },
+    {
+        title: 'OPÉRATIONS',
+        items: [
+            { icon: <BarChart3 size={20} />, label: 'Dashboard', path: '/operations/dashboard' },
+            { icon: <Building2 size={20} />, label: 'Clients', path: '/operations/customers' },
+            { icon: <SquareStack size={20} />, label: 'Types Interv.', path: '/operations/intervention-types' },
+            { icon: <CalendarClock size={20} />, label: 'Planning', path: '/operations/dispatch' },
+            { icon: <MessageCircle size={20} />, label: 'Demandes', path: '/operations/requests' },
+            { icon: <RefreshCw size={20} />, label: 'Récurrences', path: '/operations/recurring' },
+            { icon: <Package size={20} />, label: 'Pièces', path: '/operations/parts' },
+            { icon: <FileSpreadsheet size={20} />, label: 'Devis', path: '/operations/quotes' },
+            { icon: <Map size={20} />, label: 'Carte / Kanban', path: '/operations/map' },
+            { icon: <FileText size={20} />, label: 'Rapports', path: '/operations/reports' },
+        ],
+    },
+];
+
+// Flat list for header title lookup
+const allNavItems = navSections.flatMap(s => s.items).concat([
     { icon: <Headphones size={20} />, label: 'Support', path: '/support' },
     { icon: <Settings size={20} />, label: 'Paramètres', path: '/settings' },
-];
+]);
 
 interface AdminLayoutProps {
     children: React.ReactNode;
@@ -49,6 +87,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     const [collapsed, setCollapsed] = useState(false);
     const [user, setUser] = useState<{ name: string; tenant: string } | null>(null);
     const [tenantInfo, setTenantInfo] = useState<{ plan?: string; trialEndsAt?: string | null; maxEmployees?: number } | null>(null);
+    const [pendingRequests, setPendingRequests] = useState(0);
 
     // Support Mode - SuperAdmin Impersonation
     const [isImpersonating, setIsImpersonating] = useState(false);
@@ -91,6 +130,21 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             }
         };
         checkOnboarding();
+
+        // Fetch pending intervention requests count
+        const fetchPendingRequests = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                const res = await axios.get('/api/intervention-requests/stats', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setPendingRequests(res.data.pending || 0);
+            } catch (e) { /* ignore if ops not enabled */ }
+        };
+        fetchPendingRequests();
+        const interval = setInterval(fetchPendingRequests, 30000);
+        return () => clearInterval(interval);
     }, [navigate]);
 
     // Check for impersonation mode on mount and route changes
@@ -202,8 +256,68 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     )}
 
                     {/* Navigation */}
-                    <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-                        {navItems.map((item) => {
+                    <nav className="flex-1 py-2 px-2 overflow-y-auto">
+                        {navSections.map((section) => (
+                            <div key={section.title} className="mb-3">
+                                {!collapsed && (
+                                    <div className="px-3 py-2 text-[10px] font-bold tracking-widest text-gray-400 uppercase">
+                                        {section.title}
+                                    </div>
+                                )}
+                                {collapsed && (
+                                    <div className="border-t border-gray-100 mx-2 my-2" />
+                                )}
+                                <div className="space-y-0.5">
+                                    {section.items.map((item) => {
+                                        const isActive = location.pathname === item.path ||
+                                            (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+                                        return (
+                                            <Link
+                                                key={item.path}
+                                                to={item.path}
+                                                className={clsx(
+                                                    'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative',
+                                                    isActive
+                                                        ? 'bg-blue-50 text-blue-700 font-medium'
+                                                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                                                    collapsed && 'justify-center'
+                                                )}
+                                                title={collapsed ? item.label : undefined}
+                                            >
+                                                <span className={clsx(isActive && 'text-blue-600')}>
+                                                    {item.icon}
+                                                </span>
+                                                {!collapsed && (
+                                                    <>
+                                                        <span className="text-sm flex-1">{item.label}</span>
+                                                        {item.path === '/operations/requests' && pendingRequests > 0 && (
+                                                            <span className="ml-auto px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[20px] text-center animate-pulse">
+                                                                {pendingRequests}
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                )}
+                                                {collapsed && item.path === '/operations/requests' && pendingRequests > 0 && (
+                                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                                                        {pendingRequests}
+                                                    </span>
+                                                )}
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* Bottom items */}
+                        {!collapsed && (
+                            <div className="px-3 py-2 text-[10px] font-bold tracking-widest text-gray-400 uppercase mt-3">
+                                AUTRES
+                            </div>
+                        )}
+                        {collapsed && <div className="border-t border-gray-100 mx-2 my-2" />}
+                        {[{ icon: <Headphones size={20} />, label: 'Support', path: '/support' },
+                        { icon: <Settings size={20} />, label: 'Paramètres', path: '/settings' }].map((item) => {
                             const isActive = location.pathname === item.path;
                             return (
                                 <Link
@@ -289,7 +403,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-40">
                         <div>
                             <h1 className="text-lg font-semibold text-gray-900">
-                                {navItems.find(item => item.path === location.pathname)?.label || 'Dashboard'}
+                                {allNavItems.find(item => item.path === location.pathname)?.label || 'Dashboard'}
                             </h1>
                         </div>
                         <div className="flex items-center gap-4">

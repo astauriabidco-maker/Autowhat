@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { identifyUser } from '../services/authService';
 import { sendMessage, sendInteractiveList, sendInteractiveButtons, sendDocument } from '../services/whatsappService';
 import { checkIn, checkOut } from '../services/attendanceService';
@@ -11,8 +11,6 @@ import { getWeeklySummary, getHistory, formatWeeklySummaryMessage, formatHistory
 import { getDocumentsForEmployee, getDocumentById, formatDocumentListMessage } from '../services/documentService';
 import { notifyAllManagers } from '../services/notificationService';
 import { getBotMessage, getEmployeeLanguage } from '../config/i18nBot';
-
-const prisma = new PrismaClient();
 
 // Anti-spam cooldown for Magic Link messages (in-memory cache)
 // In production, consider using Redis for persistence across restarts
@@ -384,6 +382,211 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 console.log(`❌ Unknown manager number: ${from}`);
                             }
                             continue;
+                        }
+
+                        // ─── FSM: CUSTOMER INTERVENTION REQUEST BOT ───────────────
+                        // If the sender is NOT an employee, check if they're a known customer
+                        if (!employee) {
+                            const senderPhoneNormalized = `+${from}`;
+                            const customer = await prisma.customer.findFirst({
+                                where: {
+                                    phone: {
+                                        in: [from, senderPhoneNormalized, `+${from}`.replace('+', '')]
+                                    }
+                                },
+                                include: {
+                                    tenant: { select: { id: true, name: true } },
+                                    sites: { select: { id: true, name: true, address: true, city: true }, take: 5 },
+                                },
+                            });
+
+                            if (customer) {
+                                console.log(`🏢 Customer detected: ${customer.companyName} (${customer.contactName})`);
+                                const senderProfile = value.contacts?.[0]?.profile?.name || customer.contactName;
+
+                                // Handle button replies from customer
+                                if (messageType === 'interactive' && message.interactive?.type === 'button_reply') {
+                                    const btnId = message.interactive?.button_reply?.id;
+
+                                    if (btnId === 'btn_customer_request') {
+                                        // Customer wants to request an intervention
+                                        await sendMessage(
+                                            from,
+                                            `📝 *Décrivez votre besoin*\n\n` +
+                                            `Envoyez-nous un message décrivant votre problème ou besoin d'intervention.\n\n` +
+                                            `💡 Vous pouvez aussi envoyer une *photo* du problème.\n\n` +
+                                            `_Exemple: "Ma climatisation ne fonctionne plus, il fait très chaud dans les bureaux"_`,
+                                            phoneNumberId
+                                        );
+                                        // Mark this customer as waiting for request description
+                                        await prisma.customer.update({
+                                            where: { id: customer.id },
+                                            data: { notes: `__WAITING_REQUEST__${customer.notes || ''}` },
+                                        });
+                                        continue;
+                                    }
+
+                                    if (btnId === 'btn_customer_other') {
+                                        await sendMessage(
+                                            from,
+                                            `📞 Pour toute autre demande, contactez-nous directement.\n\n` +
+                                            `— ${customer.tenant.name}`,
+                                            phoneNumberId
+                                        );
+                                        continue;
+                                    }
+                                }
+
+                                // Check if customer is in "waiting for request" state
+                                const isWaiting = customer.notes?.startsWith('__WAITING_REQUEST__');
+
+                                if (isWaiting && (messageType === 'text' || messageType === 'image')) {
+                                    // Create intervention request
+                                    let requestMessage = messageBody;
+                                    let photoUrl: string | null = null;
+
+                                    if (messageType === 'image' && message.image?.id) {
+                                        requestMessage = message.image?.caption || 'Photo envoyée';
+                                        try {
+                                            const { downloadAndSaveMetaImage } = await import('../services/storageService');
+                                            const accessToken = process.env.WHATSAPP_API_TOKEN || process.env.WHATSAPP_TOKEN || '';
+                                            photoUrl = await downloadAndSaveMetaImage(message.image.id, accessToken);
+                                        } catch (e) {
+                                            console.error('Error downloading customer photo:', e);
+                                        }
+                                    }
+
+                                    // Detect urgency keywords
+                                    const urgentKeywords = ['urgent', 'urgence', 'immédiat', 'danger', 'fuite', 'panne', 'bloqué', 'critique'];
+                                    const isUrgent = urgentKeywords.some(k => requestMessage.toLowerCase().includes(k));
+
+                                    // Create the request
+                                    const request = await prisma.interventionRequest.create({
+                                        data: {
+                                            message: requestMessage,
+                                            photoUrl,
+                                            urgency: isUrgent ? 'URGENT' : 'NORMAL',
+                                            senderPhone: from,
+                                            senderName: senderProfile,
+                                            customerId: customer.id,
+                                            tenantId: customer.tenant.id,
+                                        },
+                                    });
+
+                                    // Clean customer waiting state
+                                    await prisma.customer.update({
+                                        where: { id: customer.id },
+                                        data: { notes: (customer.notes || '').replace('__WAITING_REQUEST__', '') || null },
+                                    });
+
+                                    // Confirm to customer
+                                    await sendMessage(
+                                        from,
+                                        `✅ *Demande enregistrée !*\n\n` +
+                                        `Bonjour ${customer.contactName},\n\n` +
+                                        `Votre demande d'intervention a été transmise à notre équipe${isUrgent ? ' en **PRIORITÉ**' : ''}.\n` +
+                                        `📋 Référence : #${request.id.slice(0, 8)}\n\n` +
+                                        `Vous serez notifié dès qu'un technicien sera assigné.\n\n` +
+                                        `— ${customer.tenant.name}`,
+                                        phoneNumberId
+                                    );
+
+                                    // Notify all managers of this tenant
+                                    const managers = await prisma.employee.findMany({
+                                        where: { tenantId: customer.tenant.id, role: 'MANAGER' },
+                                        select: { phoneNumber: true, name: true },
+                                    });
+
+                                    for (const mgr of managers) {
+                                        if (mgr.phoneNumber) {
+                                            await sendMessage(
+                                                mgr.phoneNumber.replace('+', ''),
+                                                `📩 *Nouvelle demande d'intervention !*\n\n` +
+                                                `🏢 Client : *${customer.companyName}*\n` +
+                                                `👤 Contact : ${customer.contactName}\n` +
+                                                (isUrgent ? `🔴 *URGENT*\n` : '') +
+                                                `\n💬 _"${requestMessage.slice(0, 200)}"_\n\n` +
+                                                `📋 Réf: #${request.id.slice(0, 8)}\n\n` +
+                                                `Rendez-vous dans Opérations → Demandes pour traiter.`,
+                                                phoneNumberId
+                                            );
+                                        }
+                                    }
+
+                                    console.log(`📩 Intervention request ${request.id} created for customer ${customer.companyName}`);
+                                    continue;
+                                }
+
+                                // Default: send customer greeting with buttons
+                                const cooldownKey = `customer_greeting_${from}`;
+                                const lastSent = magicLinkCooldowns.get(cooldownKey);
+                                const now = Date.now();
+                                if (lastSent && (now - lastSent) < 30 * 60 * 1000) { // 30min cooldown
+                                    // If within cooldown but text message, treat as request description
+                                    if (messageType === 'text' && messageBody.length > 5) {
+                                        // Auto-create request without waiting
+                                        const urgentKeywords = ['urgent', 'urgence', 'immédiat', 'danger', 'fuite', 'panne', 'bloqué', 'critique'];
+                                        const isUrgent = urgentKeywords.some(k => messageBody.toLowerCase().includes(k));
+
+                                        const request = await prisma.interventionRequest.create({
+                                            data: {
+                                                message: messageBody,
+                                                urgency: isUrgent ? 'URGENT' : 'NORMAL',
+                                                senderPhone: from,
+                                                senderName: senderProfile,
+                                                customerId: customer.id,
+                                                tenantId: customer.tenant.id,
+                                            },
+                                        });
+
+                                        await sendMessage(
+                                            from,
+                                            `✅ *Demande enregistrée !*\n\n` +
+                                            `Votre demande a été transmise à notre équipe.\n` +
+                                            `📋 Réf: #${request.id.slice(0, 8)}\n\n` +
+                                            `— ${customer.tenant.name}`,
+                                            phoneNumberId
+                                        );
+
+                                        // Notify managers
+                                        const managers = await prisma.employee.findMany({
+                                            where: { tenantId: customer.tenant.id, role: 'MANAGER' },
+                                            select: { phoneNumber: true },
+                                        });
+                                        for (const mgr of managers) {
+                                            if (mgr.phoneNumber) {
+                                                await sendMessage(
+                                                    mgr.phoneNumber.replace('+', ''),
+                                                    `📩 *Nouvelle demande d'intervention*\n\n` +
+                                                    `🏢 *${customer.companyName}*\n` +
+                                                    (isUrgent ? `🔴 *URGENT*\n` : '') +
+                                                    `💬 _"${messageBody.slice(0, 200)}"_\n\n` +
+                                                    `📋 Réf: #${request.id.slice(0, 8)}`,
+                                                    phoneNumberId
+                                                );
+                                            }
+                                        }
+                                        continue;
+                                    }
+                                    continue;
+                                }
+
+                                // Send customer greeting with intervention request button
+                                await sendInteractiveButtons(
+                                    from,
+                                    `👋 Bonjour *${customer.contactName}* !\n\n` +
+                                    `Vous êtes client de *${customer.tenant.name}*.\n` +
+                                    `Comment pouvons-nous vous aider ?`,
+                                    [
+                                        { id: 'btn_customer_request', title: '🔧 Intervention' },
+                                        { id: 'btn_customer_other', title: '📞 Autre demande' },
+                                    ],
+                                    phoneNumberId
+                                );
+                                magicLinkCooldowns.set(cooldownKey, Date.now());
+                                console.log(`🏢 Customer greeting sent to ${customer.contactName} (${from})`);
+                                continue;
+                            }
                         }
 
                         if (!employee) {

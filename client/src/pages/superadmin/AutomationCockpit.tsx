@@ -93,8 +93,8 @@ export default function AutomationCockpit() {
             const headers = { Authorization: `Bearer ${token}` };
 
             const [rulesRes, statsRes] = await Promise.all([
-                axios.get('/api/superadmin/automations', { headers }),
-                axios.get('/api/superadmin/automations/stats', { headers })
+                axios.get('/superadmin/automations', { headers }),
+                axios.get('/superadmin/automations/stats', { headers })
             ]);
 
             setRules(rulesRes.data);
@@ -113,7 +113,7 @@ export default function AutomationCockpit() {
     const handleToggle = async (id: string) => {
         try {
             const token = localStorage.getItem('superadmin_token');
-            await axios.patch(`/api/superadmin/automations/${id}/toggle`, {}, {
+            await axios.patch(`/superadmin/automations/${id}/toggle`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             fetchData();
@@ -126,7 +126,7 @@ export default function AutomationCockpit() {
         if (!confirm('Supprimer cette règle ?')) return;
         try {
             const token = localStorage.getItem('superadmin_token');
-            await axios.delete(`/api/superadmin/automations/${id}`, {
+            await axios.delete(`/superadmin/automations/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             fetchData();
@@ -171,9 +171,9 @@ export default function AutomationCockpit() {
             const headers = { Authorization: `Bearer ${token}` };
 
             if (editingRule) {
-                await axios.put(`/api/superadmin/automations/${editingRule.id}`, formData, { headers });
+                await axios.put(`/superadmin/automations/${editingRule.id}`, formData, { headers });
             } else {
-                await axios.post('/api/superadmin/automations', formData, { headers });
+                await axios.post('/superadmin/automations', formData, { headers });
             }
 
             setShowModal(false);
@@ -192,7 +192,7 @@ export default function AutomationCockpit() {
 
         try {
             const token = localStorage.getItem('superadmin_token');
-            const res = await axios.get(`/api/superadmin/automations/${ruleId}/logs?limit=10`, {
+            const res = await axios.get(`/superadmin/automations/${ruleId}/logs?limit=10`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setLogs(res.data);
@@ -328,8 +328,8 @@ export default function AutomationCockpit() {
                                             </button>
                                             <h3 className="font-semibold text-gray-900">{rule.name}</h3>
                                             <span className={`px-2 py-0.5 text-xs rounded-full ${rule.isActive
-                                                    ? 'bg-green-100 text-green-700'
-                                                    : 'bg-gray-100 text-gray-500'
+                                                ? 'bg-green-100 text-green-700'
+                                                : 'bg-gray-100 text-gray-500'
                                                 }`}>
                                                 {rule.isActive ? 'Actif' : 'Inactif'}
                                             </span>

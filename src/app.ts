@@ -51,6 +51,7 @@ import router from './routes/index';
 import { initLateArrivalJob } from './jobs/lateArrivalJob';
 import { initReminderJobs } from './jobs/reminderJobs';
 import { initRetentionJob } from './modules/privacy/retentionJob';
+import { initRecurringInterventionsJob } from './cron/recurringInterventions';
 import { initializeQueue, closeQueue } from './services/queueService';
 import { closeRedisConnection, isRedisEnabled } from './services/redisConnection';
 import {
@@ -69,6 +70,7 @@ app.use(router);
 initLateArrivalJob();
 initReminderJobs();
 initRetentionJob(); // Privacy Suite - purge automatique RGPD
+initRecurringInterventionsJob(); // Opérations - auto-génération des interventions récurrentes
 
 // Initialize WhatsApp Queue (if Redis is enabled)
 if (isRedisEnabled()) {

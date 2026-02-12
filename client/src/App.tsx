@@ -50,6 +50,19 @@ import CookieBanner from './components/CookieBanner';
 import './i18n'; // Initialize i18n
 import './index.css';
 
+// Operations / FSM Pages
+import Customers from './pages/operations/Customers';
+import Dispatch from './pages/operations/Dispatch';
+import OpsReports from './pages/operations/Reports';
+import InterventionTypes from './pages/operations/InterventionTypes';
+import OpsDashboard from './pages/operations/Dashboard';
+import Parts from './pages/operations/Parts';
+import Recurring from './pages/operations/Recurring';
+import Quotes from './pages/operations/Quotes';
+import MapKanban from './pages/operations/MapKanban';
+import InterventionRequests from './pages/operations/InterventionRequests';
+import SignaturePad from './pages/public/SignaturePad';
+
 
 // Wrapper component for protected routes with AdminLayout
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -116,6 +129,41 @@ function App() {
           <Route path="/settings/whatsapp" element={
             <ProtectedRoute><IntegrationWhatsApp /></ProtectedRoute>
           } />
+
+          {/* Operations / FSM Routes */}
+          <Route path="/operations/dashboard" element={
+            <ProtectedRoute><OpsDashboard /></ProtectedRoute>
+          } />
+          <Route path="/operations/customers" element={
+            <ProtectedRoute><Customers /></ProtectedRoute>
+          } />
+          <Route path="/operations/intervention-types" element={
+            <ProtectedRoute><InterventionTypes /></ProtectedRoute>
+          } />
+          <Route path="/operations/dispatch" element={
+            <ProtectedRoute><Dispatch /></ProtectedRoute>
+          } />
+          <Route path="/operations/reports" element={
+            <ProtectedRoute><OpsReports /></ProtectedRoute>
+          } />
+          <Route path="/operations/parts" element={
+            <ProtectedRoute><Parts /></ProtectedRoute>
+          } />
+          <Route path="/operations/recurring" element={
+            <ProtectedRoute><Recurring /></ProtectedRoute>
+          } />
+          <Route path="/operations/quotes" element={
+            <ProtectedRoute><Quotes /></ProtectedRoute>
+          } />
+          <Route path="/operations/map" element={
+            <ProtectedRoute><MapKanban /></ProtectedRoute>
+          } />
+          <Route path="/operations/requests" element={
+            <ProtectedRoute><InterventionRequests /></ProtectedRoute>
+          } />
+
+          {/* Public Signature (No Auth - Token protected) */}
+          <Route path="/sign-intervention/:token" element={<SignaturePad />} />
 
           {/* SuperAdmin Routes */}
           <Route path="/superadmin/login" element={<SuperAdminLogin />} />
