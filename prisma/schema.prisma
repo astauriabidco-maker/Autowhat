@@ -224,6 +224,8 @@ model Employee {
   resetToken       String?   // Token de réinitialisation de mot de passe (UUID)
   resetTokenExpiry DateTime? // Date d'expiration du token (1h)
   hasCompletedOnboarding Boolean @default(false) // For MANAGER: track wizard completion
+  otpCode        String?   // Code envoyé via WhatsApp (6 chiffres)
+  otpExpiresAt   DateTime? // Expiration du code OTP
   
   // Profil de poste pour géofencing
   workProfile String   @default("MOBILE") // MOBILE = pas de restriction, SEDENTARY = doit être sur site
@@ -294,6 +296,9 @@ model LeaveRequest {
   startDate  DateTime
   endDate  DateTime
   status     String   @default("PENDING")
+  type       String   @default("PAID") // PAID, SICK, UNPAID
+  documentUrl String? // For medical certificates
+  
   
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id])
@@ -466,6 +471,13 @@ model WebhookConfig {
   
   // Scope: null = global (SuperAdmin), tenantId = per-tenant
   tenantId    String?
+  
+  // Custom Mapping for External APIs (e.g. KPaie, MediPlan)
+  payloadMapping Json?  // Stores transformation rules/templates
+
+  // Integration Specific Settings
+  headers     Json?    // Stores custom headers (e.g., {"Authorization": "Bearer token"})
+  httpMethod  String   @default("POST") // POST, PUT, PATCH
   
   // Metadata
   createdAt   DateTime @default(now())

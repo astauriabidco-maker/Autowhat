@@ -71,7 +71,7 @@ export const getWebhook = async (req: Request, res: Response): Promise<any> => {
  */
 export const createWebhook = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { name, url, events, tenantId, generateSecret } = req.body;
+        const { name, url, events, tenantId, generateSecret, payloadMapping, httpMethod, headers } = req.body;
         const isSuperAdmin = !!(req as any).superAdminId;
 
         // Validation
@@ -109,7 +109,10 @@ export const createWebhook = async (req: Request, res: Response): Promise<any> =
                 secret,
                 events,
                 tenantId: isSuperAdmin ? (tenantId || null) : (req as any).tenantId,
-                isActive: true
+                isActive: true,
+                payloadMapping: payloadMapping || undefined,
+                httpMethod: httpMethod || 'POST',
+                headers: headers || undefined
             }
         });
 
@@ -133,7 +136,7 @@ export const createWebhook = async (req: Request, res: Response): Promise<any> =
 export const updateWebhook = async (req: Request, res: Response): Promise<any> => {
     try {
         const id = req.params.id as string;
-        const { name, url, events, isActive, regenerateSecret } = req.body;
+        const { name, url, events, isActive, regenerateSecret, payloadMapping, httpMethod, headers } = req.body;
 
         const existing = await prisma.webhookConfig.findUnique({ where: { id } });
         if (!existing) {
@@ -160,6 +163,9 @@ export const updateWebhook = async (req: Request, res: Response): Promise<any> =
             updateData.events = events;
         }
         if (isActive !== undefined) updateData.isActive = isActive;
+        if (payloadMapping !== undefined) updateData.payloadMapping = payloadMapping; // Can be null to remove
+        if (httpMethod !== undefined) updateData.httpMethod = httpMethod;
+        if (headers !== undefined) updateData.headers = headers; // Can be null to remove
 
         // Regenerate secret if requested
         let newSecret: string | null = null;

@@ -6,6 +6,8 @@ import crypto from 'crypto';
 import { getTemplate } from '../config/industryTemplates';
 import { sendWelcomeEmail, sendPasswordResetEmail } from '../services/emailService';
 import { assignNumberToTenant } from '../services/numberAllocationService';
+import { sendMessage } from '../services/whatsappService';
+import { getDefaultConfig } from '../services/whatsappConfigService';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -424,5 +426,166 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     } catch (error) {
         console.error('Reset password error:', error);
         res.status(500).json({ error: 'Erreur lors de la réinitialisation du mot de passe' });
+    }
+};
+
+// ============================================================================
+// WHATSAPP OTP PASSWORDLESS AUTHENTICATION
+// ============================================================================
+
+/**
+ * POST /auth/request-otp
+ * Generates a 6-digit OTP code and sends it via WhatsApp.
+ * Uses the system number (not BYON) for security — ensuring the manager
+ * can always receive their login code even if their BYON config is broken.
+ */
+export const requestOtp = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { phoneNumber } = req.body;
+
+        if (!phoneNumber) {
+            res.status(400).json({ error: 'Numéro de téléphone requis' });
+            return;
+        }
+
+        // Clean phone number
+        const cleanPhone = phoneNumber.replace(/[\s\-\(\)\+]/g, '');
+
+        // Maintenance mode check
+        const platformConfig = await prisma.platformConfig.findUnique({ where: { id: 1 } });
+        if (platformConfig?.maintenanceMode) {
+            res.status(503).json({
+                error: 'La plateforme est en maintenance. Réessayez dans quelques minutes.',
+                maintenanceMode: true
+            });
+            return;
+        }
+
+        // Find the manager by phone number
+        const employee = await prisma.employee.findFirst({
+            where: {
+                phoneNumber: cleanPhone,
+                role: 'MANAGER',
+            },
+        });
+
+        // Always return success to prevent phone number enumeration
+        if (!employee) {
+            console.log(`🔒 OTP requested for unknown number: ${cleanPhone}`);
+            res.status(200).json({
+                message: 'Si ce numéro est associé à un compte, un code a été envoyé via WhatsApp.',
+            });
+            return;
+        }
+
+        // Check tenant status
+        const tenant = await prisma.tenant.findUnique({ where: { id: employee.tenantId } });
+        if (tenant?.status === 'SUSPENDED') {
+            res.status(403).json({ error: 'Votre compte entreprise est suspendu. Contactez le support.' });
+            return;
+        }
+
+        // Generate 6-digit OTP
+        const otpCode = String(Math.floor(100000 + Math.random() * 900000));
+        const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        // Save OTP to database
+        await prisma.employee.update({
+            where: { id: employee.id },
+            data: { otpCode, otpExpiresAt },
+        });
+
+        // Send OTP via WhatsApp using the SYSTEM number (not BYON)
+        // This ensures the manager can always receive their code
+        const systemConfig = getDefaultConfig();
+        const otpMessage = `🔐 *Code de connexion WhatsPoint*\n\nVotre code : *${otpCode}*\n\n⏰ Valable 10 minutes.\n⚠️ Ne partagez jamais ce code.`;
+
+        await sendMessage(cleanPhone, otpMessage, systemConfig);
+
+        console.log(`📱 OTP sent to ${cleanPhone} for ${employee.name}`);
+
+        res.status(200).json({
+            message: 'Si ce numéro est associé à un compte, un code a été envoyé via WhatsApp.',
+        });
+    } catch (error) {
+        console.error('Request OTP error:', error);
+        res.status(500).json({ error: "Erreur lors de l'envoi du code" });
+    }
+};
+
+/**
+ * POST /auth/verify-otp
+ * Verifies the OTP code and returns a JWT token.
+ */
+export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { phoneNumber, otpCode } = req.body;
+
+        if (!phoneNumber || !otpCode) {
+            res.status(400).json({ error: 'Numéro de téléphone et code requis' });
+            return;
+        }
+
+        // Clean phone number
+        const cleanPhone = phoneNumber.replace(/[\s\-\(\)\+]/g, '');
+
+        // Find the manager with a valid OTP
+        const employee = await prisma.employee.findFirst({
+            where: {
+                phoneNumber: cleanPhone,
+                role: 'MANAGER',
+                otpCode: otpCode,
+                otpExpiresAt: {
+                    gt: new Date(), // OTP must not be expired
+                },
+            },
+            include: {
+                tenant: true,
+            },
+        });
+
+        if (!employee) {
+            res.status(401).json({ error: 'Code invalide ou expiré' });
+            return;
+        }
+
+        // Clear OTP immediately (single-use)
+        await prisma.employee.update({
+            where: { id: employee.id },
+            data: { otpCode: null, otpExpiresAt: null },
+        });
+
+        // Update tenant last login
+        await prisma.tenant.update({
+            where: { id: employee.tenantId },
+            data: { lastLoginAt: new Date() },
+        });
+
+        // Generate JWT (same payload as the old login)
+        const token = jwt.sign(
+            {
+                userId: employee.id,
+                tenantId: employee.tenantId,
+                role: employee.role,
+            },
+            JWT_SECRET,
+            { expiresIn: JWT_EXPIRES_IN }
+        );
+
+        console.log(`✅ OTP login successful for ${employee.name} (${employee.tenant.name})`);
+
+        res.status(200).json({
+            message: 'Connexion réussie',
+            token,
+            user: {
+                id: employee.id,
+                name: employee.name,
+                role: employee.role,
+                tenant: employee.tenant.name,
+            },
+        });
+    } catch (error) {
+        console.error('Verify OTP error:', error);
+        res.status(500).json({ error: 'Erreur lors de la vérification du code' });
     }
 };

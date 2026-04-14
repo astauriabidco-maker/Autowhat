@@ -10,7 +10,8 @@ import {
     AlertCircle,
     CheckCircle,
     File,
-    Users
+    Users,
+    Brain
 } from 'lucide-react';
 
 interface Document {
@@ -37,7 +38,8 @@ interface Employee {
 const CATEGORIES = [
     { value: 'PAIE', label: '💰 Fiche de paie', color: 'bg-emerald-100 text-emerald-700' },
     { value: 'CONTRAT', label: '📝 Contrat', color: 'bg-blue-100 text-blue-700' },
-    { value: 'INTERNE', label: '📋 Document interne', color: 'bg-purple-100 text-purple-700' }
+    { value: 'INTERNE', label: '📋 Document interne', color: 'bg-purple-100 text-purple-700' },
+    { value: 'RAG_KB', label: '🧠 Base Documentaire IA (RAG)', color: 'bg-indigo-100 text-indigo-700' }
 ];
 
 export default function Documents() {
@@ -215,6 +217,20 @@ export default function Documents() {
                     {success}
                 </div>
             )}
+
+            {/* AI Assistant Knowledge Base Banner */}
+            <div className="flex items-start gap-4 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 p-5 rounded-xl">
+                <div className="p-2 bg-indigo-600 rounded-lg shadow-md shadow-indigo-200 mt-1">
+                    <Brain className="text-white" size={24} />
+                </div>
+                <div>
+                    <h3 className="text-indigo-950 font-bold mb-1">Entraîner l'Assistant RH Autonome</h3>
+                    <p className="text-sm text-indigo-900/80 leading-relaxed">
+                        Les documents uploadés sous la catégorie <span className="font-semibold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">🧠 Base Documentaire IA</span> seront automatiquement scannés et mémorisés par votre Agent WhatsApp. 
+                        Vos employés pourront lui poser des questions et il y répondra en se basant sur le contenu de ces fichiers (Règlement intérieur, protocoles, etc.).
+                    </p>
+                </div>
+            </div>
 
             {/* Two Column Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

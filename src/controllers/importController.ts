@@ -3,6 +3,8 @@ import multer from 'multer';
 import * as XLSX from 'xlsx';
 import { parsePhoneNumber, isValidPhoneNumber, CountryCode } from 'libphonenumber-js';
 import { PrismaClient } from '@prisma/client';
+import { sendMessage } from '../services/whatsappService';
+import { getCredentialsForTenant } from '../services/whatsappConfigService';
 
 const prisma = new PrismaClient();
 
@@ -54,10 +56,10 @@ export const importEmployees = async (req: Request, res: Response): Promise<void
             return;
         }
 
-        // Get tenant info for country default
+        // Get tenant info for country default and welcome message
         const tenant = await prisma.tenant.findUnique({
             where: { id: tenantId },
-            select: { country: true }
+            select: { country: true, name: true }
         });
 
         if (!tenant) {
@@ -66,6 +68,9 @@ export const importEmployees = async (req: Request, res: Response): Promise<void
         }
 
         const countryCode = (tenant.country || 'FR') as CountryCode;
+
+        // Get WhatsApp credentials once before the loop (for auto-onboarding messages)
+        const tenantCredentials = await getCredentialsForTenant(tenantId);
 
         // Parse the file
         const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
@@ -198,6 +203,21 @@ export const importEmployees = async (req: Request, res: Response): Promise<void
                             siteId
                         }
                     });
+
+                    // ----------------------------------------------------
+                    // SOLOPRENEUR ONBOARDING: Send Welcome WhatsApp Message
+                    // ----------------------------------------------------
+                    const tenantName = tenant.name || 'votre entreprise';
+                    const welcomeMsg = `👋 Bonjour ${firstName || fullName} ! Bienvenue sur le système WhatsPoint de ${tenantName}.\n\nJe suis l'assistant RH & Terrain. Vous pouvez m'envoyer directement vos 👉 *demandes de congés*, ou pointer vos arrivées/départs.\n\nEnvoyez-moi simplement le mot *"Menu"* pour démarrer 🚀`;
+                    
+                    try {
+                        // Envoi asynchrone non-bloquant via la file d'attente (Redis)
+                        await sendMessage(normalizedPhone, welcomeMsg, tenantCredentials);
+                        console.log(`💬 [ONBOARDING] Welcome message queued for ${normalizedPhone}`);
+                    } catch (e) {
+                        console.error(`❌ [ONBOARDING] Failed to send welcome message to ${normalizedPhone}:`, e);
+                    }
+
                     result.imported++;
                 }
 

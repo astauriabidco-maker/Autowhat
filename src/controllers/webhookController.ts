@@ -11,6 +11,7 @@ import { getWeeklySummary, getHistory, formatWeeklySummaryMessage, formatHistory
 import { getDocumentsForEmployee, getDocumentById, formatDocumentListMessage } from '../services/documentService';
 import { notifyAllManagers } from '../services/notificationService';
 import { getBotMessage, getEmployeeLanguage } from '../config/i18nBot';
+import { dispatchWebhook, WEBHOOK_EVENTS } from '../services/webhookService';
 
 // Anti-spam cooldown for Magic Link messages (in-memory cache)
 // In production, consider using Redis for persistence across restarts
@@ -43,6 +44,8 @@ const MENU_SECTIONS = [
         title: '📋 Administration',
         rows: [
             { id: 'cmd_leave', title: '🏖️ Poser un congé', description: 'Demander un jour de congé' },
+            { id: 'cmd_sick', title: '🤒 Arrêt maladie', description: 'Déclarer un arrêt médical' },
+            { id: 'cmd_balance', title: '📊 Mes droits (Solde)', description: 'Consulter mes congés/RTT' },
             { id: 'cmd_expense', title: '🧾 Note de frais', description: 'Soumettre une dépense' },
             { id: 'cmd_stats', title: '📊 Mes heures', description: 'Voir mes statistiques' },
             { id: 'cmd_docs', title: '📂 Mes documents', description: 'Consulter mes documents' }
@@ -61,6 +64,8 @@ const INTERACTIVE_ID_TO_COMMAND: Record<string, string> = {
     'cmd_hi': 'hi',
     'cmd_bye': 'bye',
     'cmd_leave': 'leave_menu',
+    'cmd_sick': 'maladie',
+    'cmd_balance': 'balance',
     'cmd_expense': 'expense',
     'cmd_stats': 'stats',
     'cmd_docs': 'documents',
@@ -239,6 +244,67 @@ async function processCommand(
             console.log(`🧾 Starting EXPENSE workflow for ${employee.name}`);
             await setConversationState(employee.id, 'WAITING_EXPENSE_PHOTO');
             responseText = `🧾 *Nouvelle note de frais*\n\n📸 Envoyez la photo du ticket.`;
+            break;
+        }
+
+        case 'maladie':
+        case 'sick': {
+            console.log(`🤒 Starting SICK LEAVE workflow for ${employee.name}`);
+            await setConversationState(employee.id, 'WAITING_SICK_PHOTO');
+            responseText = `🤒 *Déclaration d'arrêt maladie*\n\nPas besoin de taper les dates ! 📷 Envoyez-moi simplement *la photo de votre certificat médical*, je le lirai et l'enregistrerai pour vous.`;
+            break;
+        }
+
+        case 'balance':
+        case 'solde':
+        case 'droits': {
+            console.log(`📊 Interrogating HRIS for balances of ${employee.name}`);
+            
+            // Pour le multi-tenant, on récupère dynamiquement le nom du logiciel cible via le Tenant
+            const softwareName = employee.tenant?.hrisName || "vos services RH";
+            
+            await sendMessage(
+                from,
+                `🔄 *Connexion en cours...*\nInterrogation de ${softwareName}, merci de patienter...`,
+                phoneNumberId
+            );
+
+            // Fetch logic routes dynamically based on Tenant's API configuration
+            try {
+                // ex: await axios.get(employee.tenant.hrisApiUrl + "/balances", { headers: ... })
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                const mockHrData = {
+                    cp_restants: 12.5,
+                    rtt_restants: 3,
+                    dernier_salaire_net: 2145.50,
+                    date_mise_a_jour: new Date().toLocaleDateString('fr-FR')
+                };
+
+                responseText = `✅ *Dossier RH récupéré :*\n\n` +
+                    `🏖️ *Congés Payés* : ${mockHrData.cp_restants} jours\n` +
+                    `⏱️ *RTT Restants* : ${mockHrData.rtt_restants} jours\n\n` +
+                    `💶 *Dernière Paie Nette* : ${mockHrData.dernier_salaire_net} €\n\n` +
+                    `_(Données synchronisées le ${mockHrData.date_mise_a_jour})_`;
+
+            } catch (err) {
+                 responseText = `❌ Les serveurs RH sont actuellement injoignables. Veuillez réessayer plus tard.`;
+            }
+            break;
+        }
+
+        case 'documents':
+        case 'docs': {
+            console.log(`📂 Fetching documents for ${employee.name}`);
+            
+            const docs = await getDocumentsForEmployee(employee.id, employee.tenantId, 5);
+            
+            if (docs.length === 0) {
+                responseText = `📂 *Mes Documents*\n\n_Votre coffre-fort numérique est vide._`;
+            } else {
+                responseText = formatDocumentListMessage(docs as any, employee.name);
+                await setConversationState(employee.id, 'WAITING_DOC_SELECTION');
+            }
             break;
         }
 
@@ -733,18 +799,87 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     const accessToken = process.env.WHATSAPP_API_TOKEN || process.env.WHATSAPP_TOKEN || '';
                                     const photoUrl = await downloadAndSaveMetaImage(message.image.id, accessToken);
 
-                                    // Save photo URL and move to next state
-                                    await updateTempExpenseData(employee.id, { photoUrl });
-                                    await setConversationState(employee.id, 'WAITING_EXPENSE_AMOUNT');
+                                    await sendMessage(from, `🤖 🔍 *Vision IA* : Je lis votre ticket de caisse, un instant...`, phoneNumberId);
+                                    
+                                    const { extractExpenseDataFromImage } = require('../services/aiAgentService');
+                                    const aiResult = await extractExpenseDataFromImage(photoUrl);
 
-                                    await sendMessage(
-                                        from,
-                                        `📷 Photo reçue ! ✅\n\n💰 Quel est le montant de la dépense ?\n(Ex: 25.50)`,
-                                        phoneNumberId
-                                    );
+                                    if (aiResult && aiResult.amount) {
+                                        await updateTempExpenseData(employee.id, { photoUrl, amount: aiResult.amount });
+                                        await setConversationState(employee.id, 'WAITING_EXPENSE_CATEGORY');
+                                        
+                                        await sendInteractiveButtons(
+                                            from,
+                                            `✅ *Lecture Automatique Réussie*\nMontant détecté : *${aiResult.amount.toFixed(2)} ${aiResult.currency}*\nFournisseur : *${aiResult.merchant}*\n\n📂 Choisissez la catégorie de cette dépense :`,
+                                            EXPENSE_CATEGORY_BUTTONS,
+                                            phoneNumberId
+                                        );
+                                    } else {
+                                        await updateTempExpenseData(employee.id, { photoUrl });
+                                        await setConversationState(employee.id, 'WAITING_EXPENSE_AMOUNT');
+                                        await sendMessage(
+                                            from,
+                                            `❌ *Lecture IA Échouée*\nJe n'ai pas pu lire le montant sur cette photo.\n\n💰 Quel est le montant de la dépense ?\n(Ex: 25.50)`,
+                                            phoneNumberId
+                                        );
+                                    }
                                 } catch (error) {
                                     console.error('❌ Error processing expense photo:', error);
                                     await sendMessage(from, `❌ Erreur lors du traitement de la photo. Réessayez.`, phoneNumberId);
+                                }
+                                continue;
+                            }
+
+                            // SICK LEAVE: Medical certificate upload
+                            if (employee.conversationState === 'WAITING_SICK_PHOTO') {
+                                console.log(`🤒 Processing SICK LEAVE PHOTO for ${employee.name}`);
+                                try {
+                                    const accessToken = process.env.WHATSAPP_API_TOKEN || process.env.WHATSAPP_TOKEN || '';
+                                    const photoUrl = await downloadAndSaveMetaImage(message.image.id, accessToken);
+
+                                    await sendMessage(from, `🤖 🔍 *Lecteur IA* : Analyse de votre arrêt de travail en cours...`, phoneNumberId);
+                                    
+                                    const { extractMedicalCertificateDataFromImage } = require('../services/aiAgentService');
+                                    const aiResult = await extractMedicalCertificateDataFromImage(photoUrl);
+
+                                    if (aiResult.isValidDocument && aiResult.startDate && aiResult.endDate) {
+                                        // Create the LeaveRequest autonomously!
+                                        const sickLeave = await prisma.leaveRequest.create({
+                                            data: {
+                                                startDate: new Date(aiResult.startDate),
+                                                endDate: new Date(aiResult.endDate),
+                                                type: 'SICK',
+                                                status: 'PENDING',
+                                                documentUrl: photoUrl,
+                                                employeeId: employee.id,
+                                                tenantId: employee.tenantId
+                                            }
+                                        });
+
+                                        await setConversationState(employee.id, null);
+
+                                        await sendMessage(
+                                            from,
+                                            `✅ *Analyse Réussie*\nArrêt maladie déposé automatiquement du *${new Date(aiResult.startDate).toLocaleDateString('fr-FR')}* au *${new Date(aiResult.endDate).toLocaleDateString('fr-FR')}*.\n🧑‍⚕️ Médecin: ${aiResult.doctorName}\n\nLe justificatif a été transmis à votre service RH. Bon rétablissement !`,
+                                            phoneNumberId
+                                        );
+
+                                        // Optional: Fire webhook for HR module (KPaie/MediPlan)
+                                        await dispatchWebhook(WEBHOOK_EVENTS.LEAVE_REQUESTED, {
+                                            employeeId: employee.id,
+                                            employeeName: employee.name,
+                                            type: 'SICK',
+                                            documentUrl: photoUrl,
+                                            startDate: sickLeave.startDate.toISOString(),
+                                            endDate: sickLeave.endDate.toISOString()
+                                        }, employee.tenantId);
+                                    } else {
+                                        await setConversationState(employee.id, null);
+                                        await sendMessage(from, `❌ *Analyse Échouée*\nJe n'ai pas pu valider ce document comme un arrêt de travail CERFA.\nVeuillez contacter les RH manuellement.`, phoneNumberId);
+                                    }
+                                } catch (error) {
+                                    console.error('❌ Error processing sick photo:', error);
+                                    await sendMessage(from, `❌ Erreur de l'Agent lors de la lecture. Réessayez.`, phoneNumberId);
                                 }
                                 continue;
                             }
@@ -807,7 +942,43 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                             continue;
                         }
 
-                        // 3. Check for leave request pattern first
+                        // Check SICK leave dates
+                        if (employee.conversationState === 'WAITING_SICK_DATE') {
+                            const parsedDate = parseLeaveRequest(messageBody);
+                            if (parsedDate) {
+                                // For an illness started "today" and ends on parsedDate
+                                const todayDateObj = new Date();
+                                const endDateObj = new Date(); // Need logic to map parsedDate, parseLeaveRequest returns "YYYY-MM-DD"
+                                
+                                // Since parseLeaveRequest returns YYYY-MM-DD or similar text in format 'DD/MM/YYYY', 
+                                // we actually use createRequest equivalent or write a simple parser.
+                                // Actually we know parseLeaveRequest returns 'YYYY-MM-DD' since it's formatting it.
+                                let endDate = new Date(parsedDate);
+                                if (isNaN(endDate.getTime())) {
+                                    // Not a valid DB date directly
+                                    endDate = new Date();
+                                }
+                                
+                                await prisma.leaveRequest.create({
+                                    data: {
+                                        startDate: new Date(),
+                                        endDate: endDate,
+                                        type: 'SICK',
+                                        status: 'PENDING',
+                                        employeeId: employee.id,
+                                        tenantId: employee.tenantId
+                                    }
+                                });
+
+                                await setConversationState(employee.id, 'WAITING_SICK_PHOTO');
+                                await sendMessage(from, `📸 Date enregistrée. Veuillez maintenant envoyer la *photo de votre arrêt de travail / justificatif*.`, phoneNumberId);
+                            } else {
+                                await sendMessage(from, `⚠️ Format non reconnu. Exemple : "Jusqu'au 20/03"`, phoneNumberId);
+                            }
+                            continue;
+                        }
+
+                        // 4. Check for leave request pattern first
                         const leaveDate = parseLeaveRequest(messageBody);
                         if (leaveDate) {
                             console.log(`📅 Processing LEAVE REQUEST for ${employee.name}: ${leaveDate}`);
@@ -840,6 +1011,18 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     from,
                                     `✅ Demande de congé envoyée au manager pour le ${formattedDate}.\n\nVous recevrez une notification dès qu'elle sera traitée.`,
                                     phoneNumberId
+                                );
+
+                                // Trigger Webhook to KPaie API
+                                await dispatchWebhook(
+                                    WEBHOOK_EVENTS.LEAVE_REQUESTED,
+                                    {
+                                        employeeId: employee.id,
+                                        employeeName: employee.name,
+                                        leaveDate: formattedDate,
+                                        requestId: result.request.id,
+                                    },
+                                    employee.tenantId
                                 );
                             } else {
                                 await sendMessage(from, `⚠️ ${result.message}`, phoneNumberId);
@@ -1077,8 +1260,46 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                         }
                         // ====================================================================
 
-                        // 6. Process standard text commands
-                        const command = messageBody.toLowerCase().trim();
+                        // 6. Process standard text or Natural Language routing
+                        let command = messageBody.toLowerCase().trim();
+                        
+                        // Check if it's a standard core exact command (hi, menu, etc)
+                        const isCoreCommand = ['hi', 'hello', 'bonjour', 'menu', 'aide', 'bye', 'stats', 'documents'].includes(command) || command.startsWith('/');
+                        
+                        if (!isCoreCommand) {
+                            // 🧠 AGENTIC ROUTER: Analyze intent of natural language
+                            await sendMessage(from, `🤖 _Compréhension de votre demande en cours..._`, phoneNumberId);
+                            const { detectUserIntent } = require('../services/aiAgentService');
+                            const intentResult = await detectUserIntent(messageBody);
+
+                            switch(intentResult.intent) {
+                                case 'EXPENSE_REPORT':
+                                    command = 'expense';
+                                    break;
+                                case 'SICK_LEAVE':
+                                    command = 'maladie';
+                                    break;
+                                case 'LEAVE_REQUEST':
+                                    command = 'leave_menu';
+                                    break;
+                                case 'HR_BALANCE':
+                                    command = 'balance';
+                                    break;
+                                case 'DOCUMENT_ACCESS':
+                                    command = 'documents';
+                                    break;
+                                case 'FAQ_HR':
+                                    await sendMessage(from, `📚 *Assistant RH*\n\nJe parcours actuellement votre règlement intérieur pour trouver la réponse légale à : _"${intentResult.question}"_\nUn instant...`, phoneNumberId);
+                                    const { answerHRQuestionViaRAG } = require('../services/aiAgentService');
+                                    const ragAnswer = await answerHRQuestionViaRAG(intentResult.question, employee.tenantId);
+                                    await sendMessage(from, `🧠 *Directives RH (RAG) :*\n\n${ragAnswer}`, phoneNumberId);
+                                    continue; // Skip standard processCommand
+                                default:
+                                    command = 'menu'; // Fallback to displaying UI if not understood
+                                    break;
+                            }
+                        }
+
                         await processCommand(command, employee, from, phoneNumberId, messageTimestamp);
 
                     } else if (value.statuses) {

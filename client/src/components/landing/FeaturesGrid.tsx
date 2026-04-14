@@ -19,7 +19,7 @@ export default function FeaturesGrid() {
     return (
         <section id="hr-suite" style={{
             padding: isMobile ? '4rem 4%' : '6rem 5%',
-            background: '#0f172a'
+            background: '#ffffff'
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {/* Header */}
@@ -40,20 +40,21 @@ export default function FeaturesGrid() {
                         marginBottom: '1rem'
                     }}>
                         <Smartphone size={16} color="#3b82f6" />
-                        <span style={{ color: '#3b82f6', fontSize: '0.85rem', fontWeight: 600 }}>
+                        <span style={{ color: '#2563eb', fontSize: '0.85rem', fontWeight: 600 }}>
                             {t('landing.suite.badge', 'POCKET HR SUITE')}
                         </span>
                     </div>
                     <h2 style={{
-                        color: 'white',
+                        color: '#0f172a',
                         fontSize: isMobile ? '1.75rem' : '2.5rem',
                         fontWeight: 800,
-                        marginBottom: '1rem'
+                        marginBottom: '1rem',
+                        letterSpacing: '-0.02em'
                     }}>
                         {t('landing.suite.title', 'Bien plus qu\'une pointeuse.')}
                     </h2>
                     <p style={{
-                        color: '#64748b',
+                        color: '#475569',
                         fontSize: '1.1rem',
                         maxWidth: '600px',
                         margin: '0 auto'
@@ -78,12 +79,13 @@ export default function FeaturesGrid() {
                         style={{
                             gridColumn: isMobile ? 'span 1' : 'span 2',
                             gridRow: isMobile ? 'auto' : 'span 2',
-                            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%)',
-                            border: '1px solid rgba(59, 130, 246, 0.2)',
+                            background: 'white',
+                            border: '1px solid #e2e8f0',
                             borderRadius: '1.5rem',
                             padding: '2rem',
                             position: 'relative',
                             overflow: 'hidden',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                             minHeight: isMobile ? '280px' : '400px'
                         }}
                     >
@@ -111,15 +113,15 @@ export default function FeaturesGrid() {
                         </div>
 
                         <h3 style={{
-                            color: 'white',
+                            color: '#0f172a',
                             fontSize: '1.5rem',
-                            fontWeight: 700,
+                            fontWeight: 800,
                             marginBottom: '0.75rem'
                         }}>
                             {t('landing.suite.gps.title', 'Pointage GPS')}
                         </h3>
                         <p style={{
-                            color: '#94a3b8',
+                            color: '#475569',
                             fontSize: '1rem',
                             lineHeight: 1.6,
                             maxWidth: '300px'
@@ -145,7 +147,7 @@ export default function FeaturesGrid() {
                                     gap: '0.5rem'
                                 }}>
                                     <CheckCircle size={16} color="#22c55e" />
-                                    <span style={{ color: '#e2e8f0', fontSize: '0.9rem' }}>{f}</span>
+                                    <span style={{ color: '#334155', fontSize: '0.9rem', fontWeight: 500 }}>{f}</span>
                                 </div>
                             ))}
                         </div>
@@ -158,12 +160,13 @@ export default function FeaturesGrid() {
                         transition={{ duration: 0.6, delay: 0.1 }}
                         viewport={{ once: true }}
                         style={{
-                            background: 'rgba(245, 158, 11, 0.05)',
-                            border: '1px solid rgba(245, 158, 11, 0.2)',
+                            background: 'white',
+                            border: '1px solid #e2e8f0',
                             borderRadius: '1.5rem',
                             padding: '1.5rem',
                             display: 'flex',
-                            flexDirection: 'column'
+                            flexDirection: 'column',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
                         }}
                     >
                         <div style={{
@@ -179,15 +182,15 @@ export default function FeaturesGrid() {
                             <Camera size={24} color="#f59e0b" />
                         </div>
                         <h3 style={{
-                            color: 'white',
+                            color: '#0f172a',
                             fontSize: '1.1rem',
-                            fontWeight: 700,
+                            fontWeight: 800,
                             marginBottom: '0.5rem'
                         }}>
                             {t('landing.suite.expenses.title', 'Notes de Frais')}
                         </h3>
                         <p style={{
-                            color: '#94a3b8',
+                            color: '#475569',
                             fontSize: '0.9rem',
                             lineHeight: 1.5,
                             flex: 1
@@ -217,12 +220,13 @@ export default function FeaturesGrid() {
                         transition={{ duration: 0.6, delay: 0.2 }}
                         viewport={{ once: true }}
                         style={{
-                            background: 'rgba(16, 185, 129, 0.05)',
-                            border: '1px solid rgba(16, 185, 129, 0.2)',
+                            background: 'white',
+                            border: '1px solid #e2e8f0',
                             borderRadius: '1.5rem',
                             padding: '1.5rem',
                             display: 'flex',
-                            flexDirection: 'column'
+                            flexDirection: 'column',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
                         }}
                     >
                         <div style={{
@@ -238,15 +242,15 @@ export default function FeaturesGrid() {
                             <FileText size={24} color="#10b981" />
                         </div>
                         <h3 style={{
-                            color: 'white',
+                            color: '#0f172a',
                             fontSize: '1.1rem',
-                            fontWeight: 700,
+                            fontWeight: 800,
                             marginBottom: '0.5rem'
                         }}>
                             {t('landing.suite.docs.title', 'Coffre-fort Doc')}
                         </h3>
                         <p style={{
-                            color: '#94a3b8',
+                            color: '#475569',
                             fontSize: '0.9rem',
                             lineHeight: 1.5,
                             flex: 1
@@ -276,12 +280,13 @@ export default function FeaturesGrid() {
                         transition={{ duration: 0.6, delay: 0.3 }}
                         viewport={{ once: true }}
                         style={{
-                            background: 'rgba(139, 92, 246, 0.05)',
-                            border: '1px solid rgba(139, 92, 246, 0.2)',
+                            background: 'white',
+                            border: '1px solid #e2e8f0',
                             borderRadius: '1.5rem',
                             padding: '1.5rem',
                             display: 'flex',
-                            flexDirection: 'column'
+                            flexDirection: 'column',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
                         }}
                     >
                         <div style={{
@@ -297,15 +302,15 @@ export default function FeaturesGrid() {
                             <MessageCircle size={24} color="#8b5cf6" />
                         </div>
                         <h3 style={{
-                            color: 'white',
+                            color: '#0f172a',
                             fontSize: '1.1rem',
-                            fontWeight: 700,
+                            fontWeight: 800,
                             marginBottom: '0.5rem'
                         }}>
                             {t('landing.suite.support.title', 'Support Intégré')}
                         </h3>
                         <p style={{
-                            color: '#94a3b8',
+                            color: '#475569',
                             fontSize: '0.9rem',
                             lineHeight: 1.5,
                             flex: 1
@@ -336,27 +341,28 @@ export default function FeaturesGrid() {
                         viewport={{ once: true }}
                         style={{
                             gridColumn: isMobile ? 'span 1' : 'span 2',
-                            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            background: 'white',
+                            border: '1px solid #e2e8f0',
                             borderRadius: '1.5rem',
                             padding: '2rem',
                             display: 'flex',
                             flexDirection: isMobile ? 'column' : 'row',
                             alignItems: 'center',
-                            gap: '2rem'
+                            gap: '2rem',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
                         }}
                     >
                         <div style={{ flex: 1 }}>
                             <h3 style={{
-                                color: 'white',
+                                color: '#0f172a',
                                 fontSize: '1.25rem',
-                                fontWeight: 700,
+                                fontWeight: 800,
                                 marginBottom: '0.75rem'
                             }}>
                                 {t('landing.suite.dashboard.title', 'Dashboard Manager')}
                             </h3>
                             <p style={{
-                                color: '#94a3b8',
+                                color: '#475569',
                                 fontSize: '0.95rem',
                                 lineHeight: 1.6,
                                 marginBottom: '1rem'
@@ -371,10 +377,12 @@ export default function FeaturesGrid() {
                                 {['📊 Temps réel', '📈 Analytique', '📥 Export'].map((tag, idx) => (
                                     <span key={idx} style={{
                                         padding: '0.5rem 1rem',
-                                        background: 'rgba(255, 255, 255, 0.05)',
+                                        background: '#f8fafc',
+                                        border: '1px solid #e2e8f0',
                                         borderRadius: '2rem',
-                                        color: '#94a3b8',
-                                        fontSize: '0.8rem'
+                                        color: '#475569',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 500
                                     }}>
                                         {tag}
                                     </span>
@@ -386,13 +394,14 @@ export default function FeaturesGrid() {
                             width: isMobile ? '100%' : '200px',
                             height: '120px',
                             borderRadius: '0.75rem',
-                            background: 'linear-gradient(135deg, #1e293b, #334155)',
-                            border: '1px solid rgba(255,255,255,0.1)',
+                            background: 'linear-gradient(135deg, #f1f5f9, #e2e8f0)',
+                            border: '1px solid #cbd5e1',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             color: '#64748b',
-                            fontSize: '0.8rem'
+                            fontSize: '0.8rem',
+                            fontWeight: 600
                         }}>
                             Dashboard Preview
                         </div>

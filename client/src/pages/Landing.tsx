@@ -17,6 +17,8 @@ import Testimonials from '../components/landing/Testimonials';
 import TrustSection from '../components/landing/TrustSection';
 import FeaturesGrid from '../components/landing/FeaturesGrid';
 import EnterpriseSection from '../components/landing/EnterpriseSection';
+import SectorsSection from '../components/landing/SectorsSection';
+import IntegrationsSection from '../components/landing/IntegrationsSection';
 
 interface Plan {
     id: string;
@@ -62,12 +64,40 @@ function LandingContent() {
         // Fetch geo-localized offer
         axios.get('/api/public/offer')
             .then(res => {
-                setPlans(res.data.plans);
+                if (res.data.plans && res.data.plans.length > 0) {
+                    setPlans(res.data.plans);
+                } else {
+                    // Fallback plans if DB is empty
+                    setPlans([
+                        {
+                            id: 'plan_1', stripePriceId: '', name: 'Starter', description: 'Idéal pour les petites équipes.',
+                            price: 49, currency: res.data.currency || 'EUR', maxEmployees: 10,
+                            features: ['Pointage WhatsApp (NLP)', 'GPS Automatisé', 'Dashboard Cloud', 'Support Email'],
+                            isPopular: false, sortOrder: 1
+                        },
+                        {
+                            id: 'plan_2', stripePriceId: '', name: 'Pro', description: 'Pour les PME en pleine croissance.',
+                            price: 99, currency: res.data.currency || 'EUR', maxEmployees: 50,
+                            features: ['Pointage WhatsApp (NLP)', 'GPS Automatisé', 'Export Paie (Excel)', 'Support Stratégique WhatsApp'],
+                            isPopular: true, sortOrder: 2
+                        },
+                        {
+                            id: 'plan_3', stripePriceId: '', name: 'Enterprise', description: 'Pour les grands volumes.',
+                            price: 199, currency: res.data.currency || 'EUR', maxEmployees: 200,
+                            features: ['Toutes les fonctions Pro', 'Multi-Managers', 'Accès API', 'SLA Garanti'],
+                            isPopular: false, sortOrder: 3
+                        }
+                    ]);
+                }
             })
             .catch(err => {
                 console.error('Error fetching offer:', err);
                 axios.get('/api/plans')
-                    .then(res => setPlans(res.data))
+                    .then(res => {
+                        if (res.data && res.data.length > 0) {
+                            setPlans(res.data);
+                        }
+                    })
                     .catch(console.error);
             })
             .finally(() => setLoadingPlans(false));
@@ -87,7 +117,7 @@ function LandingContent() {
     };
 
     return (
-        <div style={{ minHeight: '100vh', background: '#0f172a' }}>
+        <div style={{ minHeight: '100vh', background: '#ffffff' }}>
             {/* Navbar */}
             <nav style={{
                 display: 'flex',
@@ -98,31 +128,31 @@ function LandingContent() {
                 top: 0,
                 left: 0,
                 right: 0,
-                background: 'rgba(15, 23, 42, 0.9)',
+                background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
                 zIndex: 100,
-                borderBottom: '1px solid rgba(255,255,255,0.1)'
+                borderBottom: '1px solid rgba(0,0,0,0.05)'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <MessageCircle size={28} color="#3b82f6" />
-                    <span style={{ color: 'white', fontWeight: 700, fontSize: '1.25rem' }}>
+                    <span style={{ color: '#0f172a', fontWeight: 800, fontSize: '1.25rem' }}>
                         WhatsPoint
                     </span>
                 </div>
 
                 {/* Desktop navigation */}
                 {!isMobile && (
-                    <div style={{ display: 'flex', gap: '2rem' }}>
-                        <a href="#features" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.9rem' }}>
+                    <div style={{ display: 'flex', gap: '2.5rem' }}>
+                        <a href="#features" style={{ color: '#475569', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>
                             {t('landing.nav.features')}
                         </a>
-                        <a href="#sectors" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.9rem' }}>
+                        <a href="#sectors" style={{ color: '#475569', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>
                             {t('landing.nav.sectors')}
                         </a>
-                        <a href="#testimonials" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.9rem' }}>
+                        <a href="#testimonials" style={{ color: '#475569', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>
                             {t('landing.nav.testimonials')}
                         </a>
-                        <a href="#pricing" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.9rem' }}>
+                        <a href="#pricing" style={{ color: '#475569', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>
                             {t('landing.nav.pricing')}
                         </a>
                     </div>
@@ -138,10 +168,10 @@ function LandingContent() {
                                 alignItems: 'center',
                                 gap: '0.5rem',
                                 padding: '0.5rem 0.75rem',
-                                background: 'rgba(255,255,255,0.1)',
-                                border: 'none',
+                                background: 'rgba(0,0,0,0.05)',
+                                border: '1px solid rgba(0,0,0,0.05)',
                                 borderRadius: '0.5rem',
-                                color: 'white',
+                                color: '#334155',
                                 cursor: 'pointer',
                                 fontSize: '0.9rem'
                             }}
@@ -156,9 +186,10 @@ function LandingContent() {
                                 top: '100%',
                                 right: 0,
                                 marginTop: '0.5rem',
-                                background: '#1e293b',
+                                background: '#ffffff',
                                 borderRadius: '0.5rem',
-                                border: '1px solid rgba(255,255,255,0.1)',
+                                border: '1px solid rgba(0,0,0,0.1)',
+                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                                 overflow: 'hidden',
                                 minWidth: '120px'
                             }}>
@@ -172,9 +203,9 @@ function LandingContent() {
                                             gap: '0.5rem',
                                             width: '100%',
                                             padding: '0.75rem 1rem',
-                                            background: i18n.language === lang ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+                                            background: i18n.language === lang ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
                                             border: 'none',
-                                            color: 'white',
+                                            color: '#334155',
                                             cursor: 'pointer',
                                             fontSize: '0.85rem',
                                             textAlign: 'left'
@@ -194,8 +225,9 @@ function LandingContent() {
                             style={{
                                 padding: '0.6rem 1.25rem',
                                 background: 'transparent',
-                                border: 'none',
-                                color: '#94a3b8',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '0.5rem',
+                                color: '#475569',
                                 cursor: 'pointer',
                                 fontWeight: 500,
                                 fontSize: '0.9rem'
@@ -225,6 +257,9 @@ function LandingContent() {
             {/* Hero Section - Dynamic based on visitor context */}
             <HeroSection />
 
+            {/* Tech Integrations Section (Payroll & Accounting) */}
+            <IntegrationsSection />
+
             {/* Trust Section - Privacy Shield */}
             <TrustSection />
 
@@ -232,6 +267,9 @@ function LandingContent() {
             <section id="features">
                 <FeaturesGrid />
             </section>
+
+            {/* Sectors / Industries Section */}
+            <SectorsSection />
 
             {/* Enterprise Section - Scale Features */}
             <EnterpriseSection />
@@ -244,7 +282,7 @@ function LandingContent() {
             {/* Pricing Section */}
             <section id="pricing" style={{
                 padding: isMobile ? '4rem 4%' : '6rem 5%',
-                background: '#0f172a'
+                background: '#f8fafc'
             }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                     <motion.div
@@ -254,7 +292,7 @@ function LandingContent() {
                         viewport={{ once: true }}
                         style={{ textAlign: 'center', marginBottom: '4rem' }}
                     >
-                        <h2 style={{ color: 'white', fontSize: isMobile ? '1.75rem' : '2.5rem', fontWeight: 700, marginBottom: '1rem' }}>
+                        <h2 style={{ color: '#0f172a', fontSize: isMobile ? '1.75rem' : '2.5rem', fontWeight: 800, marginBottom: '1rem' }}>
                             {t('landing.pricing.title')}
                         </h2>
                         <p style={{ color: '#64748b', fontSize: '1.1rem', maxWidth: '600px', margin: '0 auto' }}>
@@ -287,11 +325,12 @@ function LandingContent() {
                                     viewport={{ once: true }}
                                     style={{
                                         background: plan.isPopular
-                                            ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)'
-                                            : 'rgba(255,255,255,0.03)',
+                                            ? 'white'
+                                            : '#f8fafc',
                                         border: plan.isPopular
                                             ? '2px solid #3b82f6'
-                                            : '1px solid rgba(255,255,255,0.1)',
+                                            : '1px solid #e2e8f0',
+                                        boxShadow: plan.isPopular ? '0 20px 40px -15px rgba(59, 130, 246, 0.2)' : 'none',
                                         borderRadius: '1.5rem',
                                         padding: '2.5rem 2rem',
                                         position: 'relative',
@@ -321,9 +360,9 @@ function LandingContent() {
 
                                     {/* Plan name */}
                                     <h3 style={{
-                                        color: 'white',
+                                        color: '#0f172a',
                                         fontSize: '1.5rem',
-                                        fontWeight: 700,
+                                        fontWeight: 800,
                                         marginBottom: '0.5rem',
                                         marginTop: plan.isPopular ? '0.5rem' : 0
                                     }}>
@@ -339,10 +378,10 @@ function LandingContent() {
 
                                     {/* Price - Dynamic */}
                                     <div style={{ marginBottom: '1.5rem' }}>
-                                        <span style={{ color: 'white', fontSize: isMobile ? '2rem' : '3rem', fontWeight: 800 }}>
+                                        <span style={{ color: '#0f172a', fontSize: isMobile ? '2rem' : '3.2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
                                             {formatPrice(plan.price, plan.currency)}
                                         </span>
-                                        <span style={{ color: '#64748b', fontSize: '1rem' }}>
+                                        <span style={{ color: '#64748b', fontSize: '1rem', fontWeight: 500 }}>
                                             {t('landing.pricing.perMonth')}
                                         </span>
                                     </div>
@@ -379,7 +418,7 @@ function LandingContent() {
                                                 marginBottom: '0.75rem'
                                             }}>
                                                 <Check size={18} color="#22c55e" style={{ flexShrink: 0, marginTop: '2px' }} />
-                                                <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
+                                                <span style={{ color: '#475569', fontSize: '0.95rem', fontWeight: 500 }}>
                                                     {feature}
                                                 </span>
                                             </li>
@@ -394,10 +433,10 @@ function LandingContent() {
                                             padding: '1rem',
                                             background: plan.isPopular
                                                 ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)'
-                                                : 'rgba(255,255,255,0.1)',
-                                            border: plan.isPopular ? 'none' : '1px solid rgba(255,255,255,0.2)',
+                                                : '#f1f5f9',
+                                            border: plan.isPopular ? 'none' : '1px solid #e2e8f0',
                                             borderRadius: '0.75rem',
-                                            color: 'white',
+                                            color: plan.isPopular ? 'white' : '#0f172a',
                                             cursor: 'pointer',
                                             fontWeight: 600,
                                             fontSize: '1rem',
@@ -410,13 +449,88 @@ function LandingContent() {
                             ))}
                         </div>
                     )}
+
+                    {/* NEW: Modular Add-ons section showcasing Ops and AI */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.3 }}
+                        viewport={{ once: true }}
+                        style={{ marginTop: '5rem' }}
+                    >
+                        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+                            <h3 style={{ color: '#0f172a', fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+                                Superchargez votre Hub WhatsApp
+                            </h3>
+                            <p style={{ color: '#64748b', fontSize: '1.1rem' }}>
+                                Ajoutez des "Super-Pouvoirs" à la carte, selon les besoins de votre terrain.
+                            </p>
+                        </div>
+
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                            gap: '2rem',
+                            maxWidth: '900px',
+                            margin: '0 auto'
+                        }}>
+                            {/* Add-on Ops */}
+                            <div style={{
+                                background: 'white',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '1.5rem',
+                                padding: '2.5rem',
+                                borderTop: '4px solid #ea580c',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+                                    <div style={{ padding: '0.75rem', background: '#ffedd5', borderRadius: '1rem' }}>
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                                    </div>
+                                    <h4 style={{ color: '#0f172a', fontSize: '1.35rem', fontWeight: 800 }}>Module Opérations</h4>
+                                </div>
+                                <p style={{ color: '#475569', fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.6 }}>
+                                    Débloquez le Suivi GPS Map Kanban, les rapports d'intervention vocaux signés, et la gestion des stocks de pièces détachées depuis le camion.
+                                </p>
+                                <div style={{ color: '#0f172a', fontSize: '2rem', fontWeight: 800 }}>
+                                    +49€ <span style={{ color: '#64748b', fontSize: '1.1rem', fontWeight: 500 }}>/mois (Prix Fixe)</span>
+                                </div>
+                            </div>
+
+                            {/* Add-on AI */}
+                            <div style={{
+                                background: 'white',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '1.5rem',
+                                padding: '2.5rem',
+                                borderTop: '4px solid #9333ea',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+                            }}>
+                                <div style={{ position: 'absolute', top: 0, right: 0, padding: '3rem', background: 'rgba(147, 51, 234, 0.1)', filter: 'blur(40px)', borderRadius: '50%' }} />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', position: 'relative', zIndex: 1 }}>
+                                    <div style={{ padding: '0.75rem', background: '#f3e8ff', borderRadius: '1rem' }}>
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9333ea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg>
+                                    </div>
+                                    <h4 style={{ color: '#0f172a', fontSize: '1.35rem', fontWeight: 800 }}>Module IA Intégrale</h4>
+                                </div>
+                                <p style={{ color: '#475569', fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.6, position: 'relative', zIndex: 1 }}>
+                                    Activez l'Agent Vision (Lecture OCR illimitée des notes de frais) et l'Agent RAG interactif connecté à la Base Documentaire RH de l'entreprise.
+                                </p>
+                                <div style={{ color: '#0f172a', fontSize: '2rem', fontWeight: 800, position: 'relative', zIndex: 1 }}>
+                                    +79€ <span style={{ color: '#64748b', fontSize: '1.1rem', fontWeight: 500 }}>/mois (Jetons Illimités)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
                 </div>
             </section>
 
             {/* CTA Section */}
             <section style={{
                 padding: isMobile ? '4rem 4%' : '6rem 5%',
-                background: '#0f172a',
+                background: '#ffffff',
                 textAlign: 'center'
             }}>
                 <motion.div
@@ -493,8 +607,8 @@ function LandingContent() {
             {/* Footer */}
             <footer style={{
                 padding: isMobile ? '2rem 4%' : '3rem 5%',
-                background: '#0f172a',
-                borderTop: '1px solid rgba(255,255,255,0.1)'
+                background: '#f8fafc',
+                borderTop: '1px solid #e2e8f0'
             }}>
                 <div style={{
                     maxWidth: '1200px',

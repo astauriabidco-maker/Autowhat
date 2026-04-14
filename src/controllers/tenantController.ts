@@ -56,6 +56,55 @@ export const getSettings = async (req: Request, res: Response): Promise<any> => 
 };
 
 /**
+ * Upload tenant logo
+ * POST /api/settings/logo
+ */
+export const uploadLogo = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const tenantId = (req as any).user?.tenantId;
+        if (!tenantId) {
+            return res.status(401).json({ error: 'Non autorisé' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ error: 'Aucun fichier uploadé' });
+        }
+
+        // Utiliser le nom de fichier généré par multer
+        const logoUrl = `/uploads/${req.file.filename}`;
+
+        // Récupérer le tenant actuel
+        const tenant = await prisma.tenant.findUnique({
+            where: { id: tenantId }
+        });
+
+        if (!tenant) {
+            return res.status(404).json({ error: 'Tenant non trouvé' });
+        }
+
+        const currentConfig = typeof tenant.config === 'object' && tenant.config !== null ? tenant.config : {};
+
+        // Mettre à jour la DB
+        await prisma.tenant.update({
+            where: { id: tenantId },
+            data: {
+                config: {
+                    ...currentConfig,
+                    logoUrl
+                }
+            }
+        });
+
+        console.log(`🖼️ Logo mis à jour pour le tenant ${tenantId}`);
+
+        return res.json({ success: true, logoUrl });
+    } catch (error) {
+        console.error('❌ Erreur uploadLogo:', error);
+        return res.status(500).json({ error: 'Erreur serveur lors de l\'upload' });
+    }
+};
+
+/**
  * Update tenant settings
  * PUT /api/settings
  */

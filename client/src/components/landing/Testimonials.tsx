@@ -34,15 +34,16 @@ function TestimonialCard({ testimonial, index }: TestimonialCardProps) {
             transition={{ duration: 0.6, delay: index * 0.1 }}
             viewport={{ once: true }}
             style={{
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
+                background: 'white',
+                border: '1px solid #e2e8f0',
                 borderRadius: '1.25rem',
                 padding: '2rem',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '1.5rem',
                 position: 'relative',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
             }}
         >
             {/* Quote icon */}
@@ -52,7 +53,7 @@ function TestimonialCard({ testimonial, index }: TestimonialCardProps) {
                 right: '1rem',
                 opacity: 0.1
             }}>
-                <Quote size={48} color="white" />
+                <Quote size={48} color="#e2e8f0" />
             </div>
 
             {/* Stars */}
@@ -69,7 +70,7 @@ function TestimonialCard({ testimonial, index }: TestimonialCardProps) {
 
             {/* Quote */}
             <p style={{
-                color: '#e2e8f0',
+                color: '#475569',
                 fontSize: '1rem',
                 lineHeight: 1.7,
                 fontStyle: 'italic',
@@ -83,7 +84,7 @@ function TestimonialCard({ testimonial, index }: TestimonialCardProps) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '1rem',
-                borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                borderTop: '1px solid #e2e8f0',
                 paddingTop: '1.5rem'
             }}>
                 {/* Avatar */}
@@ -105,8 +106,8 @@ function TestimonialCard({ testimonial, index }: TestimonialCardProps) {
                 {/* Info */}
                 <div style={{ flex: 1 }}>
                     <div style={{
-                        color: 'white',
-                        fontWeight: 600,
+                        color: '#0f172a',
+                        fontWeight: 800,
                         fontSize: '0.95rem',
                         display: 'flex',
                         alignItems: 'center',
@@ -124,10 +125,10 @@ function TestimonialCard({ testimonial, index }: TestimonialCardProps) {
                 {testimonial.sector && (
                     <div style={{
                         padding: '0.25rem 0.75rem',
-                        background: 'rgba(59, 130, 246, 0.2)',
+                        background: '#eff6ff',
                         borderRadius: '1rem',
                         fontSize: '0.75rem',
-                        color: '#60a5fa',
+                        color: '#2563eb',
                         textTransform: 'uppercase',
                         fontWeight: 600
                     }}>
@@ -153,9 +154,9 @@ export default function Testimonials() {
     const relevantTestimonials = getRelevantTestimonials(countryCode, sectorFromSource, 3);
 
     return (
-        <section style={{
+        <section id="testimonials" style={{
             padding: '6rem 5%',
-            background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)'
+            background: '#f8fafc'
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {/* Header */}
@@ -167,10 +168,11 @@ export default function Testimonials() {
                     style={{ textAlign: 'center', marginBottom: '4rem' }}
                 >
                     <h2 style={{
-                        color: 'white',
+                        color: '#0f172a',
                         fontSize: '2.5rem',
-                        fontWeight: 700,
-                        marginBottom: '1rem'
+                        fontWeight: 800,
+                        marginBottom: '1rem',
+                        letterSpacing: '-0.02em'
                     }}>
                         {t('landing.testimonials.title', 'Ils nous font confiance')}
                     </h2>

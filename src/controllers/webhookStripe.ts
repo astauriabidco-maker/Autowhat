@@ -72,6 +72,12 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
                 break;
             }
 
+            case 'invoice.paid': {
+                const invoice = event.data.object as Stripe.Invoice;
+                await handlePaymentSucceeded(invoice);
+                break;
+            }
+
             default:
                 console.log(`ℹ️ Unhandled event type: ${event.type}`);
         }
@@ -158,16 +164,30 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 
     // Only update plan and limits on successful active/trialing status
     if (subscription.status === 'active' || subscription.status === 'trialing') {
+        let finalPlanName = '';
+
         if (plan) {
             updateData.plan = plan.name;
             updateData.maxEmployees = plan.maxEmployees;
             updateData.trialEndsAt = null;
+            finalPlanName = plan.name;
         } else if (subscription.metadata?.planName) {
             // Fallback to metadata
             updateData.plan = subscription.metadata.planName;
+            finalPlanName = subscription.metadata.planName;
             if (subscription.metadata.planLimit) {
                 updateData.maxEmployees = parseInt(subscription.metadata.planLimit);
             }
+        }
+
+        // ------------------------------------------------------------------
+        // SOLOPRENEUR AUTOMATION: DYNAMIC NUMBER PROVISIONING ON UPGRADE
+        // Si le client passe sur un plan Enterprise, on lui achète un numéro !
+        // ------------------------------------------------------------------
+        if (finalPlanName === 'ENTERPRISE') {
+            const { provisionDedicatedNumber } = require('../services/numberAllocationService');
+            // We run this asynchronously without awaiting to ensure we return 200 to Stripe quickly (avoiding timeouts)
+            provisionDedicatedNumber(tenant.id, 'FR').catch((err: any) => console.error('Failed to provision dynamic number via webhook:', err));
         }
     }
 
@@ -211,32 +231,72 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 
 /**
  * Handle invoice.payment_failed
- * Set status to past_due but DON'T change maxEmployees (fail-safe)
+ * AUTOMATISATION SOLOPRENEUR : Coupure d'accès instantanée (No Touch Sales)
  */
 async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
     const customerId = invoice.customer as string;
 
     // Find tenant by customer ID
-    const tenant = await (prisma.tenant.findFirst as any)({
-        where: { stripeCustomerId: customerId }
-    });
+    let tenant;
+    try {
+        tenant = await (prisma.tenant as any).findFirst({
+            where: { stripeCustomerId: customerId }
+        });
+    } catch (e) {
+        // Fallback for Prisma types
+        tenant = await (prisma as any).tenant.findFirst({ where: { stripeCustomerId: customerId } });
+    }
 
     if (!tenant) {
         console.error('❌ Cannot find tenant for failed payment');
         return;
     }
 
-    // Update subscription status to past_due only
-    // Do NOT change plan or maxEmployees - this is fail-safe behavior
-    await (prisma.tenant.update as any)({
+    // Suspend immediately and set to past_due
+    await (prisma as any).tenant.update({
         where: { id: tenant.id },
         data: {
-            subscriptionStatus: 'past_due'
+            subscriptionStatus: 'past_due',
+            status: 'SUSPENDED' // Coupe l'API WhatsApp et passe l'UI en Lecture Seule
         }
     });
 
-    console.log(`💳 Payment failed for tenant ${tenant.id} - status: past_due (limits preserved)`);
+    const paymentUrl = invoice.hosted_invoice_url;
 
-    // TODO: Send notification to tenant admin
+    console.log(`💳 [NO-TOUCH SALES] Payment failed for tenant ${tenant.id}.`);
+    console.log(`🚨 Tenant Suspended (API Disabled). Payment Link to send: ${paymentUrl}`);
+
+    // Ici on intègrerait SendGrid/Postmark :
+    // await sendEmail(tenant.adminEmail, "Paiement échoué - Action requise", `Veuillez régler votre facture pour réactiver vos services : ${paymentUrl}`);
+}
+
+/**
+ * Handle invoice.paid
+ * AUTOMATISATION SOLOPRENEUR : Réactivation à la microseconde près
+ */
+async function handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
+    const customerId = invoice.customer as string;
+
+    let tenant;
+    try {
+        tenant = await (prisma.tenant as any).findFirst({
+            where: { stripeCustomerId: customerId }
+        });
+    } catch (e) {
+        tenant = await (prisma as any).tenant.findFirst({ where: { stripeCustomerId: customerId } });
+    }
+
+    if (!tenant) return;
+
+    // Reactivate account seamlessly
+    await (prisma as any).tenant.update({
+        where: { id: tenant.id },
+        data: {
+            subscriptionStatus: 'active',
+            status: 'ACTIVE'
+        }
+    });
+
+    console.log(`✅ [NO-TOUCH SALES] Payment succeeded for tenant ${tenant.id}. Account fully REACTIVATED.`);
 }
 

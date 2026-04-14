@@ -39,9 +39,10 @@ export default function TrustSection() {
     return (
         <section style={{
             padding: isMobile ? '4rem 4%' : '6rem 5%',
-            background: 'linear-gradient(180deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)',
+            background: '#ffffff',
             position: 'relative',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            borderBottom: '1px solid #e2e8f0'
         }}>
             {/* Background pattern */}
             <div style={{
@@ -77,16 +78,17 @@ export default function TrustSection() {
                     </div>
 
                     <h2 style={{
-                        color: 'white',
+                        color: '#0f172a',
                         fontSize: isMobile ? '1.75rem' : '2.5rem',
                         fontWeight: 800,
                         marginBottom: '1rem',
-                        lineHeight: 1.2
+                        lineHeight: 1.2,
+                        letterSpacing: '-0.02em'
                     }}>
                         {t('landing.trust.title', 'Vos données n\'appartiennent pas à Meta.')}
                     </h2>
                     <p style={{
-                        color: '#94a3b8',
+                        color: '#475569',
                         fontSize: '1.1rem',
                         maxWidth: '600px',
                         margin: '0 auto',
@@ -110,13 +112,14 @@ export default function TrustSection() {
                             transition={{ duration: 0.6, delay: idx * 0.1 }}
                             viewport={{ once: true }}
                             style={{
-                                background: 'rgba(255, 255, 255, 0.03)',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                background: 'white',
+                                border: '1px solid #e2e8f0',
                                 borderRadius: '1.25rem',
                                 padding: '2rem',
                                 textAlign: 'center',
                                 position: 'relative',
-                                overflow: 'hidden'
+                                overflow: 'hidden',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
                             }}
                         >
                             {/* Glow effect */}
@@ -149,15 +152,15 @@ export default function TrustSection() {
                             </div>
 
                             <h3 style={{
-                                color: 'white',
+                                color: '#0f172a',
                                 fontSize: '1.25rem',
-                                fontWeight: 700,
+                                fontWeight: 800,
                                 marginBottom: '0.75rem'
                             }}>
                                 {feature.title}
                             </h3>
                             <p style={{
-                                color: '#94a3b8',
+                                color: '#475569',
                                 lineHeight: 1.6,
                                 fontSize: '0.95rem'
                             }}>

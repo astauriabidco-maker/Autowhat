@@ -30,6 +30,8 @@ router.post('/auth/login', authController.login);
 router.post('/auth/register', authController.register);
 router.post('/auth/forgot-password', authController.forgotPassword);
 router.post('/auth/reset-password', authController.resetPassword);
+router.post('/auth/request-otp', authController.requestOtp);
+router.post('/auth/verify-otp', authController.verifyOtp);
 
 // Public Config Routes (No Auth)
 router.get('/api/config/legal', adminController.getLegalContent);
@@ -87,6 +89,7 @@ router.post('/api/user/complete-onboarding', authenticateManager, userController
 // Settings API Routes (Protected - Manager only)
 router.get('/api/settings', authenticateManager, tenantController.getSettings);
 router.put('/api/settings', authenticateManager, tenantController.updateSettings);
+router.post('/api/settings/logo', authenticateManager, importController.upload.single('logo'), tenantController.uploadLogo);
 
 // Import API Routes (Protected - Manager only)
 router.get('/api/import/template', authenticateManager, importController.downloadTemplate);
@@ -102,6 +105,7 @@ router.get('/api/billing/invoices', authenticateManager, billingController.getIn
 import * as whatsappConfigController from '../controllers/whatsappConfigController';
 router.get('/api/whatsapp-config', authenticateManager, whatsappConfigController.getConfig);
 router.post('/api/whatsapp-config', authenticateManager, whatsappConfigController.saveConfig);
+router.post('/api/whatsapp-config/embedded-signup', authenticateManager, whatsappConfigController.embeddedSignup);
 router.post('/api/whatsapp-config/test', authenticateManager, whatsappConfigController.testConfig);
 router.delete('/api/whatsapp-config', authenticateManager, whatsappConfigController.removeConfig);
 router.patch('/api/whatsapp-config/toggle', authenticateManager, whatsappConfigController.toggleConfig);
@@ -236,14 +240,6 @@ router.get('/admin/queue/health', authenticateSuperAdmin, queueController.getHea
 router.post('/admin/queue/pause', authenticateSuperAdmin, queueController.pause);
 router.post('/admin/queue/resume', authenticateSuperAdmin, queueController.resume);
 
-// Number Pool Management (SuperAdmin)
-import * as numberPoolController from '../controllers/numberPoolController';
-router.get('/admin/number-pool', authenticateSuperAdmin, numberPoolController.listNumbers);
-router.get('/admin/number-pool/stats', authenticateSuperAdmin, numberPoolController.getPoolStats);
-router.post('/admin/number-pool', authenticateSuperAdmin, numberPoolController.addNumber);
-router.put('/admin/number-pool/:id', authenticateSuperAdmin, numberPoolController.updateNumber);
-router.delete('/admin/number-pool/:id', authenticateSuperAdmin, numberPoolController.deleteNumber);
-router.get('/admin/number-pool/:id/tenants', authenticateSuperAdmin, numberPoolController.getNumberTenants);
 
 // Debug Routes
 router.use('/debug', debugRoutes);

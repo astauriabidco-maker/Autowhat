@@ -45,7 +45,8 @@ export default function EnterpriseSection() {
     return (
         <section id="enterprise" style={{
             padding: isMobile ? '4rem 4%' : '6rem 5%',
-            background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)'
+            background: '#f8fafc',
+            borderBottom: '1px solid #e2e8f0'
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {/* Header */}
@@ -63,10 +64,11 @@ export default function EnterpriseSection() {
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '0.5rem',
-                        background: 'rgba(139, 92, 246, 0.1)',
+                        background: '#f3e8ff',
                         padding: '0.5rem 1rem',
                         borderRadius: '2rem',
-                        marginBottom: '1rem'
+                        marginBottom: '1rem',
+                        border: '1px solid #e9d5ff'
                     }}>
                         <Building2 size={16} color="#8b5cf6" />
                         <span style={{ color: '#8b5cf6', fontSize: '0.85rem', fontWeight: 600 }}>
@@ -75,10 +77,11 @@ export default function EnterpriseSection() {
                     </div>
 
                     <h2 style={{
-                        color: 'white',
+                        color: '#0f172a',
                         fontSize: isMobile ? '1.75rem' : '2.5rem',
                         fontWeight: 800,
-                        marginBottom: '1rem'
+                        marginBottom: '1rem',
+                        letterSpacing: '-0.02em'
                     }}>
                         {t('landing.enterprise.title', 'Prêt pour les grands comptes.')}
                     </h2>
@@ -107,12 +110,13 @@ export default function EnterpriseSection() {
                             transition={{ duration: 0.6, delay: idx * 0.1 }}
                             viewport={{ once: true }}
                             style={{
-                                background: 'rgba(255, 255, 255, 0.03)',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                background: 'white',
+                                border: '1px solid #e2e8f0',
                                 borderRadius: '1.5rem',
                                 padding: '2rem',
                                 position: 'relative',
-                                overflow: 'hidden'
+                                overflow: 'hidden',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
                             }}
                         >
                             {/* Subtle glow */}
@@ -143,15 +147,15 @@ export default function EnterpriseSection() {
                             </div>
 
                             <h3 style={{
-                                color: 'white',
+                                color: '#0f172a',
                                 fontSize: '1.25rem',
-                                fontWeight: 700,
+                                fontWeight: 800,
                                 marginBottom: '0.75rem'
                             }}>
                                 {feature.title}
                             </h3>
                             <p style={{
-                                color: '#94a3b8',
+                                color: '#475569',
                                 lineHeight: 1.6,
                                 marginBottom: '1rem'
                             }}>
@@ -184,28 +188,29 @@ export default function EnterpriseSection() {
                     transition={{ duration: 0.6, delay: 0.3 }}
                     viewport={{ once: true }}
                     style={{
-                        background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1))',
-                        border: '1px solid rgba(139, 92, 246, 0.2)',
+                        background: 'white',
+                        border: '1px solid #e2e8f0',
                         borderRadius: '1.5rem',
                         padding: isMobile ? '2rem' : '3rem',
                         display: 'flex',
                         flexDirection: isMobile ? 'column' : 'row',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        gap: '2rem'
+                        gap: '2rem',
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
                     }}
                 >
                     <div>
                         <h3 style={{
-                            color: 'white',
+                            color: '#0f172a',
                             fontSize: isMobile ? '1.25rem' : '1.5rem',
-                            fontWeight: 700,
+                            fontWeight: 800,
                             marginBottom: '0.5rem'
                         }}>
                             {t('landing.enterprise.cta.title', 'Besoin d\'un déploiement sur-mesure ?')}
                         </h3>
                         <p style={{
-                            color: '#94a3b8',
+                            color: '#475569',
                             fontSize: '1rem'
                         }}>
                             {t('landing.enterprise.cta.desc', 'Notre équipe configure votre instance en moins de 48h.')}
@@ -227,8 +232,9 @@ export default function EnterpriseSection() {
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '0.35rem',
-                                    color: '#94a3b8',
-                                    fontSize: '0.85rem'
+                                    color: '#475569',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 500
                                 }}>
                                     <CheckCircle2 size={14} color="#22c55e" />
                                     <span>{badge}</span>

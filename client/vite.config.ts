@@ -87,26 +87,33 @@ export default defineConfig({
     })
   ],
   server: {
-    port: 5174,
+    port: 5180,
+    strictPort: true,
+    host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3005',
         changeOrigin: true,
       },
       '/auth': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3005',
         changeOrigin: true,
       },
       '/admin': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3005',
         changeOrigin: true,
       },
       '/superadmin': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3005',
         changeOrigin: true,
+        bypass: (req: any) => {
+          if (req.headers.accept?.includes('text/html')) {
+            return req.url; // Allows React Router to handle page loads like /superadmin/login
+          }
+        }
       },
       '/uploads': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3005',
         changeOrigin: true,
       },
     },

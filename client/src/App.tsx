@@ -12,6 +12,7 @@ import Expenses from './pages/Expenses';
 import Documents from './pages/Documents';
 import Settings from './pages/Settings';
 import IntegrationWhatsApp from './pages/IntegrationWhatsApp';
+import IntegrationsManager from './pages/admin/IntegrationsManager';
 import PrivacyShield from './pages/admin/PrivacyShield';
 import OnboardingWizard from './pages/OnboardingWizard';
 import ImportEmployees from './pages/ImportEmployees';
@@ -38,7 +39,7 @@ import MarketingStudio from './pages/superadmin/MarketingStudio';
 import ExpensesAdmin from './pages/superadmin/ExpensesAdmin';
 import DocumentsAdmin from './pages/superadmin/DocumentsAdmin';
 import ServerHealth from './pages/superadmin/ServerHealth';
-import NumberPool from './pages/superadmin/NumberPool';
+import AiAgentsHub from './pages/superadmin/AiAgentsHub';
 import PricingMatrix from './pages/superadmin/PricingMatrix';
 import Billing from './pages/Billing';
 import Support from './pages/Support';
@@ -129,6 +130,9 @@ function App() {
           <Route path="/settings/whatsapp" element={
             <ProtectedRoute><IntegrationWhatsApp /></ProtectedRoute>
           } />
+          <Route path="/settings/integrations" element={
+            <ProtectedRoute><IntegrationsManager /></ProtectedRoute>
+          } />
 
           {/* Operations / FSM Routes */}
           <Route path="/operations/dashboard" element={
@@ -186,7 +190,7 @@ function App() {
             <Route path="expenses" element={<ExpensesAdmin />} />
             <Route path="documents" element={<DocumentsAdmin />} />
             <Route path="health" element={<ServerHealth />} />
-            <Route path="number-pool" element={<NumberPool />} />
+            <Route path="agents" element={<AiAgentsHub />} />
           </Route>
         </Routes>
 

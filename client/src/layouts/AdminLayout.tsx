@@ -25,7 +25,8 @@ import {
     Package,
     RefreshCw,
     FileSpreadsheet,
-    Map
+    Map,
+    Network
 } from 'lucide-react';
 import SiteSelector from './components/SiteSelector';
 import TrialBanner from './components/TrialBanner';
@@ -75,6 +76,7 @@ const navSections: NavSection[] = [
 const allNavItems = navSections.flatMap(s => s.items).concat([
     { icon: <Headphones size={20} />, label: 'Support', path: '/support' },
     { icon: <Settings size={20} />, label: 'Paramètres', path: '/settings' },
+    { icon: <Network size={20} />, label: 'Intégrations', path: '/settings/integrations' },
 ]);
 
 interface AdminLayoutProps {
@@ -316,7 +318,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                             </div>
                         )}
                         {collapsed && <div className="border-t border-gray-100 mx-2 my-2" />}
-                        {[{ icon: <Headphones size={20} />, label: 'Support', path: '/support' },
+                        {[{ icon: <Network size={20} />, label: 'Intégrations', path: '/settings/integrations' },
+                        { icon: <Headphones size={20} />, label: 'Support', path: '/support' },
                         { icon: <Settings size={20} />, label: 'Paramètres', path: '/settings' }].map((item) => {
                             const isActive = location.pathname === item.path;
                             return (

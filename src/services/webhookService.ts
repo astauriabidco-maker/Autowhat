@@ -99,7 +99,15 @@ export async function dispatchWebhook(
  * Send a single webhook request
  */
 async function sendWebhook(
-    config: { id: string; name: string; url: string; secret: string | null },
+    config: { 
+        id: string; 
+        name: string; 
+        url: string; 
+        secret: string | null;
+        payloadMapping?: any;
+        httpMethod?: string;
+        headers?: any;
+    },
     eventType: WebhookEventType,
     data: Record<string, any>,
     tenantId?: string
@@ -113,7 +121,25 @@ async function sendWebhook(
         data
     };
 
-    const payloadString = JSON.stringify(payload);
+    // Apply Payload Mapping if configured
+    let finalPayload: any = payload;
+    if (config.payloadMapping && Object.keys(config.payloadMapping).length > 0) {
+        let templateStr = JSON.stringify(config.payloadMapping);
+        const context: Record<string, any> = { ...data, event: payload.event, tenantId: payload.tenantId };
+        
+        templateStr = templateStr.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+            const val = context[key.trim()];
+            return val !== undefined && val !== null ? String(val) : '';
+        });
+        
+        try {
+            finalPayload = JSON.parse(templateStr);
+        } catch (e) {
+            console.error('Failed to parse webhook payloadMapping', e);
+        }
+    }
+
+    const payloadString = JSON.stringify(finalPayload);
 
     // Build headers
     const headers: Record<string, string> = {
@@ -122,6 +148,11 @@ async function sendWebhook(
         'X-Webhook-Event': eventType,
         'X-Webhook-Timestamp': payload.timestamp
     };
+
+    // Apply custom headers from config
+    if (config.headers && typeof config.headers === 'object') {
+        Object.assign(headers, config.headers);
+    }
 
     // Add signature if secret is configured
     if (config.secret) {
@@ -133,12 +164,14 @@ async function sendWebhook(
     let responseBody: string | null = null;
     let error: string | null = null;
 
+    const method = config.httpMethod?.toUpperCase() || 'POST';
+
     try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
         const response = await fetch(config.url, {
-            method: 'POST',
+            method: method,
             headers,
             body: payloadString,
             signal: controller.signal

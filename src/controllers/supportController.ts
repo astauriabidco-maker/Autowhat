@@ -5,6 +5,7 @@
 
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { deflectSupportTicketViaRAG } from '../services/aiAgentService';
 
 const prisma = new PrismaClient();
 
@@ -44,6 +45,33 @@ export const createTicket = async (req: Request, res: Response): Promise<any> =>
         });
 
         console.log(`🎫 New ticket created: ${ticket.id} - ${subject}`);
+
+        // ------------------------------------------------------------------
+        // SOLOPRENEUR OPTIMIZATION: AI TICKET DEFLECTION (Tier-1 Support)
+        // ------------------------------------------------------------------
+        const aiResponse = await deflectSupportTicketViaRAG(subject, message);
+        
+        if (aiResponse) {
+            await prisma.ticketMessage.create({
+                data: {
+                    ticketId: ticket.id,
+                    content: aiResponse,
+                    senderId: 'SYSTEM_AI',
+                    isAdmin: true
+                }
+            });
+            console.log(`🤖 AI Support Agent deflected ticket ${ticket.id} immediately.`);
+            
+            // Refetch to include the AI response in the UI instantly
+            const updatedTicket = await prisma.ticket.findUnique({
+                where: { id: ticket.id },
+                include: {
+                    messages: true,
+                    user: { select: { id: true, name: true, phoneNumber: true } }
+                }
+            });
+            return res.status(201).json(updatedTicket);
+        }
 
         return res.status(201).json(ticket);
     } catch (error) {

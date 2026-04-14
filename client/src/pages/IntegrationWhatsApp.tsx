@@ -15,7 +15,9 @@ import {
     Eye,
     EyeOff,
     Trash2,
-    ExternalLink
+    ExternalLink,
+    Briefcase,
+    PhoneCall
 } from 'lucide-react';
 
 interface WhatsAppConfig {
@@ -45,6 +47,7 @@ export default function IntegrationWhatsApp() {
     const [wabaId, setWabaId] = useState('');
     const [displayName, setDisplayName] = useState('');
     const [testPhone, setTestPhone] = useState('');
+    const [selectedMethod, setSelectedMethod] = useState<'meta' | 'twilio' | 'concierge' | null>(null);
 
     useEffect(() => {
         fetchConfig();
@@ -110,6 +113,37 @@ export default function IntegrationWhatsApp() {
             setSuccess('Configuration sauvegardée avec succès !');
             setAccessToken(''); // Clear token from UI
             fetchConfig(); // Refresh
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleEmbeddedSignup = async () => {
+        setSaving(true);
+        setError(null);
+        setSuccess(null);
+        
+        try {
+            // Simulation de l'appel Oauth Front-End Facebook JS SDK
+            // Normalement : FB.login(..., { scope: 'whatsapp_business_management' })
+            
+            const token = localStorage.getItem('token');
+            const response = await fetch('/api/whatsapp-config/embedded-signup', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ code: 'fb_oauth_sandbox_code_xyz' })
+            });
+            
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+
+            setSuccess('Connexion automatique réussie !');
+            fetchConfig(); // Reload from DB
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -320,9 +354,98 @@ export default function IntegrationWhatsApp() {
                 </div>
             )}
 
-            {/* Form */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-6">Configuration Meta API</h2>
+            {/* If no config, Show 3 Options */}
+            {!config?.exists && (
+                <div className="mb-8">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">Choisissez votre méthode d'intégration</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Option 1: Meta */}
+                        <div 
+                            onClick={() => setSelectedMethod('meta')}
+                            className={`p-5 rounded-xl border-2 cursor-pointer transition-all ${selectedMethod === 'meta' ? 'border-[#1877F2] bg-blue-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
+                        >
+                            <div className="w-10 h-10 bg-[#1877F2]/10 text-[#1877F2] rounded-lg flex items-center justify-center mb-3">
+                                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                            </div>
+                            <h3 className="font-semibold text-gray-900 mb-1">Connexion Meta</h3>
+                            <p className="text-sm text-gray-500 mb-2">Gratuit et instané via "Embedded Signup". Nécessite d'avoir déjà une Page Facebook vitrine.</p>
+                            <span className="text-xs font-bold text-[#1877F2] uppercase tracking-wider">Le plus rapide</span>
+                        </div>
+
+                        {/* Option 2: Twilio */}
+                        <div 
+                            onClick={() => setSelectedMethod('twilio')}
+                            className={`p-5 rounded-xl border-2 cursor-pointer transition-all ${selectedMethod === 'twilio' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
+                        >
+                            <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center mb-3">
+                                <PhoneCall className="w-5 h-5" />
+                            </div>
+                            <h3 className="font-semibold text-gray-900 mb-1">Intégration Manuelle</h3>
+                            <p className="text-sm text-gray-500 mb-2">Pour brancher un numéro Twilio, Sinch, ou un compte Meta Dev existant (Clés d'API requises).</p>
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Alternative Experte</span>
+                        </div>
+
+                        {/* Option 3: Concierge */}
+                        <div 
+                            onClick={() => setSelectedMethod('concierge')}
+                            className={`p-5 rounded-xl border-2 cursor-pointer transition-all ${selectedMethod === 'concierge' ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
+                        >
+                            <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center mb-3">
+                                <Briefcase className="w-5 h-5" />
+                            </div>
+                            <h3 className="font-semibold text-gray-900 mb-1">Service Conciergerie</h3>
+                            <p className="text-sm text-gray-500 mb-2">Technophobe ? Laissez l'équipe WhatsPoint acheter et activer la ligne WhatsApp pour vous.</p>
+                            <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Tranquillité Totale (150€)</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Blocks Conditionnels */}
+            
+            {/* 1 - META */}
+            {selectedMethod === 'meta' && !config?.exists && (
+                <div className="bg-white rounded-xl shadow-sm border-2 border-[#1877F2] p-6 mb-6">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900 mb-1">Connexion Facebook Express</h2>
+                            <p className="text-gray-600 text-sm">
+                                L'assistant "Embedded Signup" va configurer automatiquement votre ligne en arrière-plan.
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleEmbeddedSignup}
+                            disabled={saving}
+                            className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-[#1877F2] text-white rounded-lg hover:bg-[#166FE5] transition-colors shadow-sm font-medium whitespace-nowrap"
+                        >
+                            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>}
+                            Connecter avec Facebook
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* 2 - CONCIERGERIE */}
+            {selectedMethod === 'concierge' && !config?.exists && (
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl shadow-sm border border-amber-200 p-8 mb-6 text-center">
+                    <h2 className="text-2xl font-bold text-amber-900 mb-3">Service Clés en Main</h2>
+                    <p className="text-amber-800 mb-6 max-w-lg mx-auto leading-relaxed">
+                        Notre équipe se charge de tout : achat du numéro auprès d'un opérateur, paramétrage de l'API locale, et validation finale sur les serveurs Meta. Vous n'avez aucune manipulation technique à faire.
+                    </p>
+                    <button className="px-8 py-3 bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-700 transition shadow-lg flex items-center justify-center gap-2 mx-auto">
+                        <Briefcase className="w-5 h-5" />
+                        Payer les frais de mise en service (150€)
+                    </button>
+                    <p className="text-xs text-amber-600 mt-4 opacity-80">Génère un ticket prioritaire auprès du SuperAdmin.</p>
+                </div>
+            )}
+
+            {/* 3 - TWILIO / MANUEL (Ou si config existante) */}
+            {((selectedMethod === 'twilio' && !config?.exists) || config?.exists) && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 opacity-100 transition-opacity">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-6">
+                        {config?.exists ? 'Configuration de Connexion Actuelle' : 'Saisie des Clés d\'API'}
+                    </h2>
 
                 <div className="space-y-5">
                     {/* Phone Number ID */}
@@ -444,10 +567,10 @@ export default function IntegrationWhatsApp() {
                         ) : (
                             <Save className="w-4 h-4" />
                         )}
-                        Sauvegarder
                     </button>
                 </div>
             </div>
+            )}
 
             {/* Help Section */}
             <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">

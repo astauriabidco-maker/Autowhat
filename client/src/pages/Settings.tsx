@@ -16,7 +16,10 @@ import {
     Globe,
     CreditCard,
     ExternalLink,
-    Crown
+    Crown,
+    Brain,
+    Eye,
+    MessageSquare as MessageIcon
 } from 'lucide-react';
 import Switch from '../components/ui/Switch';
 import Combobox from '../components/ui/Combobox';
@@ -76,6 +79,10 @@ interface Settings {
         enableExpenses: boolean;
         enableDocuments: boolean;
         enableReminders: boolean;
+        enableVisionOcr?: boolean;
+        enableRagFaq?: boolean;
+        botPersonality?: string;
+        logoUrl?: string;
     };
     vocabulary: {
         workplace: string;
@@ -156,7 +163,11 @@ export default function Settings() {
                     enablePhotos: data.config?.enablePhotos ?? true,
                     enableExpenses: data.config?.enableExpenses ?? true,
                     enableDocuments: data.config?.enableDocuments ?? true,
-                    enableReminders: data.config?.enableReminders ?? true
+                    enableReminders: data.config?.enableReminders ?? true,
+                    enableVisionOcr: data.config?.enableVisionOcr ?? true,
+                    enableRagFaq: data.config?.enableRagFaq ?? false,
+                    botPersonality: data.config?.botPersonality ?? 'Je suis l\'assistant RH.',
+                    logoUrl: data.config?.logoUrl || ''
                 },
                 vocabulary: {
                     workplace: data.vocabulary?.workplace || 'Chantier',
@@ -169,6 +180,33 @@ export default function Settings() {
             console.error('Error loading settings:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !settings) return;
+
+        const formData = new FormData();
+        formData.append('logo', file);
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.post('/api/settings/logo', formData, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            
+            setSettings({
+                ...settings,
+                config: { ...settings.config, logoUrl: res.data.logoUrl }
+            });
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 3000);
+        } catch (err) {
+            console.error('Error uploading logo:', err);
         }
     };
 
@@ -248,6 +286,15 @@ export default function Settings() {
         setHasChanges(true);
     };
 
+    const handlePersonalityChange = (value: string) => {
+        if (!settings) return;
+        setSettings({
+            ...settings,
+            config: { ...settings.config, botPersonality: value }
+        });
+        setHasChanges(true);
+    };
+
     const updateField = (field: keyof Settings, value: any) => {
         if (!settings) return;
         setSettings({ ...settings, [field]: value });
@@ -290,24 +337,49 @@ export default function Settings() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6 pb-24">
+        <div className="max-w-7xl mx-auto pb-24">
             {/* Header */}
-            <div>
+            <div className="mb-8">
                 <h1 className="text-2xl font-bold text-gray-900">Paramètres</h1>
                 <p className="text-gray-500 mt-1">Configurez votre espace de travail et le comportement du Bot</p>
             </div>
 
-            {/* Card 1: Identité & Profil Légal */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2.5 bg-blue-50 rounded-lg">
-                        <Building2 size={22} className="text-blue-600" />
-                    </div>
-                    <div>
-                        <h2 className="text-lg font-semibold text-gray-900">Identité Entreprise</h2>
-                        <p className="text-sm text-gray-500">Informations légales de votre organisation</p>
-                    </div>
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* --- COLONNE GAUCHE (2/3) --- */}
+                <div className="lg:col-span-2 space-y-8">
+                    {/* Card 1: Identité & Profil Légal */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <div className="flex justify-between items-start mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-blue-50 rounded-lg">
+                                    <Building2 size={22} className="text-blue-600" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-semibold text-gray-900">Identité Entreprise</h2>
+                                    <p className="text-sm text-gray-500">Informations légales et logo</p>
+                                </div>
+                            </div>
+                            
+                            {/* Logo Upload */}
+                            <div className="relative">
+                                <label className="cursor-pointer group block">
+                                    <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                                    {settings.config.logoUrl ? (
+                                        <div className="w-20 h-20 rounded-lg border border-gray-200 overflow-hidden relative shadow-sm">
+                                            <img src={settings.config.logoUrl} alt="Logo" className="w-full h-full object-contain bg-gray-50" />
+                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Camera className="text-white w-6 h-6" />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 bg-gray-50 group-hover:bg-gray-100 group-hover:border-blue-400 transition-colors">
+                                            <Camera className="w-6 h-6 mb-1" />
+                                            <span className="text-[10px] font-medium uppercase">Logo</span>
+                                        </div>
+                                    )}
+                                </label>
+                            </div>
+                        </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Pays */}
@@ -429,10 +501,10 @@ export default function Settings() {
                             💡 Nouveau secteur = vocabulaire générique personnalisable
                         </p>
                     </div>
+                    </div>
                 </div>
-            </div>
 
-            {/* Card 2: Modules Actifs */}
+                {/* Card 2: Modules Actifs */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                 <div className="flex items-center gap-3 mb-6">
                     <div className="p-2.5 bg-green-50 rounded-lg">
@@ -482,6 +554,56 @@ export default function Settings() {
                     />
                 </div>
             </div>
+
+            {/* Card 2.5: Intelligence Artificielle */}
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 p-6 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-24 bg-purple-200/50 blur-[80px] rounded-full pointer-events-none" />
+                
+                <div className="flex items-center gap-3 mb-6 relative z-10">
+                    <div className="p-2.5 bg-indigo-600 rounded-lg shadow-md shadow-indigo-200">
+                        <Brain size={22} className="text-white" />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold text-indigo-950">Intelligence Artificielle (WhatsPoint Brain)</h2>
+                        <p className="text-sm text-indigo-800/70">Pilotez les capacités cognitives de votre bot WhatsApp</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 relative z-10">
+                    <ModuleItem
+                        icon={<Eye size={18} />}
+                        label="👁️ Lecture OCR (Notes de Frais)"
+                        description="L'IA lit et extrait les montants des tickets de caisse via Vision."
+                        checked={settings.config.enableVisionOcr ?? true}
+                        onChange={(v) => handleConfigChange('enableVisionOcr', v)}
+                    />
+                    <ModuleItem
+                        icon={<MessageIcon size={18} />}
+                        label="🧠 Assistant RH (RAG)"
+                        description="Le Bot répond aux questions en lisant vos Documents RH."
+                        checked={settings.config.enableRagFaq ?? false}
+                        onChange={(v) => handleConfigChange('enableRagFaq', v)}
+                    />
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-indigo-200/50 relative z-10">
+                    <label className="block text-sm font-bold text-indigo-900 mb-2">
+                        Personnalité de l'Assistant
+                    </label>
+                    <textarea 
+                        value={settings.config.botPersonality || ''}
+                        onChange={(e) => handlePersonalityChange(e.target.value)}
+                        className="w-full h-20 p-3 bg-white/80 border border-indigo-200 rounded-xl text-sm text-slate-700 font-mono focus:ring-2 focus:ring-indigo-500 transition-all resize-none shadow-inner"
+                        placeholder="Ex: Tu es un assistant strict, réponds très brièvement et de façon professionnelle..."
+                    />
+                    <p className="mt-1 text-xs text-indigo-800/60 font-medium">Les employés interagiront avec cette personnalité dynamique.</p>
+                </div>
+            </div>
+            
+            </div> {/* END COLONNE GAUCHE */}
+
+            {/* --- COLONNE DROITE (1/3) --- */}
+            <div className="space-y-8">
 
             {/* Card 3: Mon Abonnement */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
@@ -614,32 +736,11 @@ export default function Settings() {
                             placeholder="Chef, Patron, Responsable..."
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                            Commande Arrivée
-                        </label>
-                        <input
-                            type="text"
-                            value={settings.vocabulary.action_in}
-                            onChange={(e) => handleVocabularyChange('action_in', e.target.value)}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            placeholder="Start, Bonjour, Arrivée..."
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                            Commande Départ
-                        </label>
-                        <input
-                            type="text"
-                            value={settings.vocabulary.action_out}
-                            onChange={(e) => handleVocabularyChange('action_out', e.target.value)}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            placeholder="Stop, Au revoir, Départ..."
-                        />
-                    </div>
                 </div>
             </div>
+
+            </div> {/* END COLONNE DROITE */}
+            </div> {/* END GRID */}
 
             {/* Sticky Footer - Save Button */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 flex justify-end shadow-lg z-40">

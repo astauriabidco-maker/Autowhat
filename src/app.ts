@@ -52,6 +52,7 @@ import { initLateArrivalJob } from './jobs/lateArrivalJob';
 import { initReminderJobs } from './jobs/reminderJobs';
 import { initRetentionJob } from './modules/privacy/retentionJob';
 import { initRecurringInterventionsJob } from './cron/recurringInterventions';
+import { startNightlyWorker } from './cron/nightlyWorker';
 import { initializeQueue, closeQueue } from './services/queueService';
 import { closeRedisConnection, isRedisEnabled } from './services/redisConnection';
 import {
@@ -66,11 +67,30 @@ import { WhatsAppJob } from './services/queueService';
 // API Routes
 app.use(router);
 
+// ------------------------------------------------------------------
+// SOLOPRENEUR OPTIMIZATION: ONE-CONTAINER DEPLOYMENT
+// Serve the built React App directly via Express in Production
+// ------------------------------------------------------------------
+if (process.env.NODE_ENV === 'production' || process.env.SERVE_FRONTEND === 'true') {
+    console.log('📦 Serving compiled Frontend from client/dist');
+    app.use(express.static(path.join(process.cwd(), 'client/dist')));
+    
+    // Fallback for React Router (don't override /api)
+    app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api/')) {
+            return next();
+        }
+        res.sendFile(path.join(process.cwd(), 'client/dist/index.html'));
+    });
+}
+
+
 // Initialisation des Jobs (Cron)
 initLateArrivalJob();
 initReminderJobs();
 initRetentionJob(); // Privacy Suite - purge automatique RGPD
 initRecurringInterventionsJob(); // Opérations - auto-génération des interventions récurrentes
+startNightlyWorker(); // 🌙 AI Agent Proactive Alerts & Hub RGPD Purge
 
 // Initialize WhatsApp Queue (if Redis is enabled)
 if (isRedisEnabled()) {

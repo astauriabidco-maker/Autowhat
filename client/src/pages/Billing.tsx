@@ -12,7 +12,9 @@ import {
     Check,
     Zap,
     Star,
-    Users
+    Users,
+    Brain,
+    Wrench
 } from 'lucide-react';
 
 interface Plan {
@@ -195,8 +197,8 @@ export default function Billing() {
         <div className="space-y-8">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-gray-900">Facturation</h1>
-                <p className="text-gray-500 mt-1">Choisissez votre plan et gérez votre abonnement</p>
+                <h1 className="text-2xl font-bold text-gray-900">Facturation & Modules</h1>
+                <p className="text-gray-500 mt-1">Gérez votre formule de base (Socle) et activez vos Add-ons Métier</p>
             </div>
 
             {/* Current Status */}
@@ -315,6 +317,55 @@ export default function Billing() {
                         </div>
                     );
                 })}
+            </div>
+
+            {/* ADD-ONS SECTION (New Modular Pricing Strategy) */}
+            <div className="mt-12">
+                <div className="flex items-center gap-3 mb-6">
+                    <h2 className="text-xl font-bold text-gray-900">Add-ons (Modules Métier)</h2>
+                    <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded">SUPERCHARGEZ VOTRE HUB</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Add-on Ops */}
+                    <div className="bg-white border-2 border-orange-100 rounded-2xl p-6 flex flex-col sm:flex-row gap-6 items-start sm:items-center justify-between shadow-sm">
+                        <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-orange-100 rounded-lg">
+                                    <Wrench className="text-orange-600" size={24} />
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-900">Module Opérations & Terrain</h3>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-3">Débloquez la gestion complète des pièces, les devis, le Dispatch Map Kanban et les rapports d'intervention signés sur chantier.</p>
+                            <div className="text-lg font-bold text-gray-900">
+                                49€ <span className="text-sm font-normal text-gray-500">/mois (Fixe, peu importe le nombre d'employés)</span>
+                            </div>
+                        </div>
+                        <button className="px-6 py-2.5 bg-orange-50 hover:bg-orange-100 text-orange-700 font-medium rounded-lg border border-orange-200 transition-colors w-full sm:w-auto">
+                            Ajouter au contrat
+                        </button>
+                    </div>
+
+                    {/* Add-on AI */}
+                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-100 rounded-2xl p-6 flex flex-col sm:flex-row gap-6 items-start sm:items-center justify-between shadow-sm relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-16 bg-purple-200/40 blur-[50px] rounded-full pointer-events-none" />
+                        <div className="flex-1 relative z-10">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-indigo-600 rounded-lg shadow-md shadow-indigo-200">
+                                    <Brain className="text-white" size={24} />
+                                </div>
+                                <h3 className="text-lg font-bold text-indigo-950">Module IA (Intelligence Artificielle)</h3>
+                            </div>
+                            <p className="text-sm text-indigo-900/80 mb-3">Active le Vision OCR pour la lecture automatique des notes de frais, et l'Agent RAG sur la Base Documentaire RH.</p>
+                            <div className="text-lg font-bold text-indigo-950">
+                                79€ <span className="text-sm font-normal text-indigo-800/60">/mois (Token LLM illimités)</span>
+                            </div>
+                        </div>
+                        <button className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors w-full sm:w-auto relative z-10 shadow-lg shadow-indigo-200">
+                            Activer l'IA
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* Prorata Note */}
