@@ -58,6 +58,7 @@ RUN npx prisma generate
 COPY --from=backend-builder /app/dist ./dist
 # Optionnel: scripts si appelés dynamiquement
 COPY --from=backend-builder /app/scripts ./scripts
+RUN chmod +x scripts/start-prod.sh
 
 # Copier le dossier frontend compilé (le backend va le servir)
 COPY --from=frontend-builder /app/dist ./client/dist
@@ -76,5 +77,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 # Exécution avec le bon utilisateur (sécurité)
 USER node
 
-# Démarrer le serveur
-CMD ["node", "dist/app.js"]
+# Démarrer le serveur via le script de startup
+CMD ["./scripts/start-prod.sh"]

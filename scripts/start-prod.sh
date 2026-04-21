@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+echo "🚀 [Startup] Running database migrations..."
+npx prisma migrate deploy
+
+echo "🚀 [Startup] Starting application..."
+node dist/app.js
