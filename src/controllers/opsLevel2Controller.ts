@@ -142,8 +142,8 @@ export const updateRecurringIntervention = async (req: Request, res: Response) =
         // Recalculate next if frequency changes
         let nextOccurrence = existing.nextOccurrence;
         if (frequency && frequency !== existing.frequency) {
-            const base = existing.lastGenerated || existing.startDate;
-            nextOccurrence = calculateNextOccurrence(base, frequency, intervalValue || existing.intervalValue, dayOfWeek, dayOfMonth);
+            const base = (existing.lastGenerated || existing.startDate) as Date;
+            nextOccurrence = calculateNextOccurrence(base, frequency as string, (intervalValue || existing.intervalValue) as number, dayOfWeek as number, dayOfMonth as number);
         }
 
         const item = await prisma.recurringIntervention.update({
@@ -208,7 +208,7 @@ export const generateRecurringOccurrence = async (req: Request, res: Response) =
         const scheduledStart = recurring.nextOccurrence || new Date();
         scheduledStart.setHours(hours, minutes, 0, 0);
 
-        const duration = recurring.interventionType?.defaultDuration || 60;
+        const duration = (recurring as any).interventionType?.defaultDuration || 60;
         const scheduledEnd = new Date(scheduledStart.getTime() + duration * 60000);
 
         // Create the intervention
@@ -234,7 +234,7 @@ export const generateRecurringOccurrence = async (req: Request, res: Response) =
 
         // Calculate next
         const nextOccurrence = calculateNextOccurrence(
-            scheduledStart, recurring.frequency, recurring.intervalValue,
+            scheduledStart, recurring.frequency as string, recurring.intervalValue,
             recurring.dayOfWeek, recurring.dayOfMonth
         );
 
@@ -276,9 +276,6 @@ export const getParts = async (req: Request, res: Response) => {
             ];
         }
         if (lowStock === 'true') {
-            // Only items where stock is at or below minStock
-            where.stockQuantity = { lte: prisma.part.fields?.minStock || 0 };
-            // Simpler approach: use raw filter
             where.AND = [{ minStock: { gt: 0 } }];
             delete where.stockQuantity;
         }
@@ -293,7 +290,7 @@ export const getParts = async (req: Request, res: Response) => {
 
         // If lowStock filter, do post-filtering
         const result = lowStock === 'true'
-            ? parts.filter(p => p.stockQuantity <= p.minStock)
+            ? parts.filter(p => (p as any).stockQuantity <= (p as any).minStock)
             : parts;
 
         res.json(result);
@@ -608,8 +605,8 @@ export const createQuote = async (req: Request, res: Response) => {
         // Calculate amounts
         const lines = lineItems || [];
         const rate = taxRate !== undefined ? taxRate : 20;
-        const disc = discount || 0;
-        const amounts = recalcQuote(lines, rate, disc);
+        const disc = (discount as number) || 0;
+        const amounts = recalcQuote(lines, rate as number, disc);
 
         const quote = await prisma.quote.create({
             data: {
@@ -752,8 +749,8 @@ export const convertQuoteToIntervention = async (req: Request, res: Response) =>
         if (quote.status === 'CONVERTED') return res.status(400).json({ error: 'Already converted' });
 
         // Build description from quote lines
-        const description = quote.lineItems
-            .map(li => `• ${li.description} (${li.quantity} × ${li.unitPrice.toFixed(2)}€ = ${li.totalPrice.toFixed(2)}€)`)
+        const description = (quote as any).lineItems
+            .map((li: any) => `• ${li.description} (${li.quantity} × ${li.unitPrice.toFixed(2)}€ = ${li.totalPrice.toFixed(2)}€)`)
             .join('\n');
 
         // Create intervention
@@ -859,15 +856,15 @@ export const getCustomerHistory = async (req: Request, res: Response) => {
         // Type distribution
         const typeMap: Record<string, { count: number; name: string; color: string }> = {};
         interventions.forEach(i => {
-            const key = i.interventionType?.id || 'other';
-            if (!typeMap[key]) typeMap[key] = { count: 0, name: i.interventionType?.name || 'Autre', color: i.interventionType?.color || '#94a3b8' };
+            const key = (i as any).interventionType?.id || 'other';
+            if (!typeMap[key]) typeMap[key] = { count: 0, name: (i as any).interventionType?.name || 'Autre', color: (i as any).interventionType?.color || '#94a3b8' };
             typeMap[key].count++;
         });
         const typeDistribution = Object.values(typeMap).sort((a, b) => b.count - a.count);
 
         // Total parts cost
         const totalPartsCost = interventions.reduce((sum, i) =>
-            sum + i.parts.reduce((s, p) => s + p.totalPrice, 0), 0
+            sum + (i as any).parts.reduce((s: any, p: any) => s + p.totalPrice, 0), 0
         );
 
         // Total quotes accepted
@@ -883,11 +880,11 @@ export const getCustomerHistory = async (req: Request, res: Response) => {
                 date: i.scheduledStart,
                 title: i.title,
                 status: i.status,
-                employee: i.employee,
-                interventionType: i.interventionType,
-                customerSite: i.customerSite,
-                partsCount: i.parts.length,
-                partsCost: i.parts.reduce((s, p) => s + p.totalPrice, 0),
+                employee: (i as any).employee,
+                interventionType: (i as any).interventionType,
+                customerSite: (i as any).customerSite,
+                partsCount: (i as any).parts.length,
+                partsCost: (i as any).parts.reduce((s: any, p: any) => s + p.totalPrice, 0),
                 hasReport: !!i.reportContent,
                 hasSignature: !!i.signatureUrl,
             })),
@@ -898,8 +895,8 @@ export const getCustomerHistory = async (req: Request, res: Response) => {
                 title: `Devis ${q.reference}`,
                 status: q.status,
                 totalAmount: q.totalAmount,
-                interventionType: q.interventionType,
-                linesCount: q._count.lineItems,
+                interventionType: (q as any).interventionType,
+                linesCount: (q as any)._count.lineItems,
             })),
         ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
