@@ -390,16 +390,16 @@ export const deletePart = async (req: Request, res: Response) => {
 export const adjustPartStock = async (req: Request, res: Response) => {
     try {
         const tenantId = req.user!.tenantId;
-        const id = req.params.id;
+        const id = req.params.id as string;
         const { adjustment, reason } = req.body; // adjustment can be +5 or -3
 
-        const existing = await prisma.part.findFirst({ where: { id, tenantId } });
+        const existing = await (prisma.part as any).findFirst({ where: { id, tenantId } });
         if (!existing) return res.status(404).json({ error: 'Not found' });
 
-        const newQuantity = existing.stockQuantity + (adjustment || 0);
+        const newQuantity = (existing as any).stockQuantity + (adjustment || 0);
         if (newQuantity < 0) return res.status(400).json({ error: 'Stock cannot be negative' });
 
-        const part = await prisma.part.update({
+        const part = await (prisma.part as any).update({
             where: { id },
             data: { stockQuantity: newQuantity },
         });
@@ -571,9 +571,9 @@ export const getQuotes = async (req: Request, res: Response) => {
 export const getQuoteById = async (req: Request, res: Response) => {
     try {
         const tenantId = req.user!.tenantId;
-        const id = req.params.id;
+        const id = req.params.id as string;
 
-        const quote = await prisma.quote.findFirst({
+        const quote = await (prisma.quote as any).findFirst({
             where: { id, tenantId },
             include: {
                 customer: { select: { id: true, companyName: true, contactName: true, email: true, phone: true, address: true } },
@@ -758,16 +758,16 @@ export const convertQuoteToIntervention = async (req: Request, res: Response) =>
         // Create intervention
         const intervention = await prisma.intervention.create({
             data: {
-                title: `${quote.reference} — ${quote.interventionType?.name || 'Intervention'}`,
-                description: `Devis ${quote.reference}\n${description}\n\nTotal TTC: ${quote.totalAmount.toFixed(2)}€`,
-                interventionTypeId: quote.interventionTypeId,
+                title: `${(quote as any).reference} — ${(quote as any).interventionType?.name || 'Intervention'}`,
+                description: `Devis ${(quote as any).reference}\n${description}\n\nTotal TTC: ${(quote as any).totalAmount.toFixed(2)}€`,
+                interventionTypeId: (quote as any).interventionTypeId,
                 status: 'SCHEDULED',
                 scheduledStart: new Date(scheduledStart),
                 scheduledEnd: new Date(scheduledEnd),
-                customerId: quote.customerId,
-                customerSiteId: quote.customerSiteId,
+                customerId: (quote as any).customerId,
+                customerSiteId: (quote as any).customerSiteId,
                 employeeId,
-                quoteId: quote.id,
+                quoteId: (quote as any).id,
                 tenantId,
             },
             include: {
@@ -842,14 +842,14 @@ export const getCustomerHistory = async (req: Request, res: Response) => {
 
         // Compute stats
         const totalInterventions = interventions.length;
-        const completedInterventions = interventions.filter(i => i.status === 'COMPLETED').length;
-        const canceledInterventions = interventions.filter(i => i.status === 'CANCELED').length;
+        const completedInterventions = interventions.filter((i: any) => i.status === 'COMPLETED').length;
+        const canceledInterventions = interventions.filter((i: any) => i.status === 'CANCELED').length;
 
-        const completedWithTimes = interventions.filter(i =>
+        const completedWithTimes = interventions.filter((i: any) =>
             i.status === 'COMPLETED' && i.realStart && i.realEnd
         );
         const avgDurationMin = completedWithTimes.length > 0
-            ? completedWithTimes.reduce((sum, i) => {
+            ? completedWithTimes.reduce((sum: number, i: any) => {
                 const dur = (new Date(i.realEnd!).getTime() - new Date(i.realStart!).getTime()) / 60000;
                 return sum + dur;
             }, 0) / completedWithTimes.length
@@ -857,7 +857,7 @@ export const getCustomerHistory = async (req: Request, res: Response) => {
 
         // Type distribution
         const typeMap: Record<string, { count: number; name: string; color: string }> = {};
-        interventions.forEach(i => {
+        interventions.forEach((i: any) => {
             const key = (i as any).interventionType?.id || 'other';
             if (!typeMap[key]) typeMap[key] = { count: 0, name: (i as any).interventionType?.name || 'Autre', color: (i as any).interventionType?.color || '#94a3b8' };
             typeMap[key].count++;
@@ -865,18 +865,18 @@ export const getCustomerHistory = async (req: Request, res: Response) => {
         const typeDistribution = Object.values(typeMap).sort((a, b) => b.count - a.count);
 
         // Total parts cost
-        const totalPartsCost = interventions.reduce((sum, i) =>
+        const totalPartsCost = interventions.reduce((sum: number, i: any) =>
             sum + (i as any).parts.reduce((s: any, p: any) => s + p.totalPrice, 0), 0
         );
 
         // Total quotes accepted
         const totalQuotesAmount = quotes
-            .filter(q => q.status === 'ACCEPTED' || q.status === 'CONVERTED')
-            .reduce((sum, q) => sum + q.totalAmount, 0);
+            .filter((q: any) => q.status === 'ACCEPTED' || q.status === 'CONVERTED')
+            .reduce((sum: number, q: any) => sum + q.totalAmount, 0);
 
         // Build timeline (interventions + quotes merged, sorted by date)
         const timeline = [
-            ...interventions.map(i => ({
+            ...interventions.map((i: any) => ({
                 type: 'intervention' as const,
                 id: i.id,
                 date: i.scheduledStart,
@@ -890,7 +890,7 @@ export const getCustomerHistory = async (req: Request, res: Response) => {
                 hasReport: !!i.reportContent,
                 hasSignature: !!i.signatureUrl,
             })),
-            ...quotes.map(q => ({
+            ...quotes.map((q: any) => ({
                 type: 'quote' as const,
                 id: q.id,
                 date: q.createdAt,
