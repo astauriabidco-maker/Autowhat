@@ -127,10 +127,10 @@ export const createRecurringIntervention = async (req: Request, res: Response) =
 /** PUT /api/recurring-interventions/:id */
 export const updateRecurringIntervention = async (req: Request, res: Response) => {
     try {
+        const id = req.params.id as string;
         const tenantId = req.user!.tenantId;
-        const id = req.params.id;
 
-        const existing = await prisma.recurringIntervention.findFirst({ where: { id, tenantId } });
+        const existing = await (prisma.recurringIntervention as any).findFirst({ where: { id, tenantId } });
         if (!existing) return res.status(404).json({ error: 'Not found' });
 
         const {
@@ -146,8 +146,8 @@ export const updateRecurringIntervention = async (req: Request, res: Response) =
             nextOccurrence = calculateNextOccurrence(base, frequency as string, (intervalValue || existing.intervalValue) as number, dayOfWeek as number, dayOfMonth as number);
         }
 
-        const item = await prisma.recurringIntervention.update({
-            where: { id },
+        const item = await (prisma.recurringIntervention as any).update({
+            where: { id: id as string },
             data: {
                 ...(title !== undefined && { title }),
                 ...(description !== undefined && { description }),
@@ -179,10 +179,10 @@ export const updateRecurringIntervention = async (req: Request, res: Response) =
 export const deleteRecurringIntervention = async (req: Request, res: Response) => {
     try {
         const tenantId = req.user!.tenantId;
-        const id = req.params.id;
-        const existing = await prisma.recurringIntervention.findFirst({ where: { id, tenantId } });
+        const id = req.params.id as string;
+        const existing = await (prisma.recurringIntervention as any).findFirst({ where: { id, tenantId } });
         if (!existing) return res.status(404).json({ error: 'Not found' });
-        await prisma.recurringIntervention.delete({ where: { id } });
+        await (prisma.recurringIntervention as any).delete({ where: { id } });
         res.json({ success: true });
     } catch (error) {
         console.error('Error deleting recurring intervention:', error);
@@ -194,9 +194,9 @@ export const deleteRecurringIntervention = async (req: Request, res: Response) =
 export const generateRecurringOccurrence = async (req: Request, res: Response) => {
     try {
         const tenantId = req.user!.tenantId;
-        const id = req.params.id;
+        const id = req.params.id as string;
 
-        const recurring = await prisma.recurringIntervention.findFirst({
+        const recurring = await (prisma.recurringIntervention as any).findFirst({
             where: { id, tenantId },
             include: { interventionType: true },
         });
@@ -241,8 +241,8 @@ export const generateRecurringOccurrence = async (req: Request, res: Response) =
         // Check if we reached endDate
         const shouldDeactivate = recurring.endDate && nextOccurrence > recurring.endDate;
 
-        await prisma.recurringIntervention.update({
-            where: { id },
+        await (prisma.recurringIntervention as any).update({
+            where: { id: id as string },
             data: {
                 lastGenerated: new Date(),
                 nextOccurrence: shouldDeactivate ? null : nextOccurrence,
@@ -338,9 +338,9 @@ export const createPart = async (req: Request, res: Response) => {
 export const updatePart = async (req: Request, res: Response) => {
     try {
         const tenantId = req.user!.tenantId;
-        const id = req.params.id;
+        const id = req.params.id as string;
 
-        const existing = await prisma.part.findFirst({ where: { id, tenantId } });
+        const existing = await (prisma.part as any).findFirst({ where: { id, tenantId } });
         if (!existing) return res.status(404).json({ error: 'Not found' });
 
         const { reference, name, description, category, unitPrice, costPrice, stockQuantity, minStock, unit, isActive } = req.body;
@@ -375,10 +375,10 @@ export const updatePart = async (req: Request, res: Response) => {
 export const deletePart = async (req: Request, res: Response) => {
     try {
         const tenantId = req.user!.tenantId;
-        const id = req.params.id;
-        const existing = await prisma.part.findFirst({ where: { id, tenantId } });
+        const id = req.params.id as string;
+        const existing = await (prisma.part as any).findFirst({ where: { id, tenantId } });
         if (!existing) return res.status(404).json({ error: 'Not found' });
-        await prisma.part.delete({ where: { id } });
+        await (prisma.part as any).delete({ where: { id } });
         res.json({ success: true });
     } catch (error) {
         console.error('Error deleting part:', error);
@@ -420,11 +420,11 @@ export const getInterventionParts = async (req: Request, res: Response) => {
         const interventionId = req.params.id;
 
         // Verify intervention belongs to tenant
-        const intervention = await prisma.intervention.findFirst({ where: { id: interventionId, tenantId } });
+        const intervention = await (prisma.intervention as any).findFirst({ where: { id: interventionId as string, tenantId } });
         if (!intervention) return res.status(404).json({ error: 'Intervention not found' });
 
-        const parts = await prisma.interventionPart.findMany({
-            where: { interventionId },
+        const parts = await (prisma.interventionPart as any).findMany({
+            where: { interventionId: interventionId as string },
             include: {
                 part: { select: { id: true, reference: true, name: true, unit: true, category: true, stockQuantity: true } },
             },
@@ -445,10 +445,10 @@ export const addInterventionPart = async (req: Request, res: Response) => {
         const interventionId = req.params.id;
         const { partId, quantity } = req.body;
 
-        const intervention = await prisma.intervention.findFirst({ where: { id: interventionId, tenantId } });
+        const intervention = await (prisma.intervention as any).findFirst({ where: { id: interventionId as string, tenantId } });
         if (!intervention) return res.status(404).json({ error: 'Intervention not found' });
 
-        const part = await prisma.part.findFirst({ where: { id: partId, tenantId } });
+        const part = await (prisma.part as any).findFirst({ where: { id: partId as string, tenantId } });
         if (!part) return res.status(404).json({ error: 'Part not found' });
 
         const qty = quantity || 1;
@@ -456,10 +456,10 @@ export const addInterventionPart = async (req: Request, res: Response) => {
 
         // Create intervention part and decrement stock in a transaction
         const [interventionPart] = await prisma.$transaction([
-            prisma.interventionPart.create({
+            (prisma.interventionPart as any).create({
                 data: {
-                    interventionId,
-                    partId,
+                    interventionId: interventionId as string,
+                    partId: partId as string,
                     quantity: qty,
                     unitPrice: part.unitPrice,
                     totalPrice,
@@ -468,8 +468,8 @@ export const addInterventionPart = async (req: Request, res: Response) => {
                     part: { select: { id: true, reference: true, name: true, unit: true } },
                 },
             }),
-            prisma.part.update({
-                where: { id: partId },
+            (prisma.part as any).update({
+                where: { id: partId as string },
                 data: { stockQuantity: { decrement: qty } },
             }),
         ]);
@@ -485,20 +485,21 @@ export const addInterventionPart = async (req: Request, res: Response) => {
 export const removeInterventionPart = async (req: Request, res: Response) => {
     try {
         const tenantId = req.user!.tenantId;
-        const { id: interventionId, partLineId } = req.params;
+        const interventionId = req.params.id as string;
+        const partLineId = req.params.partLineId as string;
 
-        const intervention = await prisma.intervention.findFirst({ where: { id: interventionId, tenantId } });
+        const intervention = await (prisma.intervention as any).findFirst({ where: { id: interventionId, tenantId } });
         if (!intervention) return res.status(404).json({ error: 'Intervention not found' });
 
-        const line = await prisma.interventionPart.findUnique({ where: { id: partLineId } });
+        const line = await (prisma.interventionPart as any).findUnique({ where: { id: partLineId } });
         if (!line || line.interventionId !== interventionId) return res.status(404).json({ error: 'Part line not found' });
 
         // Remove and restore stock
         await prisma.$transaction([
-            prisma.interventionPart.delete({ where: { id: partLineId } }),
-            prisma.part.update({
-                where: { id: line.partId },
-                data: { stockQuantity: { increment: line.quantity } },
+            (prisma.interventionPart as any).delete({ where: { id: partLineId } }),
+            (prisma.part as any).update({
+                where: { id: (line as any).partId },
+                data: { stockQuantity: { increment: (line as any).quantity } },
             }),
         ]);
 
@@ -542,14 +543,15 @@ function recalcQuote(lineItems: { quantity: number; unitPrice: number }[], taxRa
 export const getQuotes = async (req: Request, res: Response) => {
     try {
         const tenantId = req.user!.tenantId;
-        const { status, customerId } = req.query;
+        const status = req.query.status as string;
+        const customerId = req.query.customerId as string;
 
         const where: any = { tenantId };
         if (status) where.status = status;
         if (customerId) where.customerId = customerId;
 
-        const quotes = await prisma.quote.findMany({
-            where,
+        const quotes = await (prisma.quote as any).findMany({
+            where: where as any,
             include: {
                 customer: { select: { id: true, companyName: true, contactName: true } },
                 interventionType: { select: { id: true, name: true, color: true } },
@@ -651,24 +653,24 @@ export const createQuote = async (req: Request, res: Response) => {
 export const updateQuote = async (req: Request, res: Response) => {
     try {
         const tenantId = req.user!.tenantId;
-        const id = req.params.id;
+        const id = req.params.id as string;
 
-        const existing = await prisma.quote.findFirst({ where: { id, tenantId } });
+        const existing = await (prisma.quote as any).findFirst({ where: { id, tenantId } });
         if (!existing) return res.status(404).json({ error: 'Not found' });
-        if (existing.status === 'CONVERTED') return res.status(400).json({ error: 'Cannot edit a converted quote' });
+        if ((existing as any).status === 'CONVERTED') return res.status(400).json({ error: 'Cannot edit a converted quote' });
 
         const { customerId, customerSiteId, interventionTypeId, taxRate, discount, notes, validUntil, status, lineItems } = req.body;
 
         // If lineItems provided, rebuild them
         if (lineItems) {
             // Delete existing
-            await prisma.quoteLineItem.deleteMany({ where: { quoteId: id } });
+            await (prisma.quoteLineItem as any).deleteMany({ where: { quoteId: id as string } });
 
             // Create new
-            await prisma.quoteLineItem.createMany({
+            await (prisma.quoteLineItem as any).createMany({
                 data: lineItems.map((li: any, idx: number) => ({
                     id: undefined,
-                    quoteId: id,
+                    quoteId: id as string,
                     description: li.description || '',
                     quantity: li.quantity || 1,
                     unitPrice: li.unitPrice || 0,
@@ -681,13 +683,13 @@ export const updateQuote = async (req: Request, res: Response) => {
         }
 
         // Recalculate
-        const allLines = await prisma.quoteLineItem.findMany({ where: { quoteId: id } });
-        const rate = taxRate !== undefined ? taxRate : existing.taxRate;
-        const disc = discount !== undefined ? discount : existing.discount;
-        const amounts = recalcQuote(allLines, rate, disc);
+        const allLines = await (prisma.quoteLineItem as any).findMany({ where: { quoteId: id as string } });
+        const rate = taxRate !== undefined ? taxRate : (existing as any).taxRate;
+        const disc = discount !== undefined ? discount : (existing as any).discount;
+        const amounts = recalcQuote(allLines, rate as number, disc);
 
-        const quote = await prisma.quote.update({
-            where: { id },
+        const quote = await (prisma.quote as any).update({
+            where: { id: id as string },
             data: {
                 ...(customerId !== undefined && { customerId }),
                 ...(customerSiteId !== undefined && { customerSiteId: customerSiteId || null }),
@@ -719,10 +721,10 @@ export const updateQuote = async (req: Request, res: Response) => {
 export const deleteQuote = async (req: Request, res: Response) => {
     try {
         const tenantId = req.user!.tenantId;
-        const id = req.params.id;
-        const existing = await prisma.quote.findFirst({ where: { id, tenantId } });
+        const id = req.params.id as string;
+        const existing = await (prisma.quote as any).findFirst({ where: { id, tenantId } });
         if (!existing) return res.status(404).json({ error: 'Not found' });
-        await prisma.quote.delete({ where: { id } });
+        await (prisma.quote as any).delete({ where: { id } });
         res.json({ success: true });
     } catch (error) {
         console.error('Error deleting quote:', error);
@@ -734,14 +736,14 @@ export const deleteQuote = async (req: Request, res: Response) => {
 export const convertQuoteToIntervention = async (req: Request, res: Response) => {
     try {
         const tenantId = req.user!.tenantId;
-        const id = req.params.id;
+        const id = req.params.id as string;
         const { employeeId, scheduledStart, scheduledEnd } = req.body;
 
         if (!employeeId || !scheduledStart || !scheduledEnd) {
             return res.status(400).json({ error: 'employeeId, scheduledStart, and scheduledEnd are required' });
         }
 
-        const quote = await prisma.quote.findFirst({
+        const quote = await (prisma.quote as any).findFirst({
             where: { id, tenantId },
             include: { lineItems: true, interventionType: true },
         });
@@ -775,8 +777,8 @@ export const convertQuoteToIntervention = async (req: Request, res: Response) =>
         });
 
         // Update quote status
-        await prisma.quote.update({
-            where: { id },
+        await (prisma.quote as any).update({
+            where: { id: id as string },
             data: {
                 status: 'CONVERTED',
                 convertedAt: new Date(),
@@ -799,14 +801,14 @@ export const convertQuoteToIntervention = async (req: Request, res: Response) =>
 export const getCustomerHistory = async (req: Request, res: Response) => {
     try {
         const tenantId = req.user!.tenantId;
-        const customerId = req.params.id;
+        const customerId = req.params.id as string;
 
-        const customer = await prisma.customer.findFirst({ where: { id: customerId, tenantId } });
+        const customer = await (prisma.customer as any).findFirst({ where: { id: customerId, tenantId } });
         if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
         // Get all interventions for this customer
-        const interventions = await prisma.intervention.findMany({
-            where: { customerId, tenantId },
+        const interventions = await (prisma.intervention as any).findMany({
+            where: { customerId: customerId as string, tenantId },
             include: {
                 employee: { select: { id: true, name: true, phoneNumber: true } },
                 interventionType: { select: { id: true, name: true, color: true, icon: true } },
@@ -819,8 +821,8 @@ export const getCustomerHistory = async (req: Request, res: Response) => {
         });
 
         // Get quotes
-        const quotes = await prisma.quote.findMany({
-            where: { customerId, tenantId },
+        const quotes = await (prisma.quote as any).findMany({
+            where: { customerId: customerId as string, tenantId },
             include: {
                 interventionType: { select: { id: true, name: true, color: true } },
                 _count: { select: { lineItems: true } },
@@ -829,8 +831,8 @@ export const getCustomerHistory = async (req: Request, res: Response) => {
         });
 
         // Get recurring interventions
-        const recurring = await prisma.recurringIntervention.findMany({
-            where: { customerId, tenantId },
+        const recurring = await (prisma.recurringIntervention as any).findMany({
+            where: { customerId: customerId as string, tenantId },
             include: {
                 interventionType: { select: { id: true, name: true, color: true } },
                 employee: { select: { id: true, name: true } },
