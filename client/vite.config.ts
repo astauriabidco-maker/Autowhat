@@ -37,6 +37,7 @@ export default defineConfig({
         ]
       },
       workbox: {
+        maximumFileSizeToCacheInBytes: 5000000,
         // Cache strategies
         runtimeCaching: [
           {
