@@ -241,7 +241,7 @@ export default function Revenue() {
                                     outerRadius={90}
                                     paddingAngle={5}
                                     dataKey="value"
-                                    label={({ name, percent }: { name: string, percent?: number }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                                    label={(props: any) => `${props.name} ${((props.percent || 0) * 100).toFixed(0)}%`}
                                     labelLine={false}
                                 >
                                     {pieData.map((entry, index) => (
