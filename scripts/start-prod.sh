@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-echo "🚀 [Startup] Running database migrations..."
-npx prisma migrate deploy
+echo "🚀 [Startup] Synchronizing database schema (db push)..."
+npx prisma db push --accept-data-loss
 
 echo "🚀 [Startup] Starting application..."
 node dist/app.js
