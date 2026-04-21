@@ -136,7 +136,7 @@ function LandingContent() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <MessageCircle size={28} color="#3b82f6" />
                     <span style={{ color: '#0f172a', fontWeight: 800, fontSize: '1.25rem' }}>
-                        whatsPoint.com
+                        WhatsPoint
                     </span>
                 </div>
 

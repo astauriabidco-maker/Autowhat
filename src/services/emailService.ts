@@ -82,7 +82,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
         const from = await getFromEmail();
 
         await mailer.sendMail({
-            from: `whatsPoint.com <${from}>`,
+            from: `WhatsPoint <${from}>`,
             to: options.to,
             subject: options.subject,
             html: options.html,
@@ -126,13 +126,13 @@ function wrapTemplate(content: string): string {
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚀 whatsPoint.com</h1>
+            <h1>🚀 WhatsPoint</h1>
         </div>
         <div class="content">
             ${content}
         </div>
         <div class="footer">
-            <p>© ${new Date().getFullYear()} whatsPoint.com. Tous droits réservés.</p>
+            <p>© ${new Date().getFullYear()} WhatsPoint. Tous droits réservés.</p>
             <p><a href="https://whatspoint.com">whatspoint.com</a></p>
         </div>
     </div>
@@ -150,9 +150,9 @@ function wrapTemplate(content: string): string {
  */
 export async function sendWelcomeEmail(manager: { email: string; name: string; tenantName: string }): Promise<boolean> {
     const content = `
-        <h2>Bienvenue sur whatsPoint.com, ${manager.name} ! 🎉</h2>
+        <h2>Bienvenue sur WhatsPoint, ${manager.name} ! 🎉</h2>
         <p>Votre compte pour <strong>${manager.tenantName}</strong> a été créé avec succès.</p>
-        <p>whatsPoint.com vous permet de gérer vos équipes terrain directement via WhatsApp :</p>
+        <p>WhatsPoint vous permet de gérer vos équipes terrain directement via WhatsApp :</p>
         <ul>
             <li>✅ Pointage par géolocalisation</li>
             <li>📸 Preuve photo d'arrivée</li>
@@ -161,12 +161,12 @@ export async function sendWelcomeEmail(manager: { email: string; name: string; t
         </ul>
         <p><a href="https://whatspoint.com/login" class="button">Accéder à mon espace</a></p>
         <p>Pour activer votre bot WhatsApp, envoyez "<strong>Menu</strong>" au numéro configuré.</p>
-        <p>À très vite,<br><strong>L'équipe whatsPoint.com</strong></p>
+        <p>À très vite,<br><strong>L'équipe WhatsPoint</strong></p>
     `;
 
     return sendEmail({
         to: manager.email,
-        subject: `🚀 Bienvenue sur whatsPoint.com, ${manager.name}!`,
+        subject: `🚀 Bienvenue sur WhatsPoint, ${manager.name}!`,
         html: wrapTemplate(content),
     });
 }
@@ -182,12 +182,12 @@ export async function sendPasswordResetEmail(email: string, resetToken: string, 
         <p><a href="${resetUrl}?token=${resetToken}" class="button">Réinitialiser mon mot de passe</a></p>
         <p style="color: #6b7280; font-size: 14px;">Ce lien expire dans <strong>1 heure</strong>.</p>
         <p style="color: #6b7280; font-size: 14px;">Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
-        <p>Cordialement,<br><strong>L'équipe whatsPoint.com</strong></p>
+        <p>Cordialement,<br><strong>L'équipe WhatsPoint</strong></p>
     `;
 
     return sendEmail({
         to: email,
-        subject: '🔑 Réinitialisation de votre mot de passe whatsPoint.com',
+        subject: '🔑 Réinitialisation de votre mot de passe WhatsPoint',
         html: wrapTemplate(content),
     });
 }
@@ -200,16 +200,16 @@ export async function sendTrialExpiringEmail(manager: { email: string; name: str
     const content = `
         <h2>⏰ Votre période d'essai se termine bientôt</h2>
         <p>Bonjour ${manager.name},</p>
-        <p>Votre essai gratuit whatsPoint.com se termine dans <strong style="color: ${urgencyColor};">${daysLeft} jour${daysLeft > 1 ? 's' : ''}</strong>.</p>
+        <p>Votre essai gratuit WhatsPoint se termine dans <strong style="color: ${urgencyColor};">${daysLeft} jour${daysLeft > 1 ? 's' : ''}</strong>.</p>
         <p>Pour continuer à profiter de toutes les fonctionnalités sans interruption :</p>
         <p><a href="https://whatspoint.com/billing" class="button">Passer à Pro</a></p>
         <p>Des questions ? Répondez directement à cet email.</p>
-        <p>Cordialement,<br><strong>L'équipe whatsPoint.com</strong></p>
+        <p>Cordialement,<br><strong>L'équipe WhatsPoint</strong></p>
     `;
 
     return sendEmail({
         to: manager.email,
-        subject: `⏰ Plus que ${daysLeft} jour${daysLeft > 1 ? 's' : ''} d'essai whatsPoint.com`,
+        subject: `⏰ Plus que ${daysLeft} jour${daysLeft > 1 ? 's' : ''} d'essai WhatsPoint`,
         html: wrapTemplate(content),
     });
 }
@@ -241,7 +241,7 @@ export async function sendImportSummaryEmail(
             </tr>
         </table>
         <p><a href="https://whatspoint.com/employees" class="button">Voir mon équipe</a></p>
-        <p>Cordialement,<br><strong>L'équipe whatsPoint.com</strong></p>
+        <p>Cordialement,<br><strong>L'équipe WhatsPoint</strong></p>
     `;
 
     return sendEmail({
@@ -277,7 +277,7 @@ export async function sendTicketReplyEmail(
         
         <p><a href="https://whatspoint.com/support" class="button">Voir la conversation</a></p>
         
-        <p>Cordialement,<br><strong>L'équipe whatsPoint.com</strong></p>
+        <p>Cordialement,<br><strong>L'équipe WhatsPoint</strong></p>
     `;
 
     return sendEmail({

@@ -43,7 +43,7 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 app.get('/api/health', (req, res) => {
     res.status(200).json({
         status: 'online',
-        message: 'WhatsApp Attendance Bot API is running'
+        message: 'WhatsPoint API is running'
     });
 });
 

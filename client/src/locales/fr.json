@@ -120,7 +120,7 @@
             }
         },
         "features": {
-            "title": "Pourquoi whatsPoint.com ?",
+            "title": "Pourquoi WhatsPoint ?",
             "subtitle": "La solution la plus simple pour gérer vos équipes terrain",
             "deploy": {
                 "title": "Déploiement Éclair",
@@ -161,7 +161,7 @@
         },
         "testimonials": {
             "title": "Ils nous font confiance",
-            "subtitle": "Découvrez ce que nos clients disent de whatsPoint.com",
+            "subtitle": "Découvrez ce que nos clients disent de WhatsPoint",
             "companies": "Entreprises",
             "employees": "Employés gérés",
             "rating": "Note moyenne"
@@ -182,7 +182,7 @@
             "demo": "Voir la démo"
         },
         "footer": {
-            "copyright": "© 2026 whatsPoint.com. Tous droits réservés.",
+            "copyright": "© 2026 WhatsPoint. Tous droits réservés.",
             "legal": "Mentions légales",
             "privacy": "Confidentialité",
             "contact": "Contact"
