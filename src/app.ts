@@ -76,7 +76,7 @@ if (process.env.NODE_ENV === 'production' || process.env.SERVE_FRONTEND === 'tru
     app.use(express.static(path.join(process.cwd(), 'client/dist')));
     
     // Fallback for React Router (don't override /api)
-    app.get('(.*)', (req, res, next) => {
+    app.get('/:any*', (req, res, next) => {
         if (req.path.startsWith('/api/')) {
             return next();
         }
