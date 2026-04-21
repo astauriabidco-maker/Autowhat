@@ -10,9 +10,9 @@ WORKDIR /app
 # OpenSSL est requis pour Prisma sur Alpine
 RUN apk add --no-cache openssl
 
-# Installer les dépendances backend
+# Installer toutes les dépendances (build inclus)
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
 # Générer le client Prisma
 COPY prisma ./prisma
@@ -30,7 +30,7 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app
 COPY client/package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
 COPY client/ ./
 # Construire le site statique

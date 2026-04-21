@@ -231,11 +231,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                         collapsed ? 'justify-center' : 'justify-between'
                     )}>
                         <Link to="/dashboard" className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center">
                                 <MessageCircle size={18} className="text-white" />
                             </div>
                             {!collapsed && (
-                                <span className="font-bold text-gray-900 text-lg">WhatsPoint</span>
+                                <span className="font-bold text-gray-900 text-lg">whatsPoint.com</span>
                             )}
                         </Link>
                         <button

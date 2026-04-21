@@ -27,10 +27,10 @@ export default function ForgotPassword() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex">
             {/* Left Panel - Branding */}
-            <div className="hidden lg:flex lg:w-1/2 flex-col justify-center p-12 bg-gradient-to-br from-red-600 to-red-800">
+            <div className="hidden lg:flex lg:w-1/2 flex-col justify-center p-12 bg-gradient-to-br from-blue-600 to-indigo-800">
                 <div className="max-w-md">
                     <h1 className="text-4xl font-bold text-white mb-6">
-                        🚀 Antigravity
+                        🚀 whatsPoint.com
                     </h1>
                     <p className="text-xl text-red-100">
                         Pas de panique ! Nous allons vous aider à récupérer votre accès en quelques instants.
@@ -92,7 +92,7 @@ export default function ForgotPassword() {
                                             onChange={(e) => setEmail(e.target.value)}
                                             placeholder="33612345678 ou email@example.com"
                                             required
-                                            className="w-full pl-11 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                            className="w-full pl-11 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         />
                                     </div>
                                 </div>
@@ -100,7 +100,7 @@ export default function ForgotPassword() {
                                 <button
                                     type="submit"
                                     disabled={loading || !email}
-                                    className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
                                     {loading ? (
                                         <>

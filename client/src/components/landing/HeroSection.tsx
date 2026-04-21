@@ -366,7 +366,7 @@ export default function HeroSection() {
                                     </div>
                                     <div>
                                         <div style={{ color: 'white', fontWeight: 600, fontSize: '0.9rem' }}>
-                                            WhatsPoint Bot
+                                            whatsPoint.com Bot
                                         </div>
                                         <div style={{ color: '#25d366', fontSize: '0.75rem' }}>
                                             en ligne

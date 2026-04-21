@@ -12,10 +12,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Antigravity - Gestion RH WhatsApp',
-        short_name: 'Antigravity',
+        name: 'whatsPoint.com - Gestion RH WhatsApp',
+        short_name: 'whatsPoint.com',
         description: 'Dashboard de gestion des présences, congés et notes de frais via WhatsApp',
-        theme_color: '#4F46E5',
+        theme_color: '#3b82f6',
         background_color: '#F9FAFB',
         display: 'standalone',
         orientation: 'portrait',

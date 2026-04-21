@@ -95,10 +95,10 @@ export default function Register() {
                 <div className="max-w-md w-full mx-auto">
                     {/* Logo */}
                     <div className="flex items-center gap-2 mb-8">
-                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-xl flex items-center justify-center">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
                             <MessageCircle className="w-5 h-5 text-white" />
                         </div>
-                        <span className="text-xl font-bold text-slate-900">WhatsPoint</span>
+                        <span className="text-xl font-bold text-slate-900">whatsPoint.com</span>
                     </div>
 
                     {/* Stepper */}
@@ -160,7 +160,7 @@ export default function Register() {
                                             type="text"
                                             value={formData.fullName}
                                             onChange={(e) => updateField('fullName', e.target.value)}
-                                            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                             placeholder="Jean Dupont"
                                         />
                                     </div>
@@ -177,7 +177,7 @@ export default function Register() {
                                             type="email"
                                             value={formData.email}
                                             onChange={(e) => updateField('email', e.target.value)}
-                                            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                             placeholder="jean@entreprise.com"
                                         />
                                     </div>
@@ -194,7 +194,7 @@ export default function Register() {
                                             type="password"
                                             value={formData.password}
                                             onChange={(e) => updateField('password', e.target.value)}
-                                            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                             placeholder="••••••••"
                                         />
                                     </div>
@@ -218,7 +218,7 @@ export default function Register() {
                                             readOnly={!!prefillPhone}
                                             className={`w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl transition-all ${prefillPhone
                                                     ? 'bg-slate-100 text-slate-600 cursor-not-allowed'
-                                                    : 'focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+                                                    : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
                                                 }`}
                                             placeholder="+33612345678"
                                         />
@@ -268,7 +268,7 @@ export default function Register() {
                                             type="text"
                                             value={formData.companyName}
                                             onChange={(e) => updateField('companyName', e.target.value)}
-                                            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                             placeholder="Mon Entreprise SARL"
                                         />
                                     </div>
@@ -284,7 +284,7 @@ export default function Register() {
                                         <select
                                             value={formData.country}
                                             onChange={(e) => updateField('country', e.target.value)}
-                                            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white appearance-none cursor-pointer"
+                                            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white appearance-none cursor-pointer"
                                         >
                                             {COUNTRIES.map(c => (
                                                 <option key={c.code} value={c.code}>
@@ -307,7 +307,7 @@ export default function Register() {
                                                 type="button"
                                                 onClick={() => updateField('sector', s.id)}
                                                 className={`p-4 rounded-xl border-2 transition-all text-left ${formData.sector === s.id
-                                                    ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20'
+                                                    ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/20'
                                                     : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                                                     }`}
                                             >
@@ -332,7 +332,7 @@ export default function Register() {
                                         id="consent"
                                         checked={agreed}
                                         onChange={(e) => setAgreed(e.target.checked)}
-                                        className="mt-0.5 w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                        className="mt-0.5 w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                     />
                                     <label htmlFor="consent" className="text-sm text-slate-600 leading-relaxed cursor-pointer">
                                         J'accepte les{' '}
@@ -340,7 +340,7 @@ export default function Register() {
                                             href="/legal/terms"
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-indigo-600 font-medium hover:underline"
+                                            className="text-blue-600 font-medium hover:underline"
                                         >
                                             Conditions Générales d'Utilisation
                                         </a>
@@ -349,7 +349,7 @@ export default function Register() {
                                             href="/legal/privacy"
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-indigo-600 font-medium hover:underline"
+                                            className="text-blue-600 font-medium hover:underline"
                                         >
                                             Politique de Confidentialité
                                         </a>
@@ -396,7 +396,7 @@ export default function Register() {
                     {/* Footer */}
                     <p className="text-center text-slate-500 mt-8">
                         Déjà un compte ?{' '}
-                        <Link to="/login" className="text-indigo-600 font-semibold hover:text-indigo-700 transition">
+                        <Link to="/login" className="text-blue-600 font-semibold hover:text-blue-700 transition">
                             Se connecter
                         </Link>
                     </p>
@@ -404,7 +404,7 @@ export default function Register() {
             </div>
 
             {/* Right Side - Visual */}
-            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 flex-col justify-center items-center p-12 relative overflow-hidden">
+            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 flex-col justify-center items-center p-12 relative overflow-hidden">
                 {/* Background Effects */}
                 <div className="absolute inset-0 opacity-20">
                     <div className="absolute top-10 right-10 w-64 h-64 bg-white rounded-full blur-3xl" />

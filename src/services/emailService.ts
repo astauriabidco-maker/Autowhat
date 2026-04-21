@@ -51,7 +51,7 @@ async function initTransporter(): Promise<Transporter | null> {
  */
 async function getFromEmail(): Promise<string> {
     const smtpConfig = await getProviderConfig('SMTP');
-    return smtpConfig.FROM_EMAIL || 'noreply@antigravity.io';
+    return smtpConfig.FROM_EMAIL || 'noreply@whatspoint.com';
 }
 
 // ==========================================
@@ -82,7 +82,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
         const from = await getFromEmail();
 
         await mailer.sendMail({
-            from: `Antigravity <${from}>`,
+            from: `whatsPoint.com <${from}>`,
             to: options.to,
             subject: options.subject,
             html: options.html,
@@ -114,26 +114,26 @@ function wrapTemplate(content: string): string {
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5; }
         .container { max-width: 600px; margin: 0 auto; background: #fff; }
-        .header { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; padding: 30px; text-align: center; }
+        .header { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 30px; text-align: center; }
         .header h1 { margin: 0; font-size: 24px; }
         .content { padding: 30px; }
-        .button { display: inline-block; background: #dc2626; color: white !important; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: 600; margin: 20px 0; }
-        .button:hover { background: #b91c1c; }
+        .button { display: inline-block; background: #3b82f6; color: white !important; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: 600; margin: 20px 0; }
+        .button:hover { background: #1d4ed8; }
         .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
-        .footer a { color: #dc2626; }
+        .footer a { color: #3b82f6; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚀 Antigravity</h1>
+            <h1>🚀 whatsPoint.com</h1>
         </div>
         <div class="content">
             ${content}
         </div>
         <div class="footer">
-            <p>© ${new Date().getFullYear()} Antigravity. Tous droits réservés.</p>
-            <p><a href="https://antigravity.io">antigravity.io</a></p>
+            <p>© ${new Date().getFullYear()} whatsPoint.com. Tous droits réservés.</p>
+            <p><a href="https://whatspoint.com">whatspoint.com</a></p>
         </div>
     </div>
 </body>
@@ -150,23 +150,23 @@ function wrapTemplate(content: string): string {
  */
 export async function sendWelcomeEmail(manager: { email: string; name: string; tenantName: string }): Promise<boolean> {
     const content = `
-        <h2>Bienvenue sur Antigravity, ${manager.name} ! 🎉</h2>
+        <h2>Bienvenue sur whatsPoint.com, ${manager.name} ! 🎉</h2>
         <p>Votre compte pour <strong>${manager.tenantName}</strong> a été créé avec succès.</p>
-        <p>Antigravity vous permet de gérer vos équipes terrain directement via WhatsApp :</p>
+        <p>whatsPoint.com vous permet de gérer vos équipes terrain directement via WhatsApp :</p>
         <ul>
             <li>✅ Pointage par géolocalisation</li>
             <li>📸 Preuve photo d'arrivée</li>
             <li>📊 Tableaux de bord temps réel</li>
             <li>💰 Gestion des notes de frais</li>
         </ul>
-        <p><a href="https://antigravity.io/login" class="button">Accéder à mon espace</a></p>
+        <p><a href="https://whatspoint.com/login" class="button">Accéder à mon espace</a></p>
         <p>Pour activer votre bot WhatsApp, envoyez "<strong>Menu</strong>" au numéro configuré.</p>
-        <p>À très vite,<br><strong>L'équipe Antigravity</strong></p>
+        <p>À très vite,<br><strong>L'équipe whatsPoint.com</strong></p>
     `;
 
     return sendEmail({
         to: manager.email,
-        subject: `🚀 Bienvenue sur Antigravity, ${manager.name}!`,
+        subject: `🚀 Bienvenue sur whatsPoint.com, ${manager.name}!`,
         html: wrapTemplate(content),
     });
 }
@@ -182,12 +182,12 @@ export async function sendPasswordResetEmail(email: string, resetToken: string, 
         <p><a href="${resetUrl}?token=${resetToken}" class="button">Réinitialiser mon mot de passe</a></p>
         <p style="color: #6b7280; font-size: 14px;">Ce lien expire dans <strong>1 heure</strong>.</p>
         <p style="color: #6b7280; font-size: 14px;">Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
-        <p>Cordialement,<br><strong>L'équipe Antigravity</strong></p>
+        <p>Cordialement,<br><strong>L'équipe whatsPoint.com</strong></p>
     `;
 
     return sendEmail({
         to: email,
-        subject: '🔑 Réinitialisation de votre mot de passe Antigravity',
+        subject: '🔑 Réinitialisation de votre mot de passe whatsPoint.com',
         html: wrapTemplate(content),
     });
 }
@@ -200,16 +200,16 @@ export async function sendTrialExpiringEmail(manager: { email: string; name: str
     const content = `
         <h2>⏰ Votre période d'essai se termine bientôt</h2>
         <p>Bonjour ${manager.name},</p>
-        <p>Votre essai gratuit Antigravity se termine dans <strong style="color: ${urgencyColor};">${daysLeft} jour${daysLeft > 1 ? 's' : ''}</strong>.</p>
+        <p>Votre essai gratuit whatsPoint.com se termine dans <strong style="color: ${urgencyColor};">${daysLeft} jour${daysLeft > 1 ? 's' : ''}</strong>.</p>
         <p>Pour continuer à profiter de toutes les fonctionnalités sans interruption :</p>
-        <p><a href="https://antigravity.io/billing" class="button">Passer à Pro</a></p>
+        <p><a href="https://whatspoint.com/billing" class="button">Passer à Pro</a></p>
         <p>Des questions ? Répondez directement à cet email.</p>
-        <p>Cordialement,<br><strong>L'équipe Antigravity</strong></p>
+        <p>Cordialement,<br><strong>L'équipe whatsPoint.com</strong></p>
     `;
 
     return sendEmail({
         to: manager.email,
-        subject: `⏰ Plus que ${daysLeft} jour${daysLeft > 1 ? 's' : ''} d'essai Antigravity`,
+        subject: `⏰ Plus que ${daysLeft} jour${daysLeft > 1 ? 's' : ''} d'essai whatsPoint.com`,
         html: wrapTemplate(content),
     });
 }
@@ -240,8 +240,8 @@ export async function sendImportSummaryEmail(
                 <td style="padding: 12px; border: 1px solid #e5e7eb; color: #dc2626;"><strong>${stats.errors}</strong></td>
             </tr>
         </table>
-        <p><a href="https://antigravity.io/employees" class="button">Voir mon équipe</a></p>
-        <p>Cordialement,<br><strong>L'équipe Antigravity</strong></p>
+        <p><a href="https://whatspoint.com/employees" class="button">Voir mon équipe</a></p>
+        <p>Cordialement,<br><strong>L'équipe whatsPoint.com</strong></p>
     `;
 
     return sendEmail({
@@ -269,15 +269,15 @@ export async function sendTicketReplyEmail(
         <p>Bonjour ${client.name},</p>
         <p>L'équipe support a répondu à votre ticket <strong>#${shortId}</strong> :</p>
         
-        <div style="background: #f3f4f6; border-left: 4px solid #dc2626; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+        <div style="background: #f3f4f6; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
             <p style="margin: 0; font-style: italic;">"${truncatedExcerpt}"</p>
         </div>
 
         <p style="color: #6b7280; font-size: 14px;"><strong>Sujet :</strong> ${ticket.subject}</p>
         
-        <p><a href="https://antigravity.io/support" class="button">Voir la conversation</a></p>
+        <p><a href="https://whatspoint.com/support" class="button">Voir la conversation</a></p>
         
-        <p>Cordialement,<br><strong>L'équipe Antigravity</strong></p>
+        <p>Cordialement,<br><strong>L'équipe whatsPoint.com</strong></p>
     `;
 
     return sendEmail({

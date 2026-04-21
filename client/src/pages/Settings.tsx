@@ -391,7 +391,7 @@ export default function Settings() {
                         <select
                             value={settings.country}
                             onChange={(e) => updateField('country', e.target.value)}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                         >
                             {COUNTRIES.map(c => (
                                 <option key={c.code} value={c.code}>
@@ -480,7 +480,7 @@ export default function Settings() {
                             type="text"
                             value={settings.city}
                             onChange={(e) => updateField('city', e.target.value)}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             placeholder="Paris"
                         />
                     </div>
@@ -556,16 +556,16 @@ export default function Settings() {
             </div>
 
             {/* Card 2.5: Intelligence Artificielle */}
-            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 p-6 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-24 bg-purple-200/50 blur-[80px] rounded-full pointer-events-none" />
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100 p-6 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-24 bg-blue-200/50 blur-[80px] rounded-full pointer-events-none" />
                 
                 <div className="flex items-center gap-3 mb-6 relative z-10">
-                    <div className="p-2.5 bg-indigo-600 rounded-lg shadow-md shadow-indigo-200">
+                    <div className="p-2.5 bg-blue-600 rounded-lg shadow-md shadow-blue-200">
                         <Brain size={22} className="text-white" />
                     </div>
                     <div>
-                        <h2 className="text-lg font-bold text-indigo-950">Intelligence Artificielle (WhatsPoint Brain)</h2>
-                        <p className="text-sm text-indigo-800/70">Pilotez les capacités cognitives de votre bot WhatsApp</p>
+                        <h2 className="text-lg font-bold text-blue-950">Intelligence Artificielle (whatsPoint.com Brain)</h2>
+                        <p className="text-sm text-blue-800/70">Pilotez les capacités cognitives de votre bot WhatsApp</p>
                     </div>
                 </div>
 
@@ -586,17 +586,17 @@ export default function Settings() {
                     />
                 </div>
 
-                <div className="mt-6 pt-6 border-t border-indigo-200/50 relative z-10">
-                    <label className="block text-sm font-bold text-indigo-900 mb-2">
+                <div className="mt-6 pt-6 border-t border-blue-200/50 relative z-10">
+                    <label className="block text-sm font-bold text-blue-900 mb-2">
                         Personnalité de l'Assistant
                     </label>
                     <textarea 
                         value={settings.config.botPersonality || ''}
                         onChange={(e) => handlePersonalityChange(e.target.value)}
-                        className="w-full h-20 p-3 bg-white/80 border border-indigo-200 rounded-xl text-sm text-slate-700 font-mono focus:ring-2 focus:ring-indigo-500 transition-all resize-none shadow-inner"
+                        className="w-full h-20 p-3 bg-white/80 border border-blue-200 rounded-xl text-sm text-slate-700 font-mono focus:ring-2 focus:ring-blue-500 transition-all resize-none shadow-inner"
                         placeholder="Ex: Tu es un assistant strict, réponds très brièvement et de façon professionnelle..."
                     />
-                    <p className="mt-1 text-xs text-indigo-800/60 font-medium">Les employés interagiront avec cette personnalité dynamique.</p>
+                    <p className="mt-1 text-xs text-blue-800/60 font-medium">Les employés interagiront avec cette personnalité dynamique.</p>
                 </div>
             </div>
             
@@ -646,10 +646,10 @@ export default function Settings() {
                     </div>
                 ) : (
                     // TRIAL - Show pricing card
-                    <div className="border border-indigo-200 rounded-xl p-6 bg-gradient-to-br from-indigo-50 to-white">
+                    <div className="border border-blue-200 rounded-xl p-6 bg-gradient-to-br from-blue-50 to-white">
                         <div className="flex items-center gap-2 mb-4">
                             <Crown className="text-amber-500" size={24} />
-                            <span className="text-sm font-medium text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded">
+                            <span className="text-sm font-medium text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
                                 Plan PRO
                             </span>
                         </div>
@@ -681,7 +681,7 @@ export default function Settings() {
                         <button
                             onClick={handleSubscribe}
                             disabled={billingLoading}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition shadow-md"
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition shadow-md"
                         >
                             {billingLoading ? (
                                 <>
@@ -732,7 +732,7 @@ export default function Settings() {
                             type="text"
                             value={settings.vocabulary.manager}
                             onChange={(e) => handleVocabularyChange('manager', e.target.value)}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             placeholder="Chef, Patron, Responsable..."
                         />
                     </div>
@@ -748,7 +748,7 @@ export default function Settings() {
                     onClick={handleSave}
                     disabled={saving || !hasChanges}
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium transition ${hasChanges
-                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md'
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md'
                         : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                         }`}
                 >

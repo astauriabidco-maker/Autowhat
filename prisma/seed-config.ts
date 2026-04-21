@@ -11,8 +11,8 @@ async function main() {
         update: {}, // Don't update if exists
         create: {
             id: 1,
-            platformName: 'Antigravity',
-            supportEmail: 'support@antigravity.io',
+            platformName: 'whatsPoint.com',
+            supportEmail: 'support@whatspoint.com',
             defaultTrialDays: 14,
             maintenanceMode: false,
             allowRegistrations: true

@@ -680,11 +680,11 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 if (buttonId === 'btn_info') {
                                     await sendMessage(
                                         from,
-                                        `📱 *Antigravity* permet de gérer vos équipes terrain via WhatsApp :\n\n` +
+                                        `📱 *whatsPoint.com* permet de gérer vos équipes terrain via WhatsApp :\n\n` +
                                         `✅ Pointage par message\n` +
                                         `✅ Planning automatique\n` +
                                         `✅ Rapports en temps réel\n\n` +
-                                        `🌐 En savoir plus : www.whatspoint.fr`,
+                                        `🌐 En savoir plus : www.whatspoint.com`,
                                         phoneNumberId
                                     );
                                     console.log(`ℹ️ Info message sent to ${from} after btn_info click`);

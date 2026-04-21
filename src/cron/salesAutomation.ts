@@ -169,7 +169,7 @@ async function executeRule(rule: any): Promise<void> {
                 trialEndDate: lead.trialEndsAt
                     ? new Date(lead.trialEndsAt).toLocaleDateString('fr-FR')
                     : '',
-                loginUrl: process.env.FRONTEND_URL || 'https://app.antigravity.io'
+                loginUrl: process.env.FRONTEND_URL || 'https://app.whatspoint.com'
             };
 
             try {

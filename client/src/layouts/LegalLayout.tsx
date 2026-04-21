@@ -11,10 +11,10 @@ export default function LegalLayout({ children }: LegalLayoutProps) {
             <header className="border-b border-gray-200 bg-white">
                 <div className="max-w-4xl mx-auto px-6 py-4">
                     <Link to="/" className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center">
-                            <span className="text-white font-bold text-sm">A</span>
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">W</span>
                         </div>
-                        <span className="text-xl font-bold text-gray-900">Antigravity</span>
+                        <span className="text-xl font-bold text-gray-900">whatsPoint.com</span>
                     </Link>
                 </div>
             </header>
@@ -41,7 +41,7 @@ export default function LegalLayout({ children }: LegalLayoutProps) {
                         </Link>
                     </div>
                     <p className="text-center text-gray-500 text-sm mt-4">
-                        © {new Date().getFullYear()} Antigravity. Tous droits réservés.
+                        © {new Date().getFullYear()} whatsPoint.com. Tous droits réservés.
                     </p>
                 </div>
             </footer>

@@ -422,8 +422,8 @@ model MessageLog {
 
 model PlatformConfig {
   id                 Int      @id @default(1)
-  platformName       String   @default("Antigravity")
-  supportEmail       String   @default("support@example.com")
+  platformName       String   @default("whatsPoint.com")
+  supportEmail       String   @default("support@whatspoint.com")
   defaultTrialDays   Int      @default(14)
   maintenanceMode    Boolean  @default(false) // If true, blocks normal user login
   allowRegistrations Boolean  @default(true)  // If false, hides registration button

@@ -176,16 +176,16 @@ export const sendRelanceEmail = async (req: Request, res: Response): Promise<voi
         // Templates d'emails
         const templates: Record<string, { subject: string; body: string }> = {
             help: {
-                subject: `${tenant.name} - Besoin d'aide pour configurer Antigravity ?`,
-                body: `Bonjour ${admin.name},\n\nJe suis le fondateur d'Antigravity et je vois que vous venez de créer un compte.\n\nAvez-vous besoin d'aide pour configurer votre espace ? Je suis disponible pour un appel de 15 minutes si vous le souhaitez.\n\nÀ très vite,\nL'équipe Antigravity`
+                subject: `${tenant.name} - Besoin d'aide pour configurer whatsPoint.com ?`,
+                body: `Bonjour ${admin.name},\n\nJe suis le fondateur de whatsPoint.com et je vois que vous venez de créer un compte.\n\nAvez-vous besoin d'aide pour configurer votre espace ? Je suis disponible pour un appel de 15 minutes si vous le souhaitez.\n\nÀ très vite,\nL'équipe whatsPoint.com`
             },
             expiring: {
                 subject: `Plus que 24h pour ${tenant.name} !`,
-                body: `Bonjour ${admin.name},\n\nVotre période d'essai expire demain !\n\nNe perdez pas vos données de pointage. Passez à un plan payant dès maintenant pour continuer à utiliser Antigravity.\n\n→ Accédez à votre espace: https://app.antigravity.io/billing\n\nDes questions ? Répondez à cet email.\n\nL'équipe Antigravity`
+                body: `Bonjour ${admin.name},\n\nVotre période d'essai expire demain !\n\nNe perdez pas vos données de pointage. Passez à un plan payant dès maintenant pour continuer à utiliser whatsPoint.com.\n\n→ Accédez à votre espace: https://app.whatspoint.com/billing\n\nDes questions ? Répondez à cet email.\n\nL'équipe whatsPoint.com`
             },
             extension: {
                 subject: `Prolongation exceptionnelle pour ${tenant.name} ?`,
-                body: `Bonjour ${admin.name},\n\nVotre période d'essai est terminée, mais vos données sont toujours là.\n\nSi vous avez besoin de plus de temps pour tester, contactez-nous ! Nous pouvons vous offrir une prolongation exceptionnelle.\n\nÀ bientôt,\nL'équipe Antigravity`
+                body: `Bonjour ${admin.name},\n\nVotre période d'essai est terminée, mais vos données sont toujours là.\n\nSi vous avez besoin de plus de temps pour tester, contactez-nous ! Nous pouvons vous offrir une prolongation exceptionnelle.\n\nÀ bientôt,\nL'équipe whatsPoint.com`
             }
         };
 

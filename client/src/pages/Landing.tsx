@@ -136,7 +136,7 @@ function LandingContent() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <MessageCircle size={28} color="#3b82f6" />
                     <span style={{ color: '#0f172a', fontWeight: 800, fontSize: '1.25rem' }}>
-                        WhatsPoint
+                        whatsPoint.com
                     </span>
                 </div>
 
@@ -632,7 +632,7 @@ function LandingContent() {
                         <a href="/legal/privacy" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
                             {t('landing.footer.privacy')}
                         </a>
-                        <a href="mailto:contact@whatspoint.fr" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
+                        <a href="mailto:contact@whatspoint.com" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
                             {t('landing.footer.contact')}
                         </a>
                     </div>

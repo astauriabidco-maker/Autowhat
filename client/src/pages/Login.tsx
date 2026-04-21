@@ -145,10 +145,10 @@ export default function Login() {
                 <div className="max-w-md w-full mx-auto">
                     {/* Logo */}
                     <div className="flex items-center gap-2 mb-8">
-                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
                             <MessageCircle className="w-5 h-5 text-white" />
                         </div>
-                        <span className="text-xl font-bold text-slate-900">WhatsPoint</span>
+                        <span className="text-xl font-bold text-slate-900">whatsPoint.com</span>
                     </div>
 
                     {/* ============ STEP 1: Phone Number ============ */}
@@ -174,7 +174,7 @@ export default function Login() {
                                             type="tel"
                                             value={phoneNumber}
                                             onChange={(e) => setPhoneNumber(e.target.value)}
-                                            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-slate-900 placeholder:text-slate-400"
+                                            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-slate-900 placeholder:text-slate-400"
                                             placeholder="+33 6 12 34 56 78"
                                             required
                                             autoFocus
@@ -201,7 +201,7 @@ export default function Login() {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
+                                    className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
                                 >
                                     {loading ? (
                                         <>
@@ -252,7 +252,7 @@ export default function Login() {
                                             value={digit}
                                             onChange={(e) => handleOtpChange(index, e.target.value)}
                                             onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                                            className="w-14 h-16 text-center text-2xl font-bold border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-slate-900"
+                                            className="w-14 h-16 text-center text-2xl font-bold border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-slate-900"
                                         />
                                     ))}
                                 </div>
@@ -265,7 +265,7 @@ export default function Login() {
 
                                 {/* Loading indicator during verification */}
                                 {loading && (
-                                    <div className="flex items-center justify-center gap-2 text-emerald-600">
+                                    <div className="flex items-center justify-center gap-2 text-blue-600">
                                         <Loader2 className="w-5 h-5 animate-spin" />
                                         <span className="text-sm font-medium">Vérification...</span>
                                     </div>
@@ -273,7 +273,7 @@ export default function Login() {
 
                                 {/* Security badge */}
                                 <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                    <ShieldCheck className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                                    <ShieldCheck className="w-5 h-5 text-blue-500 flex-shrink-0" />
                                     <p className="text-xs text-slate-500">
                                         Connexion chiffrée de bout en bout. Le code est à usage unique et expire dans 10 minutes.
                                     </p>
@@ -289,7 +289,7 @@ export default function Login() {
                                         <button
                                             onClick={handleResend}
                                             disabled={loading}
-                                            className="text-sm text-emerald-600 hover:text-emerald-700 font-semibold transition"
+                                            className="text-sm text-blue-600 hover:text-blue-700 font-semibold transition"
                                         >
                                             Renvoyer le code
                                         </button>
@@ -302,7 +302,7 @@ export default function Login() {
                     {/* Footer */}
                     <p className="text-center text-slate-500 mt-8">
                         Pas encore de compte ?{' '}
-                        <Link to="/register" className="text-emerald-600 font-semibold hover:text-emerald-700 transition">
+                        <Link to="/register" className="text-blue-600 font-semibold hover:text-blue-700 transition">
                             Créer un espace
                         </Link>
                     </p>
@@ -325,7 +325,7 @@ export default function Login() {
                     {/* Testimonial */}
                     <blockquote className="text-3xl font-light text-white leading-relaxed mb-8">
                         "Plus de mot de passe. Un simple{' '}
-                        <span className="text-emerald-400 font-medium">code WhatsApp</span>{' '}
+                        <span className="text-blue-400 font-medium">code WhatsApp</span>{' '}
                         et vous êtes connecté."
                     </blockquote>
 
