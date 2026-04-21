@@ -40,7 +40,7 @@ app.get('/api/docs.json', (req, res) => {
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Health Check (Pour vérifier que le serveur tourne)
-app.get('/', (req, res) => {
+app.get('/api/health', (req, res) => {
     res.status(200).json({
         status: 'online',
         message: 'WhatsApp Attendance Bot API is running'

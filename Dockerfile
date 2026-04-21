@@ -72,7 +72,7 @@ EXPOSE 3000
 
 # Healthcheck natif pour Coolify (vérifie si l'API répond)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:3000/ || exit 1
+  CMD curl -f http://localhost:3000/api/health || exit 1
 
 # Exécution avec le bon utilisateur (sécurité)
 USER node
