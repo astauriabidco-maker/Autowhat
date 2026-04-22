@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { sendMessage } from '../services/whatsappService';
 import { EXPENSE_CATEGORIES } from '../services/expenseService';
+import { dispatchWebhook, WEBHOOK_EVENTS } from '../services/webhookService';
 
 const prisma = new PrismaClient();
 
@@ -100,6 +101,24 @@ export const updateExpenseStatus = async (req: Request, res: Response): Promise<
             where: { id: id as string },
             data: { status }
         });
+
+        // Dispatch Webhook (Bridge Strategy)
+        await dispatchWebhook(
+            status === 'APPROVED' ? WEBHOOK_EVENTS.EXPENSE_APPROVED : WEBHOOK_EVENTS.EXPENSE_REJECTED,
+            {
+                expenseId: updated.id,
+                amount: expense.amount,
+                category: expense.category,
+                categoryLabel: EXPENSE_CATEGORIES[expense.category as keyof typeof EXPENSE_CATEGORIES] || expense.category,
+                employeeId: expense.employee.id,
+                employeeName: expense.employee.name,
+                employeePhone: expense.employee.phoneNumber,
+                date: expense.date,
+                photoUrl: expense.photoUrl,
+                status: updated.status
+            },
+            tenantId
+        );
 
         // Send WhatsApp notification to employee
         const employeePhone = expense.employee.phoneNumber.replace('+', '');

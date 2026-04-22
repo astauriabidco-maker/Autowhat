@@ -120,7 +120,7 @@
             }
         },
         "features": {
-            "title": "Why whatsPoint.com?",
+            "title": "Why WhatsPoint?",
             "subtitle": "The simplest solution to manage your field teams",
             "deploy": {
                 "title": "Lightning Deployment",
@@ -161,7 +161,7 @@
         },
         "testimonials": {
             "title": "They trust us",
-            "subtitle": "Discover what our clients say about whatsPoint.com",
+            "subtitle": "Discover what our clients say about WhatsPoint",
             "companies": "Companies",
             "employees": "Employees managed",
             "rating": "Average rating"
@@ -182,7 +182,7 @@
             "demo": "See the demo"
         },
         "footer": {
-            "copyright": "© 2026 whatsPoint.com. All rights reserved.",
+            "copyright": "© 2026 WhatsPoint. All rights reserved.",
             "legal": "Legal Notice",
             "privacy": "Privacy",
             "contact": "Contact"

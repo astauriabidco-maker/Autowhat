@@ -13,7 +13,7 @@ const prisma = new PrismaClient();
 // ========================================
 // CONFIGURE YOUR SUPER ADMIN HERE
 // ========================================
-const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || 'admin@whatspoint.com';
+const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || 'admin@whatspoint.app';
 const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD || 'SuperSecure123!';
 const SUPER_ADMIN_NAME = 'SuperAdmin';
 // ========================================

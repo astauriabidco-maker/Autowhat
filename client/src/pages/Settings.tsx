@@ -564,7 +564,7 @@ export default function Settings() {
                         <Brain size={22} className="text-white" />
                     </div>
                     <div>
-                        <h2 className="text-lg font-bold text-blue-950">Intelligence Artificielle (whatsPoint.com Brain)</h2>
+                        <h2 className="text-lg font-bold text-blue-950">Intelligence Artificielle (WhatsPoint Brain)</h2>
                         <p className="text-sm text-blue-800/70">Pilotez les capacités cognitives de votre bot WhatsApp</p>
                     </div>
                 </div>

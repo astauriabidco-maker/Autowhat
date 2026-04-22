@@ -134,6 +134,26 @@ export default function OpsDashboard() {
                 </div>
             )}
 
+            {/* External Platform Suggestion */}
+            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-blue-600">
+                        <Zap size={20} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-semibold text-blue-900">Besoin de générer un devis ou une facture ?</p>
+                        <p className="text-xs text-blue-700">WhatsPoint se concentre sur l'échange direct. Pour la gestion administrative, connectez votre compte <strong className="text-indigo-700">Helpyx</strong>.</p>
+                    </div>
+                </div>
+                <Link 
+                    to="/settings/integrations"
+                    className="px-4 py-2 bg-white text-blue-600 rounded-lg text-xs font-bold border border-blue-100 hover:bg-blue-50 transition flex items-center gap-1.5 whitespace-nowrap"
+                >
+                    Configurer l'export
+                    <ArrowRight size={14} />
+                </Link>
+            </div>
+
             {/* KPI Cards Row 1 */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[

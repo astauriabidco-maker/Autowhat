@@ -10,17 +10,17 @@ async function seedSuperAdmin() {
         const hashedPassword = await bcrypt.hash('superadmin123', 10);
 
         const superAdmin = await prisma.superAdmin.upsert({
-            where: { email: 'admin@whatspoint.com' },
+            where: { email: 'admin@whatspoint.app' },
             update: {},
             create: {
-                email: 'admin@whatspoint.com',
+                email: 'admin@whatspoint.app',
                 password: hashedPassword,
                 name: 'Super Admin'
             }
         });
 
         console.log('✅ [Seed] Super Admin ready:');
-        console.log(`   Email: admin@whatspoint.com`);
+        console.log(`   Email: admin@whatspoint.app`);
         console.log(`   Password: superadmin123`);
         
     } catch (error) {

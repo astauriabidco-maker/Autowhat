@@ -11,7 +11,7 @@ export default function Footer() {
                             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
                                 <span className="text-white font-bold text-lg">W</span>
                             </div>
-                            <span className="text-2xl font-bold">whatsPoint.com</span>
+                            <span className="text-2xl font-bold">WhatsPoint</span>
                         </div>
                         <p className="text-gray-400 max-w-md">
                             Simplifiez la gestion de vos équipes avec notre solution de pointage
@@ -43,7 +43,7 @@ export default function Footer() {
                 {/* Bottom */}
                 <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
                     <p className="text-gray-500 text-sm">
-                        © {new Date().getFullYear()} whatsPoint.com. Tous droits réservés.
+                        © {new Date().getFullYear()} WhatsPoint. Tous droits réservés.
                     </p>
                     <div className="flex gap-6 text-sm text-gray-500">
                         <Link to="/legal/terms" className="hover:text-white transition">CGU</Link>

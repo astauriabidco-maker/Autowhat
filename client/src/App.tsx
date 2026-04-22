@@ -57,9 +57,9 @@ import Dispatch from './pages/operations/Dispatch';
 import OpsReports from './pages/operations/Reports';
 import InterventionTypes from './pages/operations/InterventionTypes';
 import OpsDashboard from './pages/operations/Dashboard';
-import Parts from './pages/operations/Parts';
+// import Parts from './pages/operations/Parts';
 import Recurring from './pages/operations/Recurring';
-import Quotes from './pages/operations/Quotes';
+// import Quotes from './pages/operations/Quotes';
 import MapKanban from './pages/operations/MapKanban';
 import InterventionRequests from './pages/operations/InterventionRequests';
 import SignaturePad from './pages/public/SignaturePad';
@@ -150,15 +150,15 @@ function App() {
           <Route path="/operations/reports" element={
             <ProtectedRoute><OpsReports /></ProtectedRoute>
           } />
-          <Route path="/operations/parts" element={
+{/* <Route path="/operations/parts" element={
             <ProtectedRoute><Parts /></ProtectedRoute>
-          } />
+          } /> */}
           <Route path="/operations/recurring" element={
             <ProtectedRoute><Recurring /></ProtectedRoute>
           } />
-          <Route path="/operations/quotes" element={
+{/* <Route path="/operations/quotes" element={
             <ProtectedRoute><Quotes /></ProtectedRoute>
-          } />
+          } /> */}
           <Route path="/operations/map" element={
             <ProtectedRoute><MapKanban /></ProtectedRoute>
           } />

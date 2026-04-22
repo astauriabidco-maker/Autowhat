@@ -310,6 +310,25 @@ export default function Dispatch() {
                 </div>
             </div>
 
+            {/* External Platform Suggestion */}
+            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-blue-600">
+                        <Zap size={20} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-semibold text-blue-900">Besoin de générer un devis ou une facture pour ces interventions ?</p>
+                        <p className="text-xs text-blue-700">WhatsPoint gère le flux terrain. Pour la partie administrative et financière, connectez <strong className="text-indigo-700">Helpyx</strong>.</p>
+                    </div>
+                </div>
+                <Link 
+                    to="/settings/integrations"
+                    className="px-4 py-2 bg-white text-blue-600 rounded-lg text-xs font-bold border border-blue-100 hover:bg-blue-50 transition flex items-center gap-1.5 whitespace-nowrap"
+                >
+                    Configurer l'export
+                </Link>
+            </div>
+
             {/* Filter Bar */}
             {showFilters && (
                 <div className="bg-white rounded-2xl border border-gray-100 p-4 animate-in slide-in-from-top duration-200">

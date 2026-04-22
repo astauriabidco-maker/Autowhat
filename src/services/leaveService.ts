@@ -1,4 +1,5 @@
 import { PrismaClient, Employee, LeaveRequest } from '@prisma/client';
+import { dispatchWebhook, WEBHOOK_EVENTS } from './webhookService';
 
 const prisma = new PrismaClient();
 
@@ -94,6 +95,16 @@ export async function createRequest(
                 tenantId: employee.tenantId,
             }
         });
+
+        // Dispatch webhook (Bridge Strategy)
+        await dispatchWebhook(WEBHOOK_EVENTS.LEAVE_REQUESTED, {
+            leaveRequestId: request.id,
+            employeeId: employee.id,
+            employeeName: employee.name,
+            startDate: request.startDate,
+            endDate: request.endDate,
+            status: request.status
+        }, employee.tenantId);
 
         // Find the manager for this tenant
         const manager = await prisma.employee.findFirst({
@@ -194,6 +205,20 @@ export async function handleManagerResponse(
             where: { id: request.id },
             data: { status: newStatus }
         });
+
+        // Dispatch webhook (Bridge Strategy)
+        await dispatchWebhook(
+            newStatus === 'APPROVED' ? WEBHOOK_EVENTS.LEAVE_APPROVED : WEBHOOK_EVENTS.LEAVE_REJECTED,
+            {
+                leaveRequestId: request.id,
+                employeeId: request.employee.id,
+                employeeName: request.employee.name,
+                startDate: request.startDate,
+                endDate: request.endDate,
+                status: newStatus
+            },
+            manager.tenantId
+        );
 
         const statusText = newStatus === 'APPROVED' ? 'approuvée ✅' : 'refusée ❌';
 

@@ -30,7 +30,7 @@ export default function ForgotPassword() {
             <div className="hidden lg:flex lg:w-1/2 flex-col justify-center p-12 bg-gradient-to-br from-blue-600 to-indigo-800">
                 <div className="max-w-md">
                     <h1 className="text-4xl font-bold text-white mb-6">
-                        🚀 whatsPoint.com
+                        🚀 WhatsPoint
                     </h1>
                     <p className="text-xl text-red-100">
                         Pas de panique ! Nous allons vous aider à récupérer votre accès en quelques instants.

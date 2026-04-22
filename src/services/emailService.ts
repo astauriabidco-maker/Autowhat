@@ -51,7 +51,7 @@ async function initTransporter(): Promise<Transporter | null> {
  */
 async function getFromEmail(): Promise<string> {
     const smtpConfig = await getProviderConfig('SMTP');
-    return smtpConfig.FROM_EMAIL || 'noreply@whatspoint.com';
+    return smtpConfig.FROM_EMAIL || 'noreply@whatspoint.app';
 }
 
 // ==========================================
@@ -133,7 +133,7 @@ function wrapTemplate(content: string): string {
         </div>
         <div class="footer">
             <p>© ${new Date().getFullYear()} WhatsPoint. Tous droits réservés.</p>
-            <p><a href="https://whatspoint.com">whatspoint.com</a></p>
+            <p><a href="https://whatspoint.app">whatspoint.app</a></p>
         </div>
     </div>
 </body>
@@ -159,7 +159,7 @@ export async function sendWelcomeEmail(manager: { email: string; name: string; t
             <li>📊 Tableaux de bord temps réel</li>
             <li>💰 Gestion des notes de frais</li>
         </ul>
-        <p><a href="https://whatspoint.com/login" class="button">Accéder à mon espace</a></p>
+        <p><a href="https://whatspoint.app/login" class="button">Accéder à mon espace</a></p>
         <p>Pour activer votre bot WhatsApp, envoyez "<strong>Menu</strong>" au numéro configuré.</p>
         <p>À très vite,<br><strong>L'équipe WhatsPoint</strong></p>
     `;
@@ -202,7 +202,7 @@ export async function sendTrialExpiringEmail(manager: { email: string; name: str
         <p>Bonjour ${manager.name},</p>
         <p>Votre essai gratuit WhatsPoint se termine dans <strong style="color: ${urgencyColor};">${daysLeft} jour${daysLeft > 1 ? 's' : ''}</strong>.</p>
         <p>Pour continuer à profiter de toutes les fonctionnalités sans interruption :</p>
-        <p><a href="https://whatspoint.com/billing" class="button">Passer à Pro</a></p>
+        <p><a href="https://whatspoint.app/billing" class="button">Passer à Pro</a></p>
         <p>Des questions ? Répondez directement à cet email.</p>
         <p>Cordialement,<br><strong>L'équipe WhatsPoint</strong></p>
     `;
@@ -240,7 +240,7 @@ export async function sendImportSummaryEmail(
                 <td style="padding: 12px; border: 1px solid #e5e7eb; color: #dc2626;"><strong>${stats.errors}</strong></td>
             </tr>
         </table>
-        <p><a href="https://whatspoint.com/employees" class="button">Voir mon équipe</a></p>
+        <p><a href="https://whatspoint.app/employees" class="button">Voir mon équipe</a></p>
         <p>Cordialement,<br><strong>L'équipe WhatsPoint</strong></p>
     `;
 
@@ -275,7 +275,7 @@ export async function sendTicketReplyEmail(
 
         <p style="color: #6b7280; font-size: 14px;"><strong>Sujet :</strong> ${ticket.subject}</p>
         
-        <p><a href="https://whatspoint.com/support" class="button">Voir la conversation</a></p>
+        <p><a href="https://whatspoint.app/support" class="button">Voir la conversation</a></p>
         
         <p>Cordialement,<br><strong>L'équipe WhatsPoint</strong></p>
     `;

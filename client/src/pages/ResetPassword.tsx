@@ -59,7 +59,7 @@ export default function ResetPassword() {
             <div className="hidden lg:flex lg:w-1/2 flex-col justify-center p-12 bg-gradient-to-br from-blue-600 to-indigo-800">
                 <div className="max-w-md">
                     <h1 className="text-4xl font-bold text-white mb-6">
-                        🚀 whatsPoint.com
+                        🚀 WhatsPoint
                     </h1>
                     <p className="text-xl text-red-100">
                         Dernière étape ! Choisissez un nouveau mot de passe sécurisé pour votre compte.

@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma } from '@prisma/client';
+import { dispatchWebhook, WEBHOOK_EVENTS } from './webhookService';
 
 const prisma = new PrismaClient();
 
@@ -69,8 +70,28 @@ export async function createExpense(
             status: 'PENDING',
             employeeId,
             tenantId
+        },
+        include: {
+            employee: {
+                select: {
+                    name: true,
+                    phoneNumber: true
+                }
+            }
         }
     });
+
+    // Dispatch webhook (Bridge Strategy)
+    await dispatchWebhook(WEBHOOK_EVENTS.EXPENSE_SUBMITTED, {
+        expenseId: expense.id,
+        amount: expense.amount,
+        category: expense.category,
+        employeeId: expense.employeeId,
+        employeeName: expense.employee.name,
+        employeePhone: expense.employee.phoneNumber,
+        photoUrl: expense.photoUrl,
+        status: expense.status
+    }, tenantId);
 
     // Reset employee conversation state - use Prisma.DbNull for JSON fields
     await prisma.employee.update({

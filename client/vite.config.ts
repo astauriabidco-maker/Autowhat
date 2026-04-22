@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
-        name: 'whatsPoint.com - Gestion RH WhatsApp',
-        short_name: 'whatsPoint.com',
+        name: 'WhatsPoint - Gestion RH WhatsApp',
+        short_name: 'WhatsPoint',
         description: 'Dashboard de gestion des présences, congés et notes de frais via WhatsApp',
         theme_color: '#3b82f6',
         background_color: '#F9FAFB',

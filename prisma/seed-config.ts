@@ -11,8 +11,8 @@ async function main() {
         update: {}, // Don't update if exists
         create: {
             id: 1,
-            platformName: 'whatsPoint.com',
-            supportEmail: 'support@whatspoint.com',
+            platformName: 'WhatsPoint',
+            supportEmail: 'support@whatspoint.app',
             defaultTrialDays: 14,
             maintenanceMode: false,
             allowRegistrations: true

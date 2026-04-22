@@ -14,7 +14,7 @@ export default function LegalLayout({ children }: LegalLayoutProps) {
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                             <span className="text-white font-bold text-sm">W</span>
                         </div>
-                        <span className="text-xl font-bold text-gray-900">whatsPoint.com</span>
+                        <span className="text-xl font-bold text-gray-900">WhatsPoint</span>
                     </Link>
                 </div>
             </header>
@@ -41,7 +41,7 @@ export default function LegalLayout({ children }: LegalLayoutProps) {
                         </Link>
                     </div>
                     <p className="text-center text-gray-500 text-sm mt-4">
-                        © {new Date().getFullYear()} whatsPoint.com. Tous droits réservés.
+                        © {new Date().getFullYear()} WhatsPoint. Tous droits réservés.
                     </p>
                 </div>
             </footer>

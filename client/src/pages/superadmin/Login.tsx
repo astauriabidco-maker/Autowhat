@@ -47,7 +47,7 @@ export default function SuperAdminLogin() {
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600/20 rounded-2xl mb-4">
                         <Shield className="text-blue-400" size={32} />
                     </div>
-                    <h1 className="text-2xl font-bold text-white">whatsPoint.com</h1>
+                    <h1 className="text-2xl font-bold text-white">WhatsPoint</h1>
                     <p className="text-gray-400 mt-1">Accès Propriétaire SaaS</p>
                 </div>
 
@@ -71,7 +71,7 @@ export default function SuperAdminLogin() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                                placeholder="admin@whatspoint.com"
+                                placeholder="admin@whatspoint.app"
                             />
                         </div>
 

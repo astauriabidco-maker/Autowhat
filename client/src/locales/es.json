@@ -25,7 +25,7 @@
             "demo": "Probar la Demo de WhatsApp"
         },
         "features": {
-            "title": "¿Por qué whatsPoint.com?",
+            "title": "¿Por qué WhatsPoint?",
             "subtitle": "La solución más simple para gestionar tus equipos de campo",
             "deploy": {
                 "title": "Despliegue Relámpago",
@@ -80,7 +80,7 @@
             "demo": "Ver la demo"
         },
         "footer": {
-            "copyright": "© 2026 whatsPoint.com. Todos los derechos reservados.",
+            "copyright": "© 2026 WhatsPoint. Todos los derechos reservados.",
             "legal": "Aviso Legal",
             "privacy": "Privacidad",
             "contact": "Contacto"

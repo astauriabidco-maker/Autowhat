@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Network, Plus, Trash2, Edit2, Play, Save, CheckCircle, AlertTriangle, BookOpen, Server } from 'lucide-react';
+import { Network, Plus, Trash2, Edit2, Play, Save, CheckCircle, AlertTriangle, BookOpen, Server, Zap, Briefcase, Database, Activity, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 
 interface WebhookConfig {
@@ -36,7 +36,9 @@ export default function IntegrationsManager() {
     { id: 'leave.requested', label: 'Demande de congé effectuée' },
     { id: 'check_in', label: 'Pointage (Arrivée)' },
     { id: 'late_arrival', label: 'Pointage tardif' },
-    { id: 'employee.created', label: 'Création collaborateur' }
+    { id: 'employee.created', label: 'Création collaborateur' },
+    { id: 'intervention.completed', label: 'Intervention terminée' },
+    { id: 'request.received', label: 'Nouvelle demande WhatsApp' }
   ]);
 
   useEffect(() => {
@@ -99,8 +101,8 @@ export default function IntegrationsManager() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Hub d'Intégrations</h1>
           <p className="mt-2 text-blue-100 max-w-2xl">
-            Configurez vos propres logiques d'export vers vos progiciels externes (KPaie, Silae, MediPlan).
-            Oubliez la saisie manuelle : maptez vos données et laissez WhatsPoint faire le reste.
+            Configurez vos propres logiques d'export vers vos progiciels externes (Helpyx, Silae, PayFit).
+            WhatsPoint se concentre sur la collecte terrain et l'échange direct ; déléguez la gestion complexe (devis, facturation) à vos outils métiers.
           </p>
         </div>
         <Network className="h-20 w-20 text-white/20" />
@@ -150,16 +152,66 @@ export default function IntegrationsManager() {
         </div>
       </div>
 
-      <div className="flex justify-end">
+      {/* Templates Rapides */}
+      <div>
+        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <Zap className="text-amber-500 w-5 h-5" />
+          Connexions Rapides (Templates)
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            {
+              id: 'helpyx', name: 'Devis Helpyx', icon: <Briefcase className="w-6 h-6 text-indigo-600" />, color: 'bg-indigo-50 border-indigo-200',
+              desc: 'Génère un devis automatiquement après intervention.',
+              config: { name: 'Export SAV Helpyx', url: 'https://api.helpyx.com/v1/quotes', httpMethod: 'POST', events: ['intervention.completed'], payloadMapping: { "customer_id": "{{customerId}}", "technician_notes": "{{notes}}", "parts_used": "{{parts}}" }, headers: { "Authorization": "Bearer VOTRE_CLE_API" } }
+            },
+            {
+              id: 'kpaie', name: 'Pointages KPaie', icon: <Database className="w-6 h-6 text-blue-600" />, color: 'bg-blue-50 border-blue-200',
+              desc: 'Synchronise les heures travaillées vers la paie.',
+              config: { name: 'Sync RH KPaie', url: 'https://api.kpaie.com/v2/timesheets', httpMethod: 'POST', events: ['check_in', 'late_arrival'], payloadMapping: { "matricule": "{{employeeId}}", "timestamp": "{{timestamp}}", "type": "{{action}}" }, headers: { "Authorization": "Bearer VOTRE_CLE_API" } }
+            },
+            {
+              id: 'mediplan', name: 'RDV MediPlan', icon: <Activity className="w-6 h-6 text-emerald-600" />, color: 'bg-emerald-50 border-emerald-200',
+              desc: 'Crée un RDV médical depuis une demande patient.',
+              config: { name: 'Création RDV MediPlan', url: 'https://api.mediplan.fr/v1/appointments', httpMethod: 'POST', events: ['request.received'], payloadMapping: { "patient_phone": "{{senderPhone}}", "symptoms": "{{message}}", "urgency": "{{urgency}}" }, headers: { "X-API-Key": "VOTRE_CLE_API" } }
+            },
+            {
+              id: 'zapier', name: 'Zapier / Make', icon: <Network className="w-6 h-6 text-orange-600" />, color: 'bg-orange-50 border-orange-200',
+              desc: 'Connectez WhatsPoint à +5000 applications.',
+              config: { name: 'Zapier Catch Hook', url: 'https://hooks.zapier.com/hooks/catch/...', httpMethod: 'POST', events: ['intervention.completed', 'expense.approved'], payloadMapping: { "event": "{{eventName}}", "data": "{{eventData}}" }, headers: {} }
+            }
+          ].map(tpl => (
+            <button
+              key={tpl.id}
+              onClick={() => {
+                setFormData(tpl.config);
+                setEditingId('new');
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+              }}
+              className={`p-4 rounded-xl border text-left transition-all hover:scale-[1.02] hover:shadow-md ${tpl.color}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                {tpl.icon}
+                <ArrowRight className="w-4 h-4 opacity-50" />
+              </div>
+              <h4 className="font-bold text-gray-900 mb-1">{tpl.name}</h4>
+              <p className="text-xs text-gray-600 leading-tight">{tpl.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center mt-8 mb-4 border-b pb-2">
+        <h2 className="text-xl font-bold text-gray-900">Vos Webhooks Actifs</h2>
         <button 
           onClick={() => {
             setFormData({ name: '', url: '', httpMethod: 'POST', events: [], payloadMapping: { "valeur": "{{amount}}" }, headers: {} });
             setEditingId('new');
           }}
-          className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
+          className="flex items-center space-x-2 bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition"
         >
           <Plus className="h-5 w-5" />
-          <span>Nouvelle Intégration</span>
+          <span>Créer de zéro</span>
         </button>
       </div>
 

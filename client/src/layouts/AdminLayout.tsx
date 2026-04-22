@@ -64,8 +64,6 @@ const navSections: NavSection[] = [
             { icon: <CalendarClock size={20} />, label: 'Planning', path: '/operations/dispatch' },
             { icon: <MessageCircle size={20} />, label: 'Demandes', path: '/operations/requests' },
             { icon: <RefreshCw size={20} />, label: 'Récurrences', path: '/operations/recurring' },
-            { icon: <Package size={20} />, label: 'Pièces', path: '/operations/parts' },
-            { icon: <FileSpreadsheet size={20} />, label: 'Devis', path: '/operations/quotes' },
             { icon: <Map size={20} />, label: 'Carte / Kanban', path: '/operations/map' },
             { icon: <FileText size={20} />, label: 'Rapports', path: '/operations/reports' },
         ],
@@ -235,7 +233,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                                 <MessageCircle size={18} className="text-white" />
                             </div>
                             {!collapsed && (
-                                <span className="font-bold text-gray-900 text-lg">whatsPoint.com</span>
+                                <span className="font-bold text-gray-900 text-lg">WhatsPoint</span>
                             )}
                         </Link>
                         <button

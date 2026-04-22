@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 async function main() {
     console.log('Seeding SuperAdmin...');
 
-    const email = 'admin@whatspoint.com';
+    const email = 'admin@whatspoint.app';
     const password = 'superadmin123';
     const hashedPassword = await bcrypt.hash(password, 10);
 
