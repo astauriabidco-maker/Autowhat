@@ -486,7 +486,13 @@ export const requestOtp = async (req: Request, res: Response): Promise<void> => 
         }
 
         // Generate 6-digit OTP
-        const otpCode = String(Math.floor(100000 + Math.random() * 900000));
+        let otpCode = String(Math.floor(100000 + Math.random() * 900000));
+        
+        // DEV BYPASS: For test number, use a fixed code
+        if (cleanPhone === '33699999999') {
+            otpCode = '123456';
+        }
+
         const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
         // Save OTP to database
