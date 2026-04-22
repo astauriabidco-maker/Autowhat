@@ -24,6 +24,21 @@ const EXPENSE_CATEGORY_BUTTONS = [
     { id: 'cat_hotel', title: '🏨 Hôtel' }
 ];
 
+// Time variation type buttons
+const VARIATION_TYPE_BUTTONS = [
+    { id: 'var_hs25', title: '⏱️ HS +25%' },
+    { id: 'var_hs50', title: '🚀 HS +50%' },
+    { id: 'var_night', title: '🌙 Nuit' }
+];
+
+const VARIATION_TYPE_MAPPING: Record<string, string> = {
+    'var_hs25': 'HS25',
+    'var_hs50': 'HS50',
+    'var_night': 'NIGHT',
+    'var_sunday': 'SUNDAY',
+    'var_holiday': 'HOLIDAY'
+};
+
 const EXPENSE_CATEGORY_MAPPING: Record<string, string> = {
     'cat_repas': 'REPAS',
     'cat_essence': 'ESSENCE',
@@ -1105,7 +1120,6 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     }
                                     continue;
                                 }
-                            }
 
                             console.log(`⚠️ Unknown interactive ID: ${selectedId}`);
                             await sendMessage(from, '❌ Action non reconnue.', phoneNumberId);
