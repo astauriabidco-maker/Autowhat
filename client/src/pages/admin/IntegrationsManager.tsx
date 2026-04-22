@@ -163,22 +163,22 @@ export default function IntegrationsManager() {
             {
               id: 'helpyx', name: 'Devis Helpyx', icon: <Briefcase className="w-6 h-6 text-indigo-600" />, color: 'bg-indigo-50 border-indigo-200',
               desc: 'Génère un devis automatiquement après intervention.',
-              config: { name: 'Export SAV Helpyx', url: 'https://api.helpyx.com/v1/quotes', httpMethod: 'POST', events: ['intervention.completed'], payloadMapping: { "customer_id": "{{customerId}}", "technician_notes": "{{notes}}", "parts_used": "{{parts}}" }, headers: { "Authorization": "Bearer VOTRE_CLE_API" } }
+              config: { name: 'Export SAV Helpyx', url: 'https://api.helpyx.com/v1/quotes', httpMethod: 'POST', events: ['intervention.completed'], payloadMapping: { "customer_id": "{{customerId}}", "technician_notes": "{{notes}}", "parts_used": "{{parts}}" } as Record<string, string>, headers: { "Authorization": "Bearer VOTRE_CLE_API" } }
             },
             {
               id: 'kpaie', name: 'Pointages KPaie', icon: <Database className="w-6 h-6 text-blue-600" />, color: 'bg-blue-50 border-blue-200',
               desc: 'Synchronise les heures travaillées vers la paie.',
-              config: { name: 'Sync RH KPaie', url: 'https://api.kpaie.com/v2/timesheets', httpMethod: 'POST', events: ['check_in', 'late_arrival'], payloadMapping: { "matricule": "{{employeeId}}", "timestamp": "{{timestamp}}", "type": "{{action}}" }, headers: { "Authorization": "Bearer VOTRE_CLE_API" } }
+              config: { name: 'Sync RH KPaie', url: 'https://api.kpaie.com/v2/timesheets', httpMethod: 'POST', events: ['check_in', 'late_arrival'], payloadMapping: { "matricule": "{{employeeId}}", "timestamp": "{{timestamp}}", "type": "{{action}}" } as Record<string, string>, headers: { "Authorization": "Bearer VOTRE_CLE_API" } }
             },
             {
               id: 'mediplan', name: 'RDV MediPlan', icon: <Activity className="w-6 h-6 text-emerald-600" />, color: 'bg-emerald-50 border-emerald-200',
               desc: 'Crée un RDV médical depuis une demande patient.',
-              config: { name: 'Création RDV MediPlan', url: 'https://api.mediplan.fr/v1/appointments', httpMethod: 'POST', events: ['request.received'], payloadMapping: { "patient_phone": "{{senderPhone}}", "symptoms": "{{message}}", "urgency": "{{urgency}}" }, headers: { "X-API-Key": "VOTRE_CLE_API" } }
+              config: { name: 'Création RDV MediPlan', url: 'https://api.mediplan.fr/v1/appointments', httpMethod: 'POST', events: ['request.received'], payloadMapping: { "patient_phone": "{{senderPhone}}", "symptoms": "{{message}}", "urgency": "{{urgency}}" } as Record<string, string>, headers: { "X-API-Key": "VOTRE_CLE_API" } }
             },
             {
               id: 'zapier', name: 'Zapier / Make', icon: <Network className="w-6 h-6 text-orange-600" />, color: 'bg-orange-50 border-orange-200',
               desc: 'Connectez WhatsPoint à +5000 applications.',
-              config: { name: 'Zapier Catch Hook', url: 'https://hooks.zapier.com/hooks/catch/...', httpMethod: 'POST', events: ['intervention.completed', 'expense.approved'], payloadMapping: { "event": "{{eventName}}", "data": "{{eventData}}" }, headers: {} }
+              config: { name: 'Zapier Catch Hook', url: 'https://hooks.zapier.com/hooks/catch/...', httpMethod: 'POST', events: ['intervention.completed', 'expense.approved'], payloadMapping: { "event": "{{eventName}}", "data": "{{eventData}}" } as Record<string, string>, headers: {} }
             }
           ].map(tpl => (
             <button

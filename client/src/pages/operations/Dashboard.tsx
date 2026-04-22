@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
     BarChart3, CalendarClock, AlertTriangle, CheckCircle2, Clock, Users,
     TrendingUp, Zap, PenTool, ArrowRight, Send, Bell, RefreshCw,
     Timer, Target, ChevronRight, Building2, User, MapPin, SquareStack,
-    MessageCircle
+    Filter, MessageCircle, Check, Download
 } from 'lucide-react';
 
 interface DashboardData {

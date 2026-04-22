@@ -8,8 +8,9 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import {
     CalendarClock, Plus, X, Clock, MapPin, User, Building2, Tag, SquareStack,
-    Filter, Send, MessageCircle, Check, Download
+    Filter, Send, MessageCircle, Check, Download, Zap
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const locales = { fr };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }), getDay, locales });
