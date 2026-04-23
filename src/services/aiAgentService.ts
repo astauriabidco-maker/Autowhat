@@ -123,6 +123,7 @@ export type IntentResult =
     | { intent: 'EXPENSE_REPORT'; metadata?: any }
     | { intent: 'HR_BALANCE'; metadata?: any }
     | { intent: 'DOCUMENT_ACCESS'; metadata?: any }
+    | { intent: 'STATS'; metadata?: any }
     | { intent: 'FAQ_HR'; question: string }
     | { intent: 'UNKNOWN' };
 
@@ -157,6 +158,9 @@ export async function detectUserIntent(userText: string): Promise<IntentResult> 
     }
     if (text.includes("document") || text.includes("contrat") || text.includes("attestation") || text.includes("fiche") || text.includes("docs") || text.includes("règlement") || text.includes("avenant")) {
         return { intent: 'DOCUMENT_ACCESS' };
+    }
+    if (text.includes("heure") || text.includes("temps") || text.includes("pointage") || text.includes("travaillé") || text.includes("semaine") || text.includes("bilan") || text.includes("stats")) {
+        return { intent: 'STATS' };
     }
     if (text.length > 15 && (text.includes("est-ce que") || text.includes("comment") || text.includes("est il possible") || text.includes("puis-je") || text.includes("?") || text.includes("ai-je le droit"))) {
         return { intent: 'FAQ_HR', question: userText };

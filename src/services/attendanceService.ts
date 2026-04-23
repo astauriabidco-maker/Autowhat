@@ -98,13 +98,35 @@ export const checkIn = async (employee: Employee, messageTimestamp?: Date): Prom
         }
     });
 
-    // Dispatch webhook event
+    // --- LATENESS DETECTION ---
+    const [startHour, startMin] = (employee.tenant as any).workStartTime?.split(':').map(Number) || [9, 0];
+    const theoreticalStart = new Date(checkInTime);
+    theoreticalStart.setHours(startHour, startMin, 0, 0);
+
+    const isLate = checkInTime.getTime() > theoreticalStart.getTime() + (5 * 60 * 1000); // 5 min tolerance
+    const delayMinutes = isLate ? Math.round((checkInTime.getTime() - theoreticalStart.getTime()) / (1000 * 60)) : 0;
+
+    if (isLate) {
+        console.log(`⚠️ LATE ARRIVAL: ${employee.name} arrived at ${formatTimeInParis(checkInTime)} (expected ${startHour}:${startMin})`);
+        dispatchWebhook(WEBHOOK_EVENTS.LATE_ARRIVAL, {
+            attendanceId: attendance.id,
+            employeeId: employee.id,
+            employeeName: employee.name,
+            delayMinutes,
+            checkInTime: checkInTime.toISOString(),
+            expectedTime: `${startHour}:${startMin}`
+        }, employee.tenantId);
+    }
+
+    // Dispatch standard check-in webhook
     dispatchWebhook(WEBHOOK_EVENTS.CHECK_IN, {
         attendanceId: attendance.id,
         employeeId: employee.id,
         employeeName: employee.name,
         checkInTime: checkInTime.toISOString(),
-        tenantName: employee.tenant.name
+        tenantName: employee.tenant.name,
+        isLate,
+        delayMinutes
     }, employee.tenantId);
 
     // Log si le timestamp diffère significativement (plus de 5 min)

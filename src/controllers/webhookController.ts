@@ -273,10 +273,9 @@ async function processCommand(
         case 'balance':
         case 'solde':
         case 'droits': {
-            console.log(`📊 Interrogating HRIS for balances of ${employee.name}`);
+            console.log(`📊 Interrogating KPaie for balances of ${employee.name}`);
             
-            // Pour le multi-tenant, on récupère dynamiquement le nom du logiciel cible via le Tenant
-            const softwareName = employee.tenant?.hrisName || "vos services RH";
+            const softwareName = employee.tenant?.hrisName || "KPaie";
             
             await sendMessage(
                 from,
@@ -284,26 +283,24 @@ async function processCommand(
                 phoneNumberId
             );
 
-            // Fetch logic routes dynamically based on Tenant's API configuration
             try {
-                // ex: await axios.get(employee.tenant.hrisApiUrl + "/balances", { headers: ... })
-                await new Promise(resolve => setTimeout(resolve, 1500));
+                const { getKPaieBalances, formatKPaieBalanceMessage } = require('../services/kpaieService');
                 
-                const mockHrData = {
-                    cp_restants: 12.5,
-                    rtt_restants: 3,
-                    dernier_salaire_net: 2145.50,
-                    date_mise_a_jour: new Date().toLocaleDateString('fr-FR')
-                };
-
-                responseText = `✅ *Dossier RH récupéré :*\n\n` +
-                    `🏖️ *Congés Payés* : ${mockHrData.cp_restants} jours\n` +
-                    `⏱️ *RTT Restants* : ${mockHrData.rtt_restants} jours\n\n` +
-                    `💶 *Dernière Paie Nette* : ${mockHrData.dernier_salaire_net} €\n\n` +
-                    `_(Données synchronisées le ${mockHrData.date_mise_a_jour})_`;
+                // On utilise le phoneNumber comme identifiant externe par défaut pour la démo
+                // Dans un cas réel, on utiliserait un champ 'externalId' mappé dans l'ERP
+                const result = await getKPaieBalances(employee.tenantId, employee.phoneNumber);
+                
+                if (result.success && result.data) {
+                    responseText = formatKPaieBalanceMessage(result.data);
+                } else if (result.error === 'NO_CONFIG') {
+                    responseText = `⚠️ *Configuration manquante*\nVotre entreprise n'a pas encore configuré l'accès API à ${softwareName}.`;
+                } else {
+                    responseText = `❌ Impossible de joindre ${softwareName} pour le moment.`;
+                }
 
             } catch (err) {
-                 responseText = `❌ Les serveurs RH sont actuellement injoignables. Veuillez réessayer plus tard.`;
+                 console.error('Error in balance connector:', err);
+                 responseText = `❌ Une erreur technique est survenue lors de l'appel à ${softwareName}.`;
             }
             break;
         }
@@ -1301,6 +1298,9 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     break;
                                 case 'DOCUMENT_ACCESS':
                                     command = 'documents';
+                                    break;
+                                case 'STATS':
+                                    command = 'stats';
                                     break;
                                 case 'FAQ_HR':
                                     await sendMessage(from, `📚 *Assistant RH*\n\nJe parcours actuellement votre règlement intérieur pour trouver la réponse légale à : _"${intentResult.question}"_\nUn instant...`, phoneNumberId);
