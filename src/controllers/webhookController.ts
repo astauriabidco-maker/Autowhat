@@ -1117,6 +1117,7 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     }
                                     continue;
                                 }
+                            }
 
                             console.log(`⚠️ Unknown interactive ID: ${selectedId}`);
                             await sendMessage(from, '❌ Action non reconnue.', phoneNumberId);
