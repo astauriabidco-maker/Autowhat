@@ -31,6 +31,9 @@ export default function IntegrationsManager() {
     }
   });
 
+  const [tenantConfig, setTenantConfig] = useState<Record<string, any>>({});
+  const [savingConfig, setSavingConfig] = useState(false);
+
   const [availableEvents] = useState([
     { id: 'expense.approved', label: 'Note de frais approuvée' },
     { id: 'leave.requested', label: 'Demande de congé effectuée' },
@@ -49,12 +52,30 @@ export default function IntegrationsManager() {
 
   const fetchWebhooks = async () => {
     try {
-      const res = await axios.get('/api/admin/webhooks', { headers: { Authorization: `Bearer ${getToken()}` } });
-      setWebhooks(res.data);
+      const [webhooksRes, settingsRes] = await Promise.all([
+        axios.get('/api/admin/webhooks', { headers: { Authorization: `Bearer ${getToken()}` } }),
+        axios.get('/api/settings', { headers: { Authorization: `Bearer ${getToken()}` } })
+      ]);
+      setWebhooks(webhooksRes.data);
+      if (settingsRes.data && settingsRes.data.config) {
+        setTenantConfig(settingsRes.data.config);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveTenantConfig = async () => {
+    setSavingConfig(true);
+    try {
+      await axios.put('/api/settings', { config: tenantConfig }, { headers: { Authorization: `Bearer ${getToken()}` } });
+      alert("Configuration API sauvegardée avec succès.");
+    } catch (err) {
+      alert("Erreur lors de la sauvegarde de la configuration.");
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -198,6 +219,89 @@ export default function IntegrationsManager() {
               <p className="text-xs text-gray-600 leading-tight">{tpl.desc}</p>
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* API Connectors (Pull) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <Database className="text-indigo-600 w-6 h-6" />
+          Connecteurs API (Temps Réel)
+        </h2>
+        <p className="text-sm text-gray-600 mb-6">
+          Configurez ici les accès directs à vos logiciels métiers. Cela permet à WhatsPoint d'aller lire en temps réel des informations (comme le solde de congés) lorsque vos collaborateurs posent une question sur WhatsApp.
+        </p>
+
+        <div className="space-y-6">
+          {/* KPaie Connector */}
+          <div className="p-4 border border-blue-100 bg-blue-50/30 rounded-xl">
+            <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              KPaie (Logiciel de Paie)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">URL de l'API KPaie</label>
+                <input
+                  type="url"
+                  value={tenantConfig.kpaieApiUrl || ''}
+                  onChange={(e) => setTenantConfig({ ...tenantConfig, kpaieApiUrl: e.target.value })}
+                  placeholder="https://api.kpaie.com/v1"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Clé API (API Key)</label>
+                <input
+                  type="password"
+                  value={tenantConfig.kpaieApiKey || ''}
+                  onChange={(e) => setTenantConfig({ ...tenantConfig, kpaieApiKey: e.target.value })}
+                  placeholder="sk_live_..."
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Helpyx Connector */}
+          <div className="p-4 border border-indigo-100 bg-indigo-50/30 rounded-xl">
+            <h3 className="font-semibold text-indigo-900 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+              Helpyx (Gestion d'Interventions)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">URL de l'API Helpyx</label>
+                <input
+                  type="url"
+                  value={tenantConfig.helpyxApiUrl || ''}
+                  onChange={(e) => setTenantConfig({ ...tenantConfig, helpyxApiUrl: e.target.value })}
+                  placeholder="https://api.helpyx.com/v1"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Clé API (API Key)</label>
+                <input
+                  type="password"
+                  value={tenantConfig.helpyxApiKey || ''}
+                  onChange={(e) => setTenantConfig({ ...tenantConfig, helpyxApiKey: e.target.value })}
+                  placeholder="hx_live_..."
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={saveTenantConfig}
+            disabled={savingConfig}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition font-medium"
+          >
+            {savingConfig ? 'Sauvegarde...' : <><Save className="w-4 h-4" /> Sauvegarder les clés API</>}
+          </button>
         </div>
       </div>
 
