@@ -153,7 +153,7 @@ export async function detectUserIntent(userText: string): Promise<IntentResult> 
     if (text.includes("frais") || text.includes("resto") || text.includes("addition") || text.includes("rembourser") || text.includes("ticket") || text.includes("dépense") || text.includes("restaurant") || text.includes("péage")) {
         return { intent: 'EXPENSE_REPORT' };
     }
-    if (text.includes("malade") || text.includes("grippe") || text.includes("covid") || text.includes("arrêt") || text.includes("docteur") || text.includes("médecin") || text.includes("fièvre") || text.includes("sick") || text.includes("hopital")) {
+    if (text.includes("malade") || text.includes("grippe") || text.includes("covid") || text.includes("arrêt") || text.includes("docteur") || text.includes("médecin") || text.includes("fièvre") || text.includes("sick") || text.includes("hopital") || text.includes("maternité") || text.includes("paternité") || text.includes("grossesse")) {
         return { intent: 'SICK_LEAVE' };
     }
     if (text.includes("congé") || text.includes("vacances") || text.includes("absence") || text.includes("jour off") || text.includes("repos")) {
