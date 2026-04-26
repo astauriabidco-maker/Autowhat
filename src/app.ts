@@ -53,6 +53,7 @@ import { initReminderJobs } from './jobs/reminderJobs';
 import { initRetentionJob } from './modules/privacy/retentionJob';
 import { initRecurringInterventionsJob } from './cron/recurringInterventions';
 import { startNightlyWorker } from './cron/nightlyWorker';
+import { startWebhookQueueWorker } from './cron/webhookQueueWorker';
 import { initializeQueue, closeQueue } from './services/queueService';
 import { closeRedisConnection, isRedisEnabled } from './services/redisConnection';
 import {
@@ -91,6 +92,7 @@ initReminderJobs();
 initRetentionJob(); // Privacy Suite - purge automatique RGPD
 initRecurringInterventionsJob(); // Opérations - auto-génération des interventions récurrentes
 startNightlyWorker(); // 🌙 AI Agent Proactive Alerts & Hub RGPD Purge
+startWebhookQueueWorker(); // 🔄 Webhook Delivery Retry Queue (Phase 3)
 
 // Initialize WhatsApp Queue (if Redis is enabled)
 if (isRedisEnabled()) {

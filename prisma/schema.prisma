@@ -530,6 +530,11 @@ model WebhookLog {
   responseBody  String?  @db.Text
   error         String?
   
+  // Queue & Delivery (Phase 3)
+  status        String   @default("SUCCESS") // SUCCESS, PENDING (Queue), FAILED (Dead Letter)
+  retryCount    Int      @default(0)
+  nextRetryAt   DateTime?
+  
   // Timing
   duration      Int?     // Response time in ms
   createdAt     DateTime @default(now())
@@ -537,6 +542,7 @@ model WebhookLog {
   @@index([webhookId])
   @@index([eventType])
   @@index([createdAt])
+  @@index([status, nextRetryAt])
 }
 
 // --- SUPPORT TICKETING ---

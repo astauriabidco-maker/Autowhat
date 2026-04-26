@@ -213,21 +213,33 @@ async function sendWebhook(
 
     const duration = Date.now() - startTime;
 
-    // Log the webhook attempt
+    // Determine Queue Status (Phase 3)
+    let status = 'SUCCESS';
+    let nextRetryAt: Date | undefined;
+
+    if (error) {
+        status = 'PENDING'; // Add to retry queue
+        nextRetryAt = new Date(Date.now() + 5 * 60 * 1000); // Retry in 5 minutes
+    }
+
+    // Log the webhook attempt (or queue it)
     await prisma.webhookLog.create({
         data: {
             webhookId: config.id,
             eventType,
-            payload: payload as any,
+            payload: finalPayload as any,
             statusCode,
             responseBody: responseBody?.substring(0, 2000), // Limit stored response
             error,
-            duration
-        }
+            duration,
+            status,
+            retryCount: 0,
+            nextRetryAt
+        } as any // cast as any because Prisma client might not be fully generated yet locally
     });
 
     if (error) {
-        console.log(`⚠️ Webhook ${config.name} returned error: ${error}`);
+        console.log(`⚠️ Webhook ${config.name} returned error: ${error}. Queued for retry.`);
     } else {
         console.log(`✅ Webhook ${config.name} delivered in ${duration}ms`);
     }
@@ -296,5 +308,135 @@ export async function testWebhook(webhookId: string): Promise<{ success: boolean
         }
     } catch (err: any) {
         return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Worker Function: Retry pending webhooks
+ * This should be called by a cron job (e.g. every minute)
+ */
+export async function processWebhookQueue(): Promise<void> {
+    try {
+        const now = new Date();
+        
+        // Find webhooks that are pending and due for retry
+        const pendingLogs = await prisma.webhookLog.findMany({
+            where: {
+                status: 'PENDING',
+                nextRetryAt: { lte: now }
+            },
+            include: {
+                webhook: true
+            },
+            take: 50 // process in batches
+        });
+
+        if (pendingLogs.length === 0) return;
+        
+        console.log(`[Queue] Processing ${pendingLogs.length} pending webhook retries...`);
+
+        for (const log of pendingLogs) {
+            const config = log.webhook;
+            if (!config || !config.isActive) {
+                // If webhook config was deleted or deactivated, mark as failed
+                await prisma.webhookLog.update({
+                    where: { id: log.id },
+                    data: { status: 'FAILED' } as any
+                });
+                continue;
+            }
+
+            const payloadString = JSON.stringify(log.payload);
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'User-Agent': 'AutoWhats-Webhook-Retry/1.0',
+                'X-Webhook-Event': log.eventType
+            };
+
+            // Apply custom headers from config
+            let customHeaders = config.headers;
+            if (typeof customHeaders === 'string') {
+                try { customHeaders = JSON.parse(customHeaders); } catch(e) {}
+            }
+            if (customHeaders && typeof customHeaders === 'object') {
+                Object.assign(headers, customHeaders);
+            }
+
+            if (config.secret) {
+                const signature = generateSignature(payloadString, config.secret);
+                headers['X-Webhook-Signature'] = `sha256=${signature}`;
+            }
+
+            let statusCode: number | null = null;
+            let responseBody: string | null = null;
+            let error: string | null = null;
+            let isSuccess = false;
+
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 10000);
+
+                const response = await fetch(config.url, {
+                    method: config.httpMethod || 'POST',
+                    headers,
+                    body: payloadString,
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeout);
+                statusCode = response.status;
+                responseBody = await response.text().catch(() => null);
+
+                if (response.ok) {
+                    isSuccess = true;
+                } else {
+                    error = `HTTP ${statusCode}: ${responseBody?.substring(0, 200)}`;
+                }
+            } catch (err: any) {
+                error = err.message;
+            }
+
+            // Determine next steps
+            const newRetryCount = (log as any).retryCount + 1;
+            let newStatus = 'PENDING';
+            let nextRetryAt: Date | null = null;
+
+            if (isSuccess) {
+                newStatus = 'SUCCESS';
+            } else if (newRetryCount >= 3) {
+                // Max retries reached (3) -> Dead letter
+                newStatus = 'FAILED';
+                console.log(`❌ Webhook retry failed permanently after 3 attempts: ${log.id}`);
+            } else {
+                // Exponential backoff: 5m, 15m, 45m
+                const delayMs = 5 * 60 * 1000 * Math.pow(3, newRetryCount - 1);
+                nextRetryAt = new Date(Date.now() + delayMs);
+            }
+
+            // Update log
+            await prisma.webhookLog.update({
+                where: { id: log.id },
+                data: {
+                    status: newStatus,
+                    retryCount: newRetryCount,
+                    nextRetryAt,
+                    error: error ? error : (log.error as string), // keep last error if needed
+                    statusCode: statusCode || log.statusCode
+                } as any
+            });
+
+            // Update global config stats
+            await prisma.webhookConfig.update({
+                where: { id: config.id },
+                data: {
+                    ...(isSuccess 
+                        ? { successCount: { increment: 1 } }
+                        : { failureCount: { increment: 1 } }
+                    )
+                }
+            });
+        }
+    } catch (e) {
+        console.error('Error processing webhook queue:', e);
     }
 }
