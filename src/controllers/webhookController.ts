@@ -817,12 +817,20 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     const aiResult = await extractExpenseDataFromImage(photoUrl);
 
                                     if (aiResult && aiResult.amount) {
-                                        await updateTempExpenseData(employee.id, { photoUrl, amount: aiResult.amount });
+                                        await updateTempExpenseData(employee.id, { 
+                                            photoUrl, 
+                                            amount: aiResult.amount,
+                                            tva: aiResult.tva,
+                                            merchant: aiResult.merchant,
+                                            category: aiResult.category
+                                        });
                                         await setConversationState(employee.id, 'WAITING_EXPENSE_CATEGORY');
+                                        
+                                        const tvaLine = aiResult.tva ? `TVA : *${aiResult.tva.toFixed(2)} ${aiResult.currency}*\n` : '';
                                         
                                         await sendInteractiveButtons(
                                             from,
-                                            `✅ *Lecture Automatique Réussie*\nMontant détecté : *${aiResult.amount.toFixed(2)} ${aiResult.currency}*\nFournisseur : *${aiResult.merchant}*\n\n📂 Choisissez la catégorie de cette dépense :`,
+                                            `✅ *Lecture Automatique (Phase 4) Réussie*\nMontant TTC : *${aiResult.amount.toFixed(2)} ${aiResult.currency}*\n${tvaLine}Fournisseur : *${aiResult.merchant}*\n\n📂 Confirmez ou ajustez la catégorie :`,
                                             EXPENSE_CATEGORY_BUTTONS,
                                             phoneNumberId
                                         );
@@ -1101,7 +1109,9 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                             employee.tenantId,
                                             tempData.photoUrl,
                                             tempData.amount,
-                                            category
+                                            category,
+                                            tempData.merchant,
+                                            tempData.tva
                                         );
 
                                         await sendMessage(

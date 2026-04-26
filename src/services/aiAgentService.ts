@@ -10,8 +10,10 @@ import path from 'path';
 
 interface ExpenseExtractionResult {
     amount: number | null;
+    tva: number | null;
     currency: string;
     merchant: string | null;
+    category: string | null;
     date: string | null;
     confidence: number; // 0 to 1
     rawText?: string;
@@ -41,7 +43,7 @@ export async function extractExpenseDataFromImage(imageUrl: string): Promise<Exp
                     {
                         role: "user",
                         content: [
-                            { type: "text", text: "Tu es un extracteur de données comptables RH. Lis attentivement ce ticket de caisse. Réponds UNIQUEMENT au format JSON strict avec les clés: 'amount' (nombre), 'currency' (chaine), 'merchant' (chaine)." },
+                            { type: "text", text: "Tu es un extracteur de données comptables RH. Lis attentivement ce ticket de caisse. Réponds UNIQUEMENT au format JSON strict avec les clés: 'amount' (nombre total TTC), 'tva' (nombre de la taxe/TVA), 'currency' (chaine), 'merchant' (chaine), 'category' (choisis parmi: MEAL, FUEL, PARKING, TRANSPORT, HOTEL, OTHER)." },
                             { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
                         ]
                     }
@@ -58,8 +60,10 @@ export async function extractExpenseDataFromImage(imageUrl: string): Promise<Exp
 
             return {
                 amount: parsed.amount || null,
+                tva: parsed.tva || null,
                 currency: parsed.currency || "EUR",
                 merchant: parsed.merchant || "Marchand inconnu",
+                category: parsed.category || "OTHER",
                 date: new Date().toISOString().split('T')[0],
                 confidence: 0.99
             };
@@ -76,8 +80,10 @@ export async function extractExpenseDataFromImage(imageUrl: string): Promise<Exp
     // Simulated Intelligence
     return {
         amount: 35.50,
+        tva: 3.55,
         currency: "EUR",
         merchant: "Relais de l'Entrecôte",
+        category: "MEAL",
         date: new Date().toISOString().split('T')[0],
         confidence: 0.95
     };

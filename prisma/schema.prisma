@@ -333,7 +333,9 @@ model Expense {
   id          String   @id @default(uuid())
   date        DateTime @default(now())
   amount      Float?   // Peut être vide au début (extraction depuis légende)
+  tva         Float?   // Taxe sur la valeur ajoutée (TVA) extraite par l'IA
   currency    String   @default("EUR")
+  merchant    String?  // Marchand ou fournisseur (ex: Total, Relais)
   category    String   @default("OTHER") // MEAL, FUEL, PARKING, TRANSPORT, HOTEL, OTHER
   description String?  // Légende originale de l'image
   photoUrl    String

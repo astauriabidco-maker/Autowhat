@@ -59,13 +59,17 @@ export async function createExpense(
     tenantId: string,
     photoUrl: string,
     amount: number,
-    category: string
+    category: string,
+    merchant?: string | null,
+    tva?: number | null
 ) {
     // Create expense
     const expense = await prisma.expense.create({
         data: {
             photoUrl,
             amount,
+            tva,
+            merchant,
             category,
             status: 'PENDING',
             employeeId,
@@ -85,6 +89,8 @@ export async function createExpense(
     await dispatchWebhook(WEBHOOK_EVENTS.EXPENSE_SUBMITTED, {
         expenseId: expense.id,
         amount: expense.amount,
+        tva: expense.tva,
+        merchant: expense.merchant,
         category: expense.category,
         employeeId: expense.employeeId,
         employeeName: expense.employee.name,
