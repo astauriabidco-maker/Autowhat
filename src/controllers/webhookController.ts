@@ -1006,6 +1006,11 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                             const result = await createRequest(employee, leaveDate);
 
+                            if (!result.success) {
+                                await sendMessage(from, result.message, phoneNumberId);
+                                continue;
+                            }
+
                             if (result.success && result.request && result.managerPhoneNumber) {
                                 // Format the date for display
                                 let periodStr = '';
@@ -1023,7 +1028,8 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     `📋 *Nouvelle demande de congé*\n\n` +
                                     `👤 De: *${employee.name}*\n` +
                                     `📅 Date: *${formattedDate}*\n` +
-                                    `🆔 ID: *#${requestIdShort}*\n\n` +
+                                    `🆔 ID: *#${requestIdShort}*\n` +
+                                    (result.kpaiePreCheckContext ? `${result.kpaiePreCheckContext}\n` : `\n`) +
                                     `Répondez:\n` +
                                     `• *OK ${requestIdShort}* pour approuver\n` +
                                     `• *NON ${requestIdShort}* pour refuser`;

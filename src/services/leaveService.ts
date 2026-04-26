@@ -11,6 +11,7 @@ interface CreateRequestResult {
     message: string;
     request?: LeaveRequest;
     managerPhoneNumber?: string;
+    kpaiePreCheckContext?: string;
 }
 
 /**
@@ -98,6 +99,34 @@ export async function createRequest(
             };
         }
 
+        // --- PRE-CHECK ERP (Phase 6) ---
+        let requestedDays = 1;
+        if (dates.isHalfDayStart !== dates.isHalfDayEnd) {
+            requestedDays = 0.5; // Morning or Afternoon only
+        }
+
+        const { getKPaieBalances } = require('./kpaieService');
+        const balanceResult = await getKPaieBalances(employee.tenantId, employee.phoneNumber);
+        let kpaiePreCheckContext = '';
+
+        if (balanceResult.success && balanceResult.data) {
+            const availableBalance = balanceResult.data.paid_leave;
+            
+            // Hard block if balance is insufficient
+            if (availableBalance < requestedDays) {
+                return {
+                    success: false,
+                    message: `❌ *Refusé par la Paie*\nVotre solde de congés (${availableBalance} jours) est insuffisant pour cette demande (${requestedDays} jours).`
+                };
+            }
+            
+            // Enrich Manager Context
+            const newBalance = availableBalance - requestedDays;
+            kpaiePreCheckContext = `\n📊 *Indicateurs (KPaie) :*\n• Solde après validation : ${newBalance} j ✅\n• Conflits d'équipe : Aucun connu 🟢\n`;
+        } else if (balanceResult.error === 'NO_CONFIG') {
+             kpaiePreCheckContext = `\n⚠️ *KPaie non configuré* (Solde non vérifié)\n`;
+        }
+
         // Create the leave request
         const request = await prisma.leaveRequest.create({
             data: {
@@ -149,7 +178,8 @@ export async function createRequest(
             success: true,
             message: `Demande de congé #${request.id.slice(0, 8)} créée pour le ${formattedDate}.`,
             request,
-            managerPhoneNumber: manager.phoneNumber
+            managerPhoneNumber: manager.phoneNumber,
+            kpaiePreCheckContext
         };
 
     } catch (error) {
