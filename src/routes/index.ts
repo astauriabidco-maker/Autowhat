@@ -15,6 +15,7 @@ import * as importController from '../controllers/importController';
 import * as billingController from '../controllers/billingController';
 import * as webhookStripe from '../controllers/webhookStripe';
 import * as integrationController from '../controllers/integrationController';
+import * as externalApiController from '../controllers/externalApiController';
 import { authenticateManager } from '../middlewares/authMiddleware';
 import { authenticateSuperAdmin } from '../middlewares/adminMiddleware';
 import debugRoutes from './debugRoutes';
@@ -24,6 +25,9 @@ const router = Router();
 // Webhook Routes
 router.get('/webhook', webhookController.verifyWebhook);
 router.post('/webhook', webhookController.handleMessage);
+
+// External API Routes (Inbound from ERPs)
+router.post('/api/external/notify', externalApiController.sendNotification);
 
 // Auth Routes (Public)
 router.post('/auth/login', authController.login);

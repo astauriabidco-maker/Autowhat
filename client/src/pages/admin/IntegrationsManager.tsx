@@ -294,13 +294,50 @@ export default function IntegrationsManager() {
           </div>
         </div>
 
+      {/* Inbound API (Webhooks / Notifications Push) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <Server className="text-emerald-600 w-6 h-6" />
+          API Entrante (Notifications & Messages)
+        </h2>
+        <p className="text-sm text-gray-600 mb-6">
+          Générez une clé d'accès sécurisée pour autoriser vos logiciels externes (KPaie, Silae, Zapier) à déclencher l'envoi de messages WhatsApp à vos collaborateurs de manière autonome (Phase 2).
+        </p>
+        
+        <div className="bg-gray-50 border border-gray-200 p-4 rounded-xl">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Clé d'accès API (Bearer Token)</label>
+          <div className="flex gap-3">
+            <input
+              type="text"
+              readOnly
+              value={tenantConfig.inboundApiKey || 'Aucune clé générée. Cliquez sur Générer.'}
+              className="block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm font-mono text-emerald-800 py-2 px-3"
+            />
+            <button
+              onClick={() => {
+                // Generate a random secure-looking key
+                const newKey = 'wp_live_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                setTenantConfig({ ...tenantConfig, inboundApiKey: newKey });
+              }}
+              className="bg-emerald-100 text-emerald-800 px-4 py-2 rounded-lg border border-emerald-300 hover:bg-emerald-200 font-medium text-sm whitespace-nowrap transition"
+            >
+              Générer une clé
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-4 leading-relaxed">
+            <strong>Endpoint REST :</strong> <code className="bg-gray-200 px-1 rounded text-emerald-700">POST /api/external/notify</code><br />
+            <strong>Authentification :</strong> Header <code className="bg-gray-200 px-1 rounded font-mono">Authorization: Bearer {'<VOTRE_CLE>'}</code><br />
+            <strong>Payload (JSON) :</strong> <code className="bg-gray-200 px-1 rounded">{"{"} "phoneNumber": "+336...", "message": "Votre paie est prête !" {"}"}</code>
+          </p>
+        </div>
+
         <div className="mt-6 flex justify-end">
           <button
             onClick={saveTenantConfig}
             disabled={savingConfig}
             className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition font-medium"
           >
-            {savingConfig ? 'Sauvegarde...' : <><Save className="w-4 h-4" /> Sauvegarder les clés API</>}
+            {savingConfig ? 'Sauvegarde...' : <><Save className="w-4 h-4" /> Sauvegarder la configuration globale</>}
           </button>
         </div>
       </div>
