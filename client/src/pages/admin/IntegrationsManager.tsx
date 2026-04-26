@@ -293,6 +293,7 @@ export default function IntegrationsManager() {
             </div>
           </div>
         </div>
+      </div>
 
       {/* Inbound API (Webhooks / Notifications Push) */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
