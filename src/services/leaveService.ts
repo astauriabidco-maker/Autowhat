@@ -261,10 +261,14 @@ export async function handleManagerResponse(
             };
         }
 
-        // Update the request status
+        // Update the request status and tracking fields
         await prisma.leaveRequest.update({
             where: { id: request.id },
-            data: { status: newStatus }
+            data: { 
+                status: newStatus,
+                validatedBy: manager.id,
+                validatedAt: new Date()
+            }
         });
 
         // Dispatch webhook (Bridge Strategy)

@@ -1044,9 +1044,31 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 if (!result.success) {
                                     await sendMessage(from, result.message, phoneNumberId);
                                 } else {
+                                    if (result.request && result.managerPhoneNumber) {
+                                        const requestIdShort = result.request.id.slice(0, 8);
+                                        const sDate = new Date(result.request.startDate).toLocaleDateString('fr-FR');
+                                        const eDate = new Date(result.request.endDate).toLocaleDateString('fr-FR');
+                                        
+                                        const managerMessage =
+                                            `📋 *Nouvelle demande de congé*\n\n` +
+                                            `👤 De: *${employee.name}*\n` +
+                                            `📅 Date: *Du ${sDate} au ${eDate}*\n` +
+                                            `🆔 ID: *#${requestIdShort}*\n` +
+                                            (result.kpaiePreCheckContext ? `${result.kpaiePreCheckContext}\n` : `\n`) +
+                                            `Veuillez prendre une décision :`;
+
+                                        await sendInteractiveButtons(
+                                            result.managerPhoneNumber.replace('+', ''),
+                                            managerMessage,
+                                            [
+                                                { id: `OK_${requestIdShort}`, title: "✅ Accepter" },
+                                                { id: `NON_${requestIdShort}`, title: "❌ Refuser" }
+                                            ],
+                                            phoneNumberId
+                                        );
+                                    }
                                     await sendMessage(from, `✅ Demande confirmée et envoyée à votre manager.\nVous recevrez une notification de sa décision.`, phoneNumberId);
                                 }
-                                
                                 await prisma.employee.update({
                                     where: { id: employee.id },
                                     data: { conversationState: null }
@@ -1085,20 +1107,22 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 const formattedDate = formatDateForMessage(result.request.startDate) + periodStr;
                                 const requestIdShort = result.request.id.slice(0, 8);
 
-                                // Notify the manager
+                                // Notify the manager via Interactive Buttons (Phase 4)
                                 const managerMessage =
                                     `📋 *Nouvelle demande de congé*\n\n` +
                                     `👤 De: *${employee.name}*\n` +
                                     `📅 Date: *${formattedDate}*\n` +
                                     `🆔 ID: *#${requestIdShort}*\n` +
                                     (result.kpaiePreCheckContext ? `${result.kpaiePreCheckContext}\n` : `\n`) +
-                                    `Répondez:\n` +
-                                    `• *OK ${requestIdShort}* pour approuver\n` +
-                                    `• *NON ${requestIdShort}* pour refuser`;
+                                    `Veuillez prendre une décision :`;
 
-                                await sendMessage(
+                                await sendInteractiveButtons(
                                     result.managerPhoneNumber.replace('+', ''),
                                     managerMessage,
+                                    [
+                                        { id: `OK_${requestIdShort}`, title: "✅ Accepter" },
+                                        { id: `NON_${requestIdShort}`, title: "❌ Refuser" }
+                                    ],
                                     phoneNumberId
                                 );
 

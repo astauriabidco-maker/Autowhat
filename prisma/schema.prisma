@@ -325,6 +325,9 @@ model LeaveRequest {
   type       String   @default("PAID") // PAID, SICK, UNPAID
   documentUrl String? // For medical certificates
   
+  // Validation tracking (Phase 4)
+  validatedBy String?  // Employee ID of the manager who validated
+  validatedAt DateTime?
   
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id])
