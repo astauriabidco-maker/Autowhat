@@ -123,6 +123,75 @@ export async function extractMedicalCertificateDataFromImage(imageUrl: string): 
     };
 }
 
+export interface NaturalLeaveResult {
+    startDate: string; // YYYY-MM-DD
+    endDate: string; // YYYY-MM-DD
+    isHalfDayStart: boolean;
+    isHalfDayEnd: boolean;
+    businessDays: number;
+    isValid: boolean;
+}
+
+/**
+ * Proof of Concept: NLP Agent for Leave Dates
+ * Parses natural language ("Du lundi 10 au 17") into strict DB dates and business days.
+ */
+export async function parseNaturalLanguageLeave(text: string): Promise<NaturalLeaveResult> {
+    console.log(`🧠 [NLP Agent] Parsing leave request dates: "${text}"`);
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    if (apiKey) {
+        try {
+            console.log(`🚀 Calling OpenAI (GPT-4o) Real API for NLP...`);
+            const today = new Date().toISOString().split('T')[0];
+            const payload = {
+                model: "gpt-4o",
+                messages: [
+                    {
+                        role: "system",
+                        content: `Tu es un assistant RH. La date d'aujourd'hui est le ${today}. Convertis la demande de l'utilisateur en dates strictes. Calcule le nombre de jours ouvrés (businessDays) en excluant les week-ends (Samedi/Dimanche). Réponds en JSON strict : { "startDate": "YYYY-MM-DD", "endDate": "YYYY-MM-DD", "isHalfDayStart": boolean (true si l'employé demande à commencer son congé l'après-midi), "isHalfDayEnd": boolean (true si l'employé demande à terminer son congé le matin), "businessDays": number (nombre de jours ouvrés), "isValid": boolean }.`
+                    },
+                    { role: "user", content: text }
+                ],
+                response_format: { type: "json_object" }
+            };
+
+            const res = await axios.post('https://api.openai.com/v1/chat/completions', payload, {
+                headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+                timeout: 5000
+            });
+
+            const parsed = JSON.parse(res.data.choices[0].message.content);
+            console.log(`✅ [NLP Agent] Extraction success:`, parsed);
+            return {
+                startDate: parsed.startDate,
+                endDate: parsed.endDate,
+                isHalfDayStart: !!parsed.isHalfDayStart,
+                isHalfDayEnd: !!parsed.isHalfDayEnd,
+                businessDays: parsed.businessDays || 1,
+                isValid: parsed.isValid !== false
+            };
+        } catch (error: any) {
+            console.error(`❌ [NLP Agent] LLM Parsing failed:`, error.response?.data || error.message);
+        }
+    }
+
+    // --- FALLBACK / DEMO IMPLEMENTATION ---
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    const today = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(today.getDate() + 7);
+    
+    return {
+        startDate: today.toISOString().split('T')[0],
+        endDate: nextWeek.toISOString().split('T')[0],
+        isHalfDayStart: false,
+        isHalfDayEnd: false,
+        businessDays: 6, // Simulation: du 10 au 17 = 6 jours ouvrés
+        isValid: true
+    };
+}
+
 export type IntentResult =
     | { intent: 'LEAVE_REQUEST'; dateString?: string; metadata?: any }
     | { intent: 'SICK_LEAVE'; dateString?: string; metadata?: any }

@@ -237,6 +237,7 @@ model Employee {
   // Conversational state machine
   conversationState String?  // WAITING_EXPENSE_PHOTO, WAITING_EXPENSE_AMOUNT, WAITING_EXPENSE_CATEGORY
   tempExpenseData   Json?    // Temporary data during expense creation workflow
+  tempLeaveData     Json?    // Temporary data during NLP leave creation workflow
   
   // Langue des messages WhatsApp (fr, en, es)
   language   String  @default("fr")

@@ -86,11 +86,29 @@ function parseLeaveDate(dateString: string): { startDate: Date; endDate: Date; i
  */
 export async function createRequest(
     employee: Employee & { tenant: { name: string } },
-    dateString: string
+    dateString: string | null,
+    nlpDates?: { startDate: string; endDate: string; isHalfDayStart: boolean; isHalfDayEnd: boolean; businessDays: number }
 ): Promise<CreateRequestResult> {
     try {
-        // Parse the date
-        const dates = parseLeaveDate(dateString);
+        let dates: { startDate: Date; endDate: Date; isHalfDayStart: boolean; isHalfDayEnd: boolean } | null = null;
+        let requestedDays = 1;
+
+        if (nlpDates) {
+            dates = {
+                startDate: new Date(nlpDates.startDate),
+                endDate: new Date(nlpDates.endDate),
+                isHalfDayStart: nlpDates.isHalfDayStart,
+                isHalfDayEnd: nlpDates.isHalfDayEnd
+            };
+            requestedDays = nlpDates.businessDays;
+        } else if (dateString) {
+            dates = parseLeaveDate(dateString);
+            if (dates) {
+                if (dates.isHalfDayStart !== dates.isHalfDayEnd) {
+                    requestedDays = 0.5; // Morning or Afternoon only
+                }
+            }
+        }
 
         if (!dates) {
             return {
@@ -100,10 +118,6 @@ export async function createRequest(
         }
 
         // --- PRE-CHECK ERP (Phase 6) ---
-        let requestedDays = 1;
-        if (dates.isHalfDayStart !== dates.isHalfDayEnd) {
-            requestedDays = 0.5; // Morning or Afternoon only
-        }
 
         const { getKPaieBalances } = require('./kpaieService');
         const balanceResult = await getKPaieBalances(employee.tenantId, employee.phoneNumber);

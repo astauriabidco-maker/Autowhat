@@ -999,7 +999,69 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                             continue;
                         }
 
-                        // 4. Check for leave request pattern first
+                        // NLP Parsing for LEAVE (Intelligent Business Days Calculation)
+                        if (employee.conversationState === 'WAITING_LEAVE') {
+                            await sendMessage(from, `🧠 _Analyse de vos dates (calcul des jours ouvrés)..._`, phoneNumberId);
+                            const { parseNaturalLanguageLeave } = require('../services/aiAgentService');
+                            const nlpResult = await parseNaturalLanguageLeave(messageBody);
+
+                            if (!nlpResult.isValid) {
+                                await sendMessage(from, `⚠️ Je n'ai pas pu comprendre les dates. Exemple : "Du 12 au 15 juin".`, phoneNumberId);
+                                continue;
+                            }
+
+                            // Store NLP result and ask for confirmation
+                            await prisma.employee.update({
+                                where: { id: employee.id },
+                                data: {
+                                    conversationState: 'WAITING_LEAVE_CONFIRMATION',
+                                    tempLeaveData: nlpResult as any
+                                }
+                            });
+
+                            const sDate = new Date(nlpResult.startDate).toLocaleDateString('fr-FR');
+                            const eDate = new Date(nlpResult.endDate).toLocaleDateString('fr-FR');
+                            const detail = nlpResult.isHalfDayStart ? ' (Matin/Aprem pris en compte)' : '';
+
+                            await sendMessage(from, `📅 *Récapitulatif de votre demande :*\n\nDu ${sDate} au ${eDate}${detail}\nCela représente *${nlpResult.businessDays} jours ouvrés*.\n\nSouhaitez-vous valider ?\nRépondez *OUI* ou *NON*.`, phoneNumberId);
+                            continue;
+                        }
+
+                        if (employee.conversationState === 'WAITING_LEAVE_CONFIRMATION') {
+                            if (messageBody.toLowerCase().includes('oui') || messageBody.toLowerCase() === 'ok' || messageBody.toLowerCase() === 'valider') {
+                                const nlpData = employee.tempLeaveData as any;
+                                if (!nlpData) {
+                                    await setConversationState(employee.id, null);
+                                    await sendMessage(from, `❌ Erreur de session. Veuillez recommencer la demande.`, phoneNumberId);
+                                    continue;
+                                }
+
+                                await sendMessage(from, `⏳ Validation ERP et envoi au manager...`, phoneNumberId);
+                                
+                                // Call createRequest with the NLP data to bypass regex
+                                const result = await createRequest(employee, null, nlpData);
+
+                                if (!result.success) {
+                                    await sendMessage(from, result.message, phoneNumberId);
+                                } else {
+                                    await sendMessage(from, `✅ Demande confirmée et envoyée à votre manager.\nVous recevrez une notification de sa décision.`, phoneNumberId);
+                                }
+                                
+                                await prisma.employee.update({
+                                    where: { id: employee.id },
+                                    data: { conversationState: null }
+                                });
+                            } else {
+                                await prisma.employee.update({
+                                    where: { id: employee.id },
+                                    data: { conversationState: null }
+                                });
+                                await sendMessage(from, `❌ Demande annulée.`, phoneNumberId);
+                            }
+                            continue;
+                        }
+
+                        // 4. Check for old leave request pattern first (Fallback)
                         const leaveDate = parseLeaveRequest(messageBody);
                         if (leaveDate) {
                             console.log(`📅 Processing LEAVE REQUEST for ${employee.name}: ${leaveDate}`);
