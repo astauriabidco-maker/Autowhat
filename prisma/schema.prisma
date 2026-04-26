@@ -318,6 +318,8 @@ model LeaveRequest {
   id         String   @id @default(uuid())
   startDate  DateTime
   endDate  DateTime
+  isHalfDayStart Boolean @default(false) // Si true: Commence l'après-midi (matin travaillé)
+  isHalfDayEnd   Boolean @default(false) // Si true: Se termine le matin (après-midi travaillé)
   status     String   @default("PENDING")
   type       String   @default("PAID") // PAID, SICK, UNPAID
   documentUrl String? // For medical certificates

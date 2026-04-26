@@ -358,10 +358,11 @@ export const verifyWebhook = (req: Request, res: Response): any => {
  * Check if message matches a leave request pattern
  */
 function parseLeaveRequest(message: string): string | null {
-    // Match patterns like "congé 25/12", "leave 25/12/2026", "congés 01-02"
-    const regex = /^(?:cong[ée]s?|leave)\s+(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/i;
+    // Match patterns like "congé 25/12", "leave 25/12/2026", "congés 01/02 matin", "congé 01/02 aprem"
+    // Captures the date and any trailing half-day modifier
+    const regex = /^(?:cong[ée]s?|leave)\s+(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?(?:\s+(?:matin|apr[èe]s?-?midi|aprem|am|pm))?)/i;
     const match = message.match(regex);
-    return match ? match[1] : null;
+    return match ? match[1].trim() : null;
 }
 
 /**
@@ -1007,7 +1008,14 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                             if (result.success && result.request && result.managerPhoneNumber) {
                                 // Format the date for display
-                                const formattedDate = formatDateForMessage(result.request.startDate);
+                                let periodStr = '';
+                                if (result.request.isHalfDayStart && !result.request.isHalfDayEnd) {
+                                    periodStr = ' (Après-midi)';
+                                } else if (!result.request.isHalfDayStart && result.request.isHalfDayEnd) {
+                                    periodStr = ' (Matin)';
+                                }
+                                
+                                const formattedDate = formatDateForMessage(result.request.startDate) + periodStr;
                                 const requestIdShort = result.request.id.slice(0, 8);
 
                                 // Notify the manager

@@ -28,12 +28,25 @@ interface HandleResponseResult {
  * Parse a date string in format DD/MM or DD/MM/YYYY
  * Tolerant parsing with regex
  */
-function parseLeaveDate(dateString: string): { startDate: Date; endDate: Date } | null {
-    // Remove extra spaces and try various formats
-    const cleaned = dateString.trim();
+function parseLeaveDate(dateString: string): { startDate: Date; endDate: Date; isHalfDayStart: boolean; isHalfDayEnd: boolean } | null {
+    const cleaned = dateString.trim().toLowerCase();
 
-    // Regex for DD/MM or DD/MM/YYYY or DD-MM or DD-MM-YYYY
-    const regex = /^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?$/;
+    let isHalfDayStart = false;
+    let isHalfDayEnd = false;
+
+    // Detect if the user wants just the morning off
+    if (cleaned.includes('matin') || cleaned.includes('am')) {
+        isHalfDayStart = false; // Starts in the morning
+        isHalfDayEnd = true;    // Ends in the morning (works afternoon)
+    } 
+    // Detect if the user wants just the afternoon off
+    else if (cleaned.includes('apr') || cleaned.includes('aprem') || cleaned.includes('pm')) {
+        isHalfDayStart = true;  // Starts in the afternoon (works morning)
+        isHalfDayEnd = false;   // Ends in the afternoon
+    }
+
+    // Extract just the date part (DD/MM or DD/MM/YYYY)
+    const regex = /(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/;
     const match = cleaned.match(regex);
 
     if (!match) {
@@ -62,7 +75,7 @@ function parseLeaveDate(dateString: string): { startDate: Date; endDate: Date } 
         return null;
     }
 
-    return { startDate, endDate };
+    return { startDate, endDate, isHalfDayStart, isHalfDayEnd };
 }
 
 /**
@@ -90,6 +103,8 @@ export async function createRequest(
             data: {
                 startDate: dates.startDate,
                 endDate: dates.endDate,
+                isHalfDayStart: dates.isHalfDayStart,
+                isHalfDayEnd: dates.isHalfDayEnd,
                 status: 'PENDING',
                 employeeId: employee.id,
                 tenantId: employee.tenantId,
@@ -103,6 +118,8 @@ export async function createRequest(
             employeeName: employee.name,
             startDate: request.startDate,
             endDate: request.endDate,
+            isHalfDayStart: request.isHalfDayStart,
+            isHalfDayEnd: request.isHalfDayEnd,
             status: request.status
         }, employee.tenantId);
 
