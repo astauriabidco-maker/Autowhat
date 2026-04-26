@@ -8,7 +8,7 @@ interface WeeklySummary {
     totalHours: number;
     totalMinutes: number;
     daysWorked: number;
-    leaveBalance: number;
+    leaveBalanceStr: string;
     lastLeaveStatus: string | null;
     lastLeaveDate: string | null;
     weekStart: string;
@@ -27,10 +27,9 @@ export async function getWeeklySummary(
     const now = new Date();
     const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // 1 = Monday
 
-    // Get employee name and leave balance
     const employee = await prisma.employee.findUnique({
         where: { id: employeeId },
-        select: { name: true, leaveBalance: true }
+        select: { name: true, phoneNumber: true }
     });
 
     // Get all attendance records for this week
@@ -85,6 +84,16 @@ export async function getWeeklySummary(
         lastLeaveStatus = statusMap[lastLeave.status] || lastLeave.status;
     }
 
+    // Real-time integration: Fetch real balance from ERP instead of DB
+    const { getKPaieBalances } = require('./kpaieService');
+    const balanceResult = await getKPaieBalances(tenantId, employee?.phoneNumber);
+    let leaveBalanceStr = '25 jours (non synchro)';
+    if (balanceResult.success && balanceResult.data) {
+        leaveBalanceStr = `${balanceResult.data.paid_leave} jours (Synchro ERP)`;
+    } else if (balanceResult.error === 'NO_CONFIG') {
+        leaveBalanceStr = `Non configuré (Connecteur désactivé)`;
+    }
+
     // Convert total minutes to hours and remaining minutes
     const hours = Math.floor(totalMinutesWorked / 60);
     const minutes = totalMinutesWorked % 60;
@@ -93,7 +102,7 @@ export async function getWeeklySummary(
         totalHours: hours,
         totalMinutes: minutes,
         daysWorked: uniqueDays.size,
-        leaveBalance: employee?.leaveBalance ?? 25,
+        leaveBalanceStr,
         lastLeaveStatus,
         lastLeaveDate,
         weekStart: format(weekStart, 'dd/MM/yyyy', { locale: fr }),
@@ -169,7 +178,7 @@ export function formatWeeklySummaryMessage(summary: WeeklySummary): string {
 • Présence : ${summary.daysWorked} jour(s)
 
 🏖️ *Mes Congés* :
-• Solde disponible : ${summary.leaveBalance} jours
+• Solde disponible : ${summary.leaveBalanceStr}
 ${leaveInfo}
 
 _Tapez 'Frais' pour ajouter une dépense._`;
