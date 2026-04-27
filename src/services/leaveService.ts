@@ -278,6 +278,7 @@ export async function handleManagerResponse(
                 leaveRequestId: request.id,
                 employeeId: request.employee.id,
                 employeeName: request.employee.name,
+                employeePhoneNumber: request.employee.phoneNumber, // ADDED
                 startDate: request.startDate,
                 endDate: request.endDate,
                 status: newStatus

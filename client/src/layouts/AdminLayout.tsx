@@ -68,6 +68,13 @@ const navSections: NavSection[] = [
             { icon: <FileText size={20} />, label: 'Rapports', path: '/operations/reports' },
         ],
     },
+    {
+        title: 'API & INTÉGRATIONS',
+        items: [
+            { icon: <Network size={20} />, label: 'Catalogue Apps', path: '/settings/integrations' },
+            { icon: <MessageCircle size={20} />, label: 'WhatsApp Bot', path: '/settings/whatsapp' },
+        ],
+    },
 ];
 
 // Flat list for header title lookup

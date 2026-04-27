@@ -74,14 +74,14 @@ export default function HeroSection() {
         {
             id: 'export',
             icon: <ArrowRightLeft size={16} />,
-            h1: 'La clôture de paie coule de',
-            h1Accent: 'source.',
-            label: '4. Export Paie (Silae)',
-            title: 'La paie en pilote automatique.',
-            desc: 'En fin de mois, le système transfère l\'ensemble des variables (heures, congés, frais) directement vers Silae ou KPaie via API.',
-            userText: 'Exporte les variables de paie d\'Octobre vers Silae.',
-            botText: '🚀 Synchronisation réussie !\n✅ 45 collaborateurs mis à jour sur Silae\n✅ 3 450€ de frais intégrés dans KPaie',
-            color: '#0ea5e9'
+            h1: 'La clôture de paie en mode',
+            h1Accent: 'Zero-Touch.',
+            label: '4. Zero-Touch Payroll',
+            title: 'Synchronisation bidirectionnelle.',
+            desc: 'Validation sur WhatsApp = Injection instantanée. WhatsPoint est nativement interconnecté avec KPaie pour automatiser le cycle de vie de l\'EVP sans aucune double saisie.',
+            userText: 'Combien me reste-t-il de congés ?',
+            botText: '✅ Solde RH (KPaie) :\n\n🏖️ Congés Payés : 14.5 j\n\nSouhaites-tu faire une demande ?',
+            color: '#8b5cf6'
         }
     ];
 

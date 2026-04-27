@@ -7,6 +7,7 @@ export default function IntegrationsSection() {
     const isMobile = deviceType === 'mobile';
 
     const integrations = [
+        { name: 'KPaie', category: 'Paie (Zero-Touch)', color: '#8b5cf6' },
         { name: 'Silae', category: 'Paie', color: '#0ea5e9' },
         { name: 'PayFit', category: 'Paie', color: '#0d9488' },
         { name: 'Pennylane', category: 'Comptabilité', color: '#16a34a' },
@@ -62,7 +63,7 @@ export default function IntegrationsSection() {
                         margin: '0 auto 2.5rem',
                         lineHeight: 1.6
                     }}>
-                        WhatsPoint collecte et structure la donnée brute depuis WhatsApp (Heures, Notes de frais). Ensuite ? Exportez automatiquement ces données propres vers vos logiciels de paie et de comptabilité préférés. Finie la double saisie.
+                        WhatsPoint collecte et structure la donnée brute depuis WhatsApp (Congés, Absences, Notes de frais). Ensuite ? Exportez automatiquement ou injectez vos variables directement dans votre moteur avec le concept unique de <strong>Zero-Touch Payroll</strong> (intégration native bidirectionnelle avec <strong>KPaie</strong>). Finie la double saisie.
                     </p>
                 </motion.div>
 
