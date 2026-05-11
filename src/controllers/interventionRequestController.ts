@@ -113,7 +113,7 @@ export const updateRequest = async (req: Request, res: Response) => {
 export const approveRequest = async (req: Request, res: Response) => {
     try {
         const tenantId = (req as any).user!.tenantId;
-        const userId = (req as any).user!.id;
+        const userId = (req as any).user!.userId;
         const id = req.params.id as string;
 
         const existing = await prisma.interventionRequest.findFirst({ where: { id, tenantId } });
@@ -157,7 +157,7 @@ export const approveRequest = async (req: Request, res: Response) => {
 export const rejectRequest = async (req: Request, res: Response) => {
     try {
         const tenantId = (req as any).user!.tenantId;
-        const userId = (req as any).user!.id;
+        const userId = (req as any).user!.userId;
         const id = req.params.id as string;
         const { rejectionReason } = req.body;
 
@@ -206,7 +206,7 @@ export const rejectRequest = async (req: Request, res: Response) => {
 export const planRequest = async (req: Request, res: Response) => {
     try {
         const tenantId = (req as any).user!.tenantId;
-        const userId = (req as any).user!.id;
+        const userId = (req as any).user!.userId;
         const id = req.params.id as string;
         const { employeeId, scheduledStart, scheduledEnd, title, description } = req.body;
 

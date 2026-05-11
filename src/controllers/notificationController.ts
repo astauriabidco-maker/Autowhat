@@ -8,7 +8,7 @@ import prisma from '../lib/prisma';
  */
 export const getNotifications = async (req: Request, res: Response): Promise<any> => {
     try {
-        const managerId = (req as any).user?.id;
+        const managerId = (req as any).user?.userId;
         const tenantId = (req as any).user?.tenantId;
 
         if (!managerId || !tenantId) {
@@ -43,7 +43,7 @@ export const getNotifications = async (req: Request, res: Response): Promise<any
  */
 export const markAsRead = async (req: Request, res: Response): Promise<any> => {
     try {
-        const managerId = (req as any).user?.id;
+        const managerId = (req as any).user?.userId;
         const id = req.params.id as string;
 
         if (!managerId) {
@@ -79,7 +79,7 @@ export const markAsRead = async (req: Request, res: Response): Promise<any> => {
  */
 export const markAllAsRead = async (req: Request, res: Response): Promise<any> => {
     try {
-        const managerId = (req as any).user?.id;
+        const managerId = (req as any).user?.userId;
 
         if (!managerId) {
             return res.status(401).json({ error: 'Non autorisé' });
@@ -107,7 +107,7 @@ export const markAllAsRead = async (req: Request, res: Response): Promise<any> =
  */
 export const getUnreadCount = async (req: Request, res: Response): Promise<any> => {
     try {
-        const managerId = (req as any).user?.id;
+        const managerId = (req as any).user?.userId;
 
         if (!managerId) {
             return res.status(401).json({ error: 'Non autorisé' });
