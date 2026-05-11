@@ -1091,8 +1091,8 @@ export const sendInterventionNotification = async (req: Request, res: Response) 
 
         if (type === 'signature' && intervention.customer.phone && intervention.signatureToken) {
             // Send signature link
-            const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
-            const signUrl = `${baseUrl}/sign/${intervention.signatureToken}`;
+            const baseUrl = (process.env.FRONTEND_URL || process.env.APP_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+            const signUrl = `${baseUrl}/sign-intervention/${intervention.signatureToken}`;
             const msg = `✍️ *Signature requise*\n\n` +
                 `Bonjour ${intervention.customer.contactName},\n\n` +
                 `L'intervention *"${intervention.title}"* est terminée.\n` +

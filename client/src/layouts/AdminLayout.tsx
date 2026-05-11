@@ -44,32 +44,32 @@ interface NavSection {
 
 const navSections: NavSection[] = [
     {
-        title: 'GESTION RH',
+        title: 'PRÉSENCE & RH',
         items: [
             { icon: <LayoutDashboard size={20} />, label: 'Vue d\'ensemble', path: '/dashboard' },
             { icon: <Users size={20} />, label: 'Collaborateurs', path: '/employees' },
-            { icon: <Clock size={20} />, label: 'Pointages', path: '/attendance' },
-            { icon: <Receipt size={20} />, label: 'Note de Frais', path: '/expenses' },
+            { icon: <Clock size={20} />, label: 'Pointage & présence', path: '/attendance' },
+            { icon: <Receipt size={20} />, label: 'Notes de frais', path: '/expenses' },
             { icon: <FolderOpen size={20} />, label: 'Documents', path: '/documents' },
         ],
     },
     {
-        title: 'OPÉRATIONS',
+        title: 'PLANNING & DEMANDES',
         items: [
-            { icon: <BarChart3 size={20} />, label: 'Dashboard', path: '/operations/dashboard' },
+            { icon: <BarChart3 size={20} />, label: 'Vue opérations', path: '/operations/dashboard' },
             { icon: <Building2 size={20} />, label: 'Clients', path: '/operations/customers' },
-            { icon: <SquareStack size={20} />, label: 'Types Interv.', path: '/operations/intervention-types' },
+            { icon: <SquareStack size={20} />, label: 'Types d\'intervention', path: '/operations/intervention-types' },
             { icon: <CalendarClock size={20} />, label: 'Planning', path: '/operations/dispatch' },
-            { icon: <MessageCircle size={20} />, label: 'Demandes', path: '/operations/requests' },
+            { icon: <MessageCircle size={20} />, label: 'Demandes d\'intervention', path: '/operations/requests' },
             { icon: <RefreshCw size={20} />, label: 'Récurrences', path: '/operations/recurring' },
             { icon: <Map size={20} />, label: 'Carte / Kanban', path: '/operations/map' },
             { icon: <FileText size={20} />, label: 'Rapports', path: '/operations/reports' },
         ],
     },
     {
-        title: 'API & INTÉGRATIONS',
+        title: 'CONNEXIONS',
         items: [
-            { icon: <Network size={20} />, label: 'Catalogue Apps', path: '/settings/integrations' },
+            { icon: <Network size={20} />, label: 'Connexions', path: '/settings/integrations' },
             { icon: <MessageCircle size={20} />, label: 'WhatsApp Bot', path: '/settings/whatsapp' },
         ],
     },
@@ -79,7 +79,7 @@ const navSections: NavSection[] = [
 const allNavItems = navSections.flatMap(s => s.items).concat([
     { icon: <Headphones size={20} />, label: 'Support', path: '/support' },
     { icon: <Settings size={20} />, label: 'Paramètres', path: '/settings' },
-    { icon: <Network size={20} />, label: 'Intégrations', path: '/settings/integrations' },
+    { icon: <Network size={20} />, label: 'Connexions', path: '/settings/integrations' },
 ]);
 
 interface AdminLayoutProps {
@@ -332,7 +332,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                             </div>
                         )}
                         {collapsed && <div className="border-t border-gray-100 mx-2 my-2" />}
-                        {[{ icon: <Network size={20} />, label: 'Intégrations', path: '/settings/integrations' },
+                        {[{ icon: <Network size={20} />, label: 'Connexions', path: '/settings/integrations' },
                         { icon: <Headphones size={20} />, label: 'Support', path: '/support' },
                         { icon: <Settings size={20} />, label: 'Paramètres', path: '/settings' }].map((item) => {
                             const isActive = location.pathname === item.path;
@@ -420,7 +420,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-40">
                         <div>
                             <h1 className="text-lg font-semibold text-gray-900">
-                                {allNavItems.find(item => item.path === location.pathname)?.label || 'Dashboard'}
+                                {allNavItems.find(item => item.path === location.pathname)?.label || 'Vue d\'ensemble'}
                             </h1>
                         </div>
                         <div className="flex items-center gap-4">
