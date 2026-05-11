@@ -16,6 +16,11 @@ function withSignedPhoto<T extends { photoUrl?: string | null }>(request: T): T 
     };
 }
 
+function formatAssignee(employee?: { name: string | null; phoneNumber: string } | null): string | null {
+    if (!employee) return null;
+    return employee.name || employee.phoneNumber;
+}
+
 // ─── LIST ────────────────────────────────────────────────────────────────────
 /** GET /api/intervention-requests */
 export const listRequests = async (req: Request, res: Response) => {
@@ -381,12 +386,19 @@ export const updateAssignment = async (req: Request, res: Response) => {
         const id = req.params.id as string;
         const { employeeId } = req.body;
 
-        const existing = await prisma.interventionRequest.findFirst({ where: { id, tenantId } });
+        const existing = await prisma.interventionRequest.findFirst({
+            where: { id, tenantId },
+            include: { assignedTo: { select: { name: true, phoneNumber: true } } },
+        });
         if (!existing) return res.status(404).json({ error: 'Request not found' });
 
+        let nextAssignee: { name: string | null; phoneNumber: string } | null = null;
         if (employeeId) {
-            const employee = await prisma.employee.findFirst({ where: { id: employeeId, tenantId } });
-            if (!employee) return res.status(404).json({ error: 'Employee not found' });
+            nextAssignee = await prisma.employee.findFirst({
+                where: { id: employeeId, tenantId },
+                select: { name: true, phoneNumber: true },
+            });
+            if (!nextAssignee) return res.status(404).json({ error: 'Employee not found' });
         }
 
         const updated = await prisma.interventionRequest.update({
@@ -407,7 +419,15 @@ export const updateAssignment = async (req: Request, res: Response) => {
             type: employeeId ? REQUEST_EVENT_TYPES.ASSIGNED : REQUEST_EVENT_TYPES.UNASSIGNED,
             actorType: 'MANAGER',
             actorId: userId,
-            metadata: { from: existing.assignedToId, to: employeeId || null },
+            message: employeeId
+                ? `Assigné à ${formatAssignee(nextAssignee)}`
+                : 'Responsable retiré',
+            metadata: {
+                from: existing.assignedToId,
+                fromLabel: formatAssignee(existing.assignedTo),
+                to: employeeId || null,
+                toLabel: formatAssignee(nextAssignee),
+            },
         });
 
         res.json(updated);

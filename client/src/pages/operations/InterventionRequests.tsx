@@ -92,6 +92,28 @@ function getSlaLabel(value?: string | null) {
     return `${isLate ? 'En retard depuis' : 'Échéance'} ${format(date, 'dd/MM/yyyy HH:mm')}`;
 }
 
+function formatEventDate(value: unknown) {
+    if (typeof value !== 'string') return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return format(date, 'dd/MM/yyyy HH:mm');
+}
+
+function getEventDetail(event: RequestEvent) {
+    if (event.message) return event.message;
+
+    const metadata = event.metadata || {};
+    const fromLabel = typeof metadata.fromLabel === 'string' ? metadata.fromLabel : metadata.from;
+    const toLabel = typeof metadata.toLabel === 'string' ? metadata.toLabel : metadata.to;
+
+    if (event.type === 'ASSIGNED' && toLabel) return `Assigné à ${toLabel}`;
+    if (event.type === 'UNASSIGNED') return fromLabel ? `Responsable retiré: ${fromLabel}` : 'Responsable retiré';
+    if (event.type === 'SLA_SET') return `Échéance: ${formatEventDate(metadata.to) || 'non précisée'}`;
+    if (event.type === 'SLA_CLEARED') return metadata.from ? `Échéance retirée: ${formatEventDate(metadata.from)}` : 'Échéance retirée';
+
+    return null;
+}
+
 export default function InterventionRequests() {
     const [searchParams] = useSearchParams();
     const targetRequestId = searchParams.get('request') || searchParams.get('requestId');
@@ -175,8 +197,12 @@ export default function InterventionRequests() {
             ...prev,
             [expanded]: prev[expanded] ?? toDateTimeLocalValue(current?.slaDueAt),
         }));
+    }, [expanded, requests]);
+
+    useEffect(() => {
+        if (!expanded) return;
         fetchRequestEvents(expanded);
-    }, [expanded, fetchRequestEvents, requests]);
+    }, [expanded, fetchRequestEvents]);
 
     useEffect(() => {
         if (loading || !targetRequestId) return;
@@ -282,7 +308,8 @@ export default function InterventionRequests() {
         setSavingKey(`${reqId}:sla`);
         try {
             const value = slaDrafts[reqId] || '';
-            await axios.patch(`/api/intervention-requests/${reqId}/sla`, { slaDueAt: value || null }, { headers });
+            const slaDueAt = value ? new Date(value).toISOString() : null;
+            await axios.patch(`/api/intervention-requests/${reqId}/sla`, { slaDueAt }, { headers });
             await fetchAll();
             await fetchRequestEvents(reqId);
         } catch (e: unknown) {
@@ -416,11 +443,21 @@ export default function InterventionRequests() {
                                     : 'border-gray-100 hover:border-gray-200'
                                     }`}
                             >
-                                {/* Card header */}
-                                <div
-                                    className="p-4 cursor-pointer flex items-start gap-4"
-                                    onClick={() => setExpanded(isExpanded ? null : req.id)}
-                                >
+	                                {/* Card header */}
+	                                <div
+	                                    className="p-4 cursor-pointer flex items-start gap-4"
+	                                    onClick={() => setExpanded(isExpanded ? null : req.id)}
+	                                    onKeyDown={(e) => {
+	                                        if (e.key === 'Enter' || e.key === ' ') {
+	                                            e.preventDefault();
+	                                            setExpanded(isExpanded ? null : req.id);
+	                                        }
+	                                    }}
+	                                    role="button"
+	                                    tabIndex={0}
+	                                    aria-expanded={isExpanded}
+	                                    aria-controls={`intervention-request-panel-${req.id}`}
+	                                >
                                     {/* Status badge */}
                                     <div
                                         className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -521,9 +558,12 @@ export default function InterventionRequests() {
                                     </div>
                                 </div>
 
-                                {/* Expanded content */}
-                                {isExpanded && (
-                                    <div className="px-4 pb-4 border-t border-gray-50 pt-3 space-y-3 animate-in slide-in-from-top duration-200">
+	                                {/* Expanded content */}
+	                                {isExpanded && (
+	                                    <div
+	                                        id={`intervention-request-panel-${req.id}`}
+	                                        className="px-4 pb-4 border-t border-gray-50 pt-3 space-y-3 animate-in slide-in-from-top duration-200"
+	                                    >
                                         {/* Full message */}
                                         <div className="bg-gray-50 rounded-xl p-3">
                                             <p className="text-xs font-medium text-gray-400 mb-1 flex items-center gap-1">
@@ -610,12 +650,13 @@ export default function InterventionRequests() {
                                                 )}
                                             </div>
 
-                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-500 mb-1">Responsable</label>
-                                                    <select
-                                                        value={req.assignedToId || ''}
-                                                        onChange={(e) => handleAssignOwner(req.id, e.target.value)}
+	                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+	                                                <div>
+	                                                    <label htmlFor={`request-owner-${req.id}`} className="block text-xs font-medium text-gray-500 mb-1">Responsable</label>
+	                                                    <select
+	                                                        id={`request-owner-${req.id}`}
+	                                                        value={req.assignedToId || ''}
+	                                                        onChange={(e) => handleAssignOwner(req.id, e.target.value)}
                                                         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-slate-500 focus:border-transparent bg-white"
                                                         disabled={savingKey === `${req.id}:assignment`}
                                                     >
@@ -633,21 +674,23 @@ export default function InterventionRequests() {
                                                     )}
                                                 </div>
 
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-500 mb-1">SLA / échéance interne</label>
-                                                    <div className="flex gap-2">
-                                                        <input
-                                                            type="datetime-local"
-                                                            value={slaDrafts[req.id] ?? toDateTimeLocalValue(req.slaDueAt)}
+	                                                <div>
+	                                                    <label htmlFor={`request-sla-${req.id}`} className="block text-xs font-medium text-gray-500 mb-1">SLA / échéance interne</label>
+	                                                    <div className="flex gap-2">
+	                                                        <input
+	                                                            id={`request-sla-${req.id}`}
+	                                                            type="datetime-local"
+	                                                            value={slaDrafts[req.id] ?? toDateTimeLocalValue(req.slaDueAt)}
                                                             onChange={(e) => setSlaDrafts(prev => ({ ...prev, [req.id]: e.target.value }))}
                                                             className="min-w-0 flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-slate-500 focus:border-transparent bg-white"
                                                         />
-                                                        <button
-                                                            onClick={() => handleSaveSla(req.id)}
-                                                            disabled={savingKey === `${req.id}:sla`}
-                                                            className="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
-                                                        >
-                                                            OK
+	                                                        <button
+	                                                            onClick={() => handleSaveSla(req.id)}
+	                                                            disabled={savingKey === `${req.id}:sla`}
+	                                                            className="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+	                                                            aria-label="Enregistrer le SLA interne"
+	                                                        >
+	                                                            OK
                                                         </button>
                                                     </div>
                                                     <p className={`mt-1 text-xs ${req.slaDueAt && new Date(req.slaDueAt).getTime() < Date.now() ? 'text-red-600' : 'text-slate-500'}`}>
@@ -656,12 +699,13 @@ export default function InterventionRequests() {
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-500 mb-1">Commentaire interne</label>
-                                                    <div className="flex gap-2">
-                                                        <textarea
-                                                            value={commentDrafts[req.id] || ''}
+	                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+	                                                <div>
+	                                                    <label htmlFor={`request-comment-${req.id}`} className="block text-xs font-medium text-gray-500 mb-1">Commentaire interne</label>
+	                                                    <div className="flex gap-2">
+	                                                        <textarea
+	                                                            id={`request-comment-${req.id}`}
+	                                                            value={commentDrafts[req.id] || ''}
                                                             onChange={(e) => setCommentDrafts(prev => ({ ...prev, [req.id]: e.target.value }))}
                                                             rows={2}
                                                             placeholder="Ajouter une note visible uniquement en interne..."
@@ -669,10 +713,11 @@ export default function InterventionRequests() {
                                                         />
                                                         <button
                                                             onClick={() => handleAddComment(req.id)}
-                                                            disabled={savingKey === `${req.id}:comment` || !(commentDrafts[req.id] || '').trim()}
-                                                            className="self-stretch px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                                                            title="Ajouter le commentaire"
-                                                        >
+	                                                            disabled={savingKey === `${req.id}:comment` || !(commentDrafts[req.id] || '').trim()}
+	                                                            className="self-stretch px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+	                                                            title="Ajouter le commentaire"
+	                                                            aria-label="Ajouter le commentaire interne"
+	                                                        >
                                                             <Send size={16} />
                                                         </button>
                                                     </div>
@@ -696,22 +741,25 @@ export default function InterventionRequests() {
                                                         ) : (eventsByRequest[req.id] || []).length === 0 ? (
                                                             <div className="p-3 text-xs text-slate-400">Aucun événement interne.</div>
                                                         ) : (
-                                                            (eventsByRequest[req.id] || []).map(event => (
-                                                                <div key={event.id} className="p-3">
-                                                                    <div className="flex items-center justify-between gap-2">
-                                                                        <span className="text-xs font-semibold text-slate-700">
-                                                                            {EVENT_LABELS[event.type] || event.type}
-                                                                        </span>
-                                                                        <span className="text-[11px] text-slate-400">
-                                                                            {format(new Date(event.createdAt), 'dd/MM HH:mm')}
-                                                                        </span>
-                                                                    </div>
-                                                                    {event.message && (
-                                                                        <p className="mt-1 text-xs text-slate-600 line-clamp-2">{event.message}</p>
-                                                                    )}
-                                                                </div>
-                                                            ))
-                                                        )}
+	                                                            (eventsByRequest[req.id] || []).map(event => {
+	                                                                const detail = getEventDetail(event);
+	                                                                return (
+	                                                                    <div key={event.id} className="p-3">
+	                                                                        <div className="flex items-center justify-between gap-2">
+	                                                                            <span className="text-xs font-semibold text-slate-700">
+	                                                                                {EVENT_LABELS[event.type] || event.type}
+	                                                                            </span>
+	                                                                            <span className="text-[11px] text-slate-400">
+	                                                                                {format(new Date(event.createdAt), 'dd/MM HH:mm')}
+	                                                                            </span>
+	                                                                        </div>
+	                                                                        {detail && (
+	                                                                            <p className="mt-1 text-xs text-slate-600 line-clamp-2">{detail}</p>
+	                                                                        )}
+	                                                                    </div>
+	                                                                );
+	                                                            })
+	                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
