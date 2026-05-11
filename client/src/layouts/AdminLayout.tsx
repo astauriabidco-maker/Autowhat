@@ -10,6 +10,7 @@ import {
     FolderOpen,
     Settings,
     LogOut,
+    Inbox,
     MessageCircle,
     ChevronLeft,
     ChevronRight,
@@ -57,6 +58,7 @@ const navSections: NavSection[] = [
         title: 'PLANNING & DEMANDES',
         items: [
             { icon: <BarChart3 size={20} />, label: 'Vue opérations', path: '/operations/dashboard' },
+            { icon: <Inbox size={20} />, label: 'Boîte de demandes', path: '/inbox' },
             { icon: <Building2 size={20} />, label: 'Clients', path: '/operations/customers' },
             { icon: <SquareStack size={20} />, label: 'Types d\'intervention', path: '/operations/intervention-types' },
             { icon: <CalendarClock size={20} />, label: 'Planning', path: '/operations/dispatch' },
@@ -306,14 +308,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                                                 {!collapsed && (
                                                     <>
                                                         <span className="text-sm flex-1">{item.label}</span>
-                                                        {item.path === '/operations/requests' && pendingRequests > 0 && (
+                                                        {(item.path === '/operations/requests' || item.path === '/inbox') && pendingRequests > 0 && (
                                                             <span className="ml-auto px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[20px] text-center animate-pulse">
                                                                 {pendingRequests}
                                                             </span>
                                                         )}
                                                     </>
                                                 )}
-                                                {collapsed && item.path === '/operations/requests' && pendingRequests > 0 && (
+                                                {collapsed && (item.path === '/operations/requests' || item.path === '/inbox') && pendingRequests > 0 && (
                                                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
                                                         {pendingRequests}
                                                     </span>

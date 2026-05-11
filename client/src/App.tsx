@@ -5,6 +5,7 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import DashboardHome from './pages/DashboardHome';
+import Inbox from './pages/Inbox';
 import Attendance from './pages/Attendance';
 import Employees from './pages/Employees';
 import EmployeeDetails from './pages/EmployeeDetails';
@@ -96,6 +97,9 @@ function App() {
           {/* Protected Routes with Admin Layout */}
           <Route path="/dashboard" element={
             <ProtectedRoute><DashboardHome /></ProtectedRoute>
+          } />
+          <Route path="/inbox" element={
+            <ProtectedRoute><Inbox /></ProtectedRoute>
           } />
           <Route path="/attendance" element={
             <ProtectedRoute><Attendance /></ProtectedRoute>
@@ -202,4 +206,3 @@ function App() {
 }
 
 export default App;
-
