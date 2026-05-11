@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import {
     Receipt,
@@ -116,6 +116,8 @@ function formatPhotoUrl(url: string | null): string {
 
 export default function Expenses() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const targetExpenseId = searchParams.get('expense') || searchParams.get('expenseId');
     const { selectedSiteId } = useSiteContext();
     const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
     const [loading, setLoading] = useState(true);
@@ -132,6 +134,22 @@ export default function Expenses() {
         }
         fetchExpenses();
     }, [navigate, selectedSiteId]); // Refetch on site change
+
+    useEffect(() => {
+        if (loading || !targetExpenseId || expenses.length === 0) return;
+        const target = expenses.find(expense => expense.id === targetExpenseId);
+        if (!target) return;
+
+        if (target.status !== 'PENDING') {
+            setFilter('all');
+        }
+    }, [expenses, loading, targetExpenseId]);
+
+    useEffect(() => {
+        if (loading || !targetExpenseId) return;
+        const element = document.getElementById(`expense-${targetExpenseId}`);
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, [filter, loading, targetExpenseId]);
 
     const fetchExpenses = async () => {
         setLoading(true);
@@ -321,7 +339,10 @@ export default function Expenses() {
                         {filteredExpenses.map((expense) => (
                             <div
                                 key={expense.id}
-                                className={`flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition ${expense.status !== 'PENDING' ? 'opacity-75' : ''
+                                id={`expense-${expense.id}`}
+                                className={`flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition ${targetExpenseId === expense.id
+                                    ? 'bg-amber-50 ring-2 ring-inset ring-amber-300'
+                                    : expense.status !== 'PENDING' ? 'opacity-75' : ''
                                     }`}
                             >
                                 {/* Date & Employee */}

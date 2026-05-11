@@ -18,7 +18,7 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { getErrorStatus } from '../utils/errors';
+import { getErrorMessage, getErrorStatus } from '../utils/errors';
 
 type InboxKind = 'INTERVENTION' | 'SUPPORT' | 'LEAVE' | 'EXPENSE' | 'NOTIFICATION';
 type InboxPriority = 'LOW' | 'NORMAL' | 'URGENT' | 'INFO';
@@ -177,6 +177,7 @@ export default function Inbox() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState('');
+    const [actionLoadingKey, setActionLoadingKey] = useState<string | null>(null);
 
     const fetchInbox = useCallback(async () => {
         const token = getToken();
@@ -190,6 +191,7 @@ export default function Inbox() {
 
         try {
             const params: Record<string, string | number> = { limit: 75 };
+            if (activeKind !== 'ALL') params.kind = activeKind;
             if (statusMode === 'all') params.status = 'all';
 
             const response = await axios.get<InboxResponse>('/api/inbox', {
@@ -209,7 +211,7 @@ export default function Inbox() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [navigate, statusMode]);
+    }, [activeKind, navigate, statusMode]);
 
     useEffect(() => {
         fetchInbox();
@@ -218,7 +220,6 @@ export default function Inbox() {
     const filteredItems = useMemo(() => {
         const query = search.trim().toLowerCase();
         return items.filter(item => {
-            if (activeKind !== 'ALL' && item.kind !== activeKind) return false;
             if (!query) return true;
 
             return [
@@ -230,7 +231,7 @@ export default function Inbox() {
                 KIND_CONFIG[item.kind].label,
             ].some(value => value.toLowerCase().includes(query));
         });
-    }, [activeKind, items, search]);
+    }, [items, search]);
 
     const handleKindChange = (kind: 'ALL' | InboxKind) => {
         setActiveKind(kind);
@@ -242,6 +243,63 @@ export default function Inbox() {
 
     const openItem = (item: InboxItem) => {
         navigate(item.targetUrl);
+    };
+
+    const getActionKey = (item: InboxItem, action: string) => `${item.kind}:${item.id}:${action}`;
+
+    const runItemAction = async (item: InboxItem, action: string) => {
+        const token = getToken();
+        if (!token) {
+            navigate('/');
+            return;
+        }
+
+        const actionKey = getActionKey(item, action);
+        setError('');
+        setActionLoadingKey(actionKey);
+
+        try {
+            if (item.kind === 'EXPENSE' && (action === 'approve' || action === 'reject')) {
+                await axios.patch(
+                    `/api/expenses/${item.id}/status`,
+                    { status: action === 'approve' ? 'APPROVED' : 'REJECTED' },
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                await fetchInbox();
+                return;
+            }
+
+            if (item.kind === 'NOTIFICATION' && action === 'mark_read') {
+                await axios.patch(
+                    `/api/notifications/${item.id}/read`,
+                    {},
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                await fetchInbox();
+                return;
+            }
+
+            if (item.kind === 'INTERVENTION' && (action === 'approve' || action === 'reject')) {
+                await axios.post(
+                    `/api/intervention-requests/${item.id}/${action}`,
+                    {},
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                await fetchInbox();
+                return;
+            }
+
+            openItem(item);
+        } catch (err: unknown) {
+            if (getErrorStatus(err) === 401) {
+                localStorage.removeItem('token');
+                navigate('/');
+                return;
+            }
+            setError(getErrorMessage(err, "Impossible d'exécuter cette action."));
+        } finally {
+            setActionLoadingKey(current => current === actionKey ? null : current);
+        }
     };
 
     if (loading) {
@@ -346,7 +404,7 @@ export default function Inbox() {
                     </div>
                 )}
 
-                {filteredItems.length === 0 ? (
+                {!error && filteredItems.length === 0 ? (
                     <div className="p-12 text-center">
                         <div className="mx-auto h-12 w-12 rounded-xl bg-gray-100 text-gray-400 flex items-center justify-center">
                             <CheckCircle2 size={24} />
@@ -354,7 +412,7 @@ export default function Inbox() {
                         <h3 className="mt-4 text-lg font-semibold text-gray-900">Aucune demande</h3>
                         <p className="mt-1 text-sm text-gray-500">La file sélectionnée est à jour.</p>
                     </div>
-                ) : (
+                ) : filteredItems.length > 0 ? (
                     <div className="divide-y divide-gray-100">
                         {filteredItems.map(item => {
                             const config = KIND_CONFIG[item.kind];
@@ -394,27 +452,35 @@ export default function Inbox() {
                                         </div>
 
                                         <div className="flex flex-wrap gap-2 lg:justify-end">
-                                            {item.availableActions.slice(0, 3).map(action => (
-                                                <button
-                                                    key={action}
-                                                    onClick={() => openItem(item)}
-                                                    className={clsx(
-                                                        'px-3 py-2 rounded-lg text-sm font-medium transition',
-                                                        action === 'approve' || action === 'plan'
-                                                            ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                                            : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-                                                    )}
-                                                >
-                                                    {ACTION_LABELS[action] || 'Ouvrir'}
-                                                </button>
-                                            ))}
+                                            {item.availableActions.slice(0, 3).map(action => {
+                                                const actionKey = getActionKey(item, action);
+                                                const isActionLoading = actionLoadingKey === actionKey;
+                                                return (
+                                                    <button
+                                                        key={action}
+                                                        onClick={() => runItemAction(item, action)}
+                                                        disabled={isActionLoading}
+                                                        className={clsx(
+                                                            'px-3 py-2 rounded-lg text-sm font-medium transition inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed',
+                                                            action === 'approve' || action === 'plan' || action === 'mark_read'
+                                                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                                                : action === 'reject'
+                                                                    ? 'bg-white border border-red-200 text-red-700 hover:bg-red-50'
+                                                                    : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                                                        )}
+                                                    >
+                                                        {isActionLoading && <Loader2 size={14} className="animate-spin" />}
+                                                        {ACTION_LABELS[action] || 'Ouvrir'}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
-                )}
+                ) : null}
             </div>
         </div>
     );

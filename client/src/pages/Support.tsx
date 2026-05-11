@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import {
     MessageSquare,
@@ -36,6 +37,8 @@ interface TicketDetail extends Ticket {
 }
 
 export default function Support() {
+    const [searchParams] = useSearchParams();
+    const targetTicketId = searchParams.get('ticket') || searchParams.get('ticketId');
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedTicket, setSelectedTicket] = useState<TicketDetail | null>(null);
@@ -56,6 +59,28 @@ export default function Support() {
     useEffect(() => {
         fetchTickets();
     }, []);
+
+    useEffect(() => {
+        if (loading || !targetTicketId) return;
+        let cancelled = false;
+
+        const fetchTargetTicket = async () => {
+            try {
+                const res = await axios.get(`/api/tickets/${targetTicketId}`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                });
+                if (!cancelled) setSelectedTicket(res.data);
+            } catch (error) {
+                console.error('Error fetching ticket:', error);
+            }
+        };
+
+        fetchTargetTicket();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [loading, targetTicketId]);
 
     useEffect(() => {
         if (selectedTicket) {
@@ -281,8 +306,10 @@ export default function Support() {
                             {tickets.map(ticket => (
                                 <tr
                                     key={ticket.id}
+                                    id={`support-ticket-${ticket.id}`}
                                     onClick={() => fetchTicketDetail(ticket.id)}
-                                    className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer transition"
+                                    className={`border-t border-gray-100 hover:bg-gray-50 cursor-pointer transition ${targetTicketId === ticket.id ? 'bg-red-50 ring-2 ring-inset ring-red-300' : ''
+                                        }`}
                                 >
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-2">

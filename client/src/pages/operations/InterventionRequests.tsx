@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
 import {
@@ -51,6 +52,8 @@ const STATUS_CONFIG: Record<string, { bg: string; border: string; text: string; 
 };
 
 export default function InterventionRequests() {
+    const [searchParams] = useSearchParams();
+    const targetRequestId = searchParams.get('request') || searchParams.get('requestId');
     const [requests, setRequests] = useState<IntRequest[]>([]);
     const [stats, setStats] = useState<Stats | null>(null);
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -96,6 +99,22 @@ export default function InterventionRequests() {
     };
 
     useEffect(() => { fetchAll(); }, []);
+
+    useEffect(() => {
+        if (loading || !targetRequestId || requests.length === 0) return;
+        const target = requests.find(req => req.id === targetRequestId);
+        if (!target) return;
+
+        setSearch('');
+        setFilterStatus('');
+        setExpanded(target.id);
+    }, [loading, requests, targetRequestId]);
+
+    useEffect(() => {
+        if (loading || !targetRequestId) return;
+        const element = document.getElementById(`intervention-request-${targetRequestId}`);
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, [expanded, filterStatus, loading, search, targetRequestId]);
 
     const filtered = useMemo(() => {
         return requests.filter(r => {
@@ -277,7 +296,10 @@ export default function InterventionRequests() {
                         return (
                             <div
                                 key={req.id}
-                                className={`bg-white rounded-2xl border transition-all ${req.urgency === 'URGENT'
+                                id={`intervention-request-${req.id}`}
+                                className={`bg-white rounded-2xl border transition-all ${targetRequestId === req.id
+                                    ? 'ring-2 ring-orange-400 border-orange-300 shadow-lg shadow-orange-100'
+                                    : req.urgency === 'URGENT'
                                     ? 'border-red-200 shadow-md shadow-red-100'
                                     : 'border-gray-100 hover:border-gray-200'
                                     }`}

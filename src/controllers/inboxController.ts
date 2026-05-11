@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import { InterventionRequestStatus } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 
 type InboxKind = 'INTERVENTION' | 'SUPPORT' | 'LEAVE' | 'EXPENSE' | 'NOTIFICATION';
@@ -57,23 +59,6 @@ function parseKinds(rawKind: unknown): Set<InboxKind> | null {
     return kinds.length > 0 ? new Set(kinds) : null;
 }
 
-function countByKind(items: InboxItem[]): Record<InboxKind | 'ALL', number> {
-    const counts: Record<InboxKind | 'ALL', number> = {
-        ALL: items.length,
-        INTERVENTION: 0,
-        SUPPORT: 0,
-        LEAVE: 0,
-        EXPENSE: 0,
-        NOTIFICATION: 0,
-    };
-
-    for (const item of items) {
-        counts[item.kind] += 1;
-    }
-
-    return counts;
-}
-
 function priorityRank(priority: InboxItem['priority']): number {
     if (priority === 'URGENT') return 3;
     if (priority === 'NORMAL') return 2;
@@ -94,6 +79,27 @@ export const getInbox = async (req: Request, res: Response): Promise<any> => {
         const kinds = parseKinds(req.query.kind);
         const includeResolved = req.query.status === 'all';
         const wants = (kind: InboxKind) => !kinds || kinds.has(kind);
+        const interventionWhere: Prisma.InterventionRequestWhereInput = {
+            tenantId,
+            ...(includeResolved ? {} : { status: { in: [InterventionRequestStatus.PENDING, InterventionRequestStatus.APPROVED] } }),
+        };
+        const ticketWhere: Prisma.TicketWhereInput = {
+            tenantId,
+            ...(includeResolved ? {} : { status: { in: ['OPEN', 'IN_PROGRESS'] } }),
+        };
+        const leaveWhere: Prisma.LeaveRequestWhereInput = {
+            tenantId,
+            ...(includeResolved ? {} : { status: 'PENDING' }),
+        };
+        const expenseWhere: Prisma.ExpenseWhereInput = {
+            tenantId,
+            ...(includeResolved ? {} : { status: 'PENDING' }),
+        };
+        const notificationWhere: Prisma.NotificationWhereInput = {
+            tenantId,
+            managerId,
+            ...(includeResolved ? {} : { isRead: false }),
+        };
 
         const [
             interventionRequests,
@@ -101,13 +107,15 @@ export const getInbox = async (req: Request, res: Response): Promise<any> => {
             leaveRequests,
             expenses,
             notifications,
+            interventionCount,
+            supportCount,
+            leaveCount,
+            expenseCount,
+            notificationCount,
         ] = await Promise.all([
             wants('INTERVENTION')
                 ? prisma.interventionRequest.findMany({
-                    where: {
-                        tenantId,
-                        ...(includeResolved ? {} : { status: { in: ['PENDING', 'APPROVED'] } }),
-                    },
+                    where: interventionWhere,
                     include: {
                         customer: { select: { id: true, companyName: true, contactName: true } },
                         interventionType: { select: { id: true, name: true, color: true } },
@@ -118,10 +126,7 @@ export const getInbox = async (req: Request, res: Response): Promise<any> => {
                 : Promise.resolve([]),
             wants('SUPPORT')
                 ? prisma.ticket.findMany({
-                    where: {
-                        tenantId,
-                        ...(includeResolved ? {} : { status: { in: ['OPEN', 'IN_PROGRESS'] } }),
-                    },
+                    where: ticketWhere,
                     include: {
                         user: { select: { id: true, name: true, phoneNumber: true } },
                         _count: { select: { messages: true } },
@@ -132,10 +137,7 @@ export const getInbox = async (req: Request, res: Response): Promise<any> => {
                 : Promise.resolve([]),
             wants('LEAVE')
                 ? prisma.leaveRequest.findMany({
-                    where: {
-                        tenantId,
-                        ...(includeResolved ? {} : { status: 'PENDING' }),
-                    },
+                    where: leaveWhere,
                     include: {
                         employee: { select: { id: true, name: true, phoneNumber: true } },
                     },
@@ -145,10 +147,7 @@ export const getInbox = async (req: Request, res: Response): Promise<any> => {
                 : Promise.resolve([]),
             wants('EXPENSE')
                 ? prisma.expense.findMany({
-                    where: {
-                        tenantId,
-                        ...(includeResolved ? {} : { status: 'PENDING' }),
-                    },
+                    where: expenseWhere,
                     include: {
                         employee: { select: { id: true, name: true, phoneNumber: true } },
                     },
@@ -158,15 +157,16 @@ export const getInbox = async (req: Request, res: Response): Promise<any> => {
                 : Promise.resolve([]),
             wants('NOTIFICATION')
                 ? prisma.notification.findMany({
-                    where: {
-                        tenantId,
-                        managerId,
-                        ...(includeResolved ? {} : { isRead: false }),
-                    },
+                    where: notificationWhere,
                     orderBy: { createdAt: 'desc' },
                     take: limit,
                 })
                 : Promise.resolve([]),
+            prisma.interventionRequest.count({ where: interventionWhere }),
+            prisma.ticket.count({ where: ticketWhere }),
+            prisma.leaveRequest.count({ where: leaveWhere }),
+            prisma.expense.count({ where: expenseWhere }),
+            prisma.notification.count({ where: notificationWhere }),
         ]);
 
         const items: InboxItem[] = [
@@ -288,7 +288,14 @@ export const getInbox = async (req: Request, res: Response): Promise<any> => {
 
         return res.json({
             items: sortedItems,
-            counts: countByKind(items),
+            counts: {
+                ALL: interventionCount + supportCount + leaveCount + expenseCount + notificationCount,
+                INTERVENTION: interventionCount,
+                SUPPORT: supportCount,
+                LEAVE: leaveCount,
+                EXPENSE: expenseCount,
+                NOTIFICATION: notificationCount,
+            },
             filters: {
                 kind: kinds ? Array.from(kinds) : 'ALL',
                 status: includeResolved ? 'all' : 'open',
