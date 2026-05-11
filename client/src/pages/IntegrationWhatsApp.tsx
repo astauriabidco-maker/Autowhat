@@ -19,6 +19,7 @@ import {
     Briefcase,
     PhoneCall
 } from 'lucide-react';
+import { getErrorMessage } from '../utils/errors';
 
 interface WhatsAppConfig {
     exists: boolean;
@@ -113,8 +114,8 @@ export default function IntegrationWhatsApp() {
             setSuccess('Configuration sauvegardée avec succès !');
             setAccessToken(''); // Clear token from UI
             fetchConfig(); // Refresh
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Erreur lors de la sauvegarde'));
         } finally {
             setSaving(false);
         }
@@ -144,8 +145,8 @@ export default function IntegrationWhatsApp() {
 
             setSuccess('Connexion automatique réussie !');
             fetchConfig(); // Reload from DB
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Connexion automatique impossible'));
         } finally {
             setSaving(false);
         }
@@ -184,8 +185,8 @@ export default function IntegrationWhatsApp() {
             } else {
                 throw new Error(data.error || 'Test échoué');
             }
-        } catch (err: any) {
-            setError(`Test échoué: ${err.message}`);
+        } catch (err: unknown) {
+            setError(`Test échoué: ${getErrorMessage(err, 'Test échoué')}`);
         } finally {
             setTesting(false);
         }
@@ -213,8 +214,8 @@ export default function IntegrationWhatsApp() {
             setWabaId('');
             setDisplayName('');
             fetchConfig();
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Erreur lors de la suppression'));
         } finally {
             setSaving(false);
         }

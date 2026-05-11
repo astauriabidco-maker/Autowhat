@@ -43,6 +43,8 @@ interface DetailModalProps {
     onClose: () => void;
 }
 
+type AttendancePeriod = 'today' | 'week' | 'month';
+
 function DetailModal({ record, onClose }: DetailModalProps) {
     const hasLocation = record.latitude && record.longitude;
     const mapUrl = hasLocation
@@ -205,7 +207,7 @@ export default function Attendance() {
     // Filters
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
-    const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
+    const [period, setPeriod] = useState<AttendancePeriod>('today');
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -285,7 +287,7 @@ export default function Attendance() {
                         <Filter size={18} className="text-gray-400" />
                         <select
                             value={period}
-                            onChange={(e) => setPeriod(e.target.value as any)}
+                            onChange={(e) => setPeriod(e.target.value as AttendancePeriod)}
                             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
                         >
                             <option value="today">Aujourd'hui</option>

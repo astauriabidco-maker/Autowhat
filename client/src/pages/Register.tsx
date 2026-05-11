@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { User, Mail, Lock, Phone, Building2, MapPin, Loader2, ArrowRight, ArrowLeft, MessageCircle, Users, Zap } from 'lucide-react';
+import { getErrorMessage } from '../utils/errors';
 
 // Secteurs d'activité
 const SECTORS = [
@@ -78,11 +79,11 @@ export default function Register() {
 
         try {
             const response = await axios.post('/auth/register', formData);
-            localStorage.setItem('token', response.data.token);
+            localStorage.setItem('token', 'cookie');
             localStorage.setItem('user', JSON.stringify(response.data.user));
             navigate('/dashboard');
-        } catch (err: any) {
-            setError(err.response?.data?.error || 'Erreur lors de l\'inscription');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Erreur lors de l\'inscription'));
         } finally {
             setLoading(false);
         }

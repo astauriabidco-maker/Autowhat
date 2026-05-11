@@ -238,6 +238,16 @@ export default function Dispatch() {
         }
     };
 
+    const downloadInterventionPdf = async (id: string) => {
+        const response = await axios.get(`/api/interventions/${id}/pdf`, {
+            headers,
+            responseType: 'blob'
+        });
+        const url = URL.createObjectURL(response.data);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+    };
+
     // WhatsApp notification
     const sendNotification = async (id: string, type: string) => {
         setNotifSending(type);
@@ -788,7 +798,7 @@ export default function Dispatch() {
                             </button>
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => window.open(`/api/interventions/${showDetail.id}/pdf?token=${token}`, '_blank')}
+                                    onClick={() => downloadInterventionPdf(showDetail.id)}
                                     className="flex items-center gap-1.5 px-4 py-2.5 text-purple-600 hover:bg-purple-50 rounded-xl transition text-sm font-medium border border-purple-200"
                                 >
                                     <Download size={14} /> Rapport PDF

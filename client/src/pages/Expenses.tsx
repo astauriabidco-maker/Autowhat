@@ -14,6 +14,7 @@ import {
     Download
 } from 'lucide-react';
 import { useSiteContext } from '../context/SiteContext';
+import { getErrorStatus } from '../utils/errors';
 
 interface ExpenseRecord {
     id: string;
@@ -110,7 +111,7 @@ function getAvatarColor(name: string | null): string {
 
 function formatPhotoUrl(url: string | null): string {
     if (!url) return '';
-    return url.startsWith('http') ? url : `http://localhost:3000${url}`;
+    return url;
 }
 
 export default function Expenses() {
@@ -141,8 +142,8 @@ export default function Expenses() {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setExpenses(response.data.expenses);
-        } catch (err: any) {
-            if (err.response?.status === 401) {
+        } catch (err: unknown) {
+            if (getErrorStatus(err) === 401) {
                 localStorage.removeItem('token');
                 navigate('/');
             }
@@ -173,7 +174,7 @@ export default function Expenses() {
                 message: status === 'APPROVED' ? '✅ Note validée' : '❌ Note refusée',
                 type: 'success'
             });
-        } catch (err: any) {
+        } catch {
             // Rollback on error
             setExpenses(prev =>
                 prev.map(exp =>
@@ -200,6 +201,24 @@ export default function Expenses() {
         .filter(e => e.status === 'APPROVED')
         .reduce((sum, e) => sum + e.amount, 0);
 
+    const downloadMonthlyCsv = async () => {
+        const token = localStorage.getItem('token');
+        const now = new Date();
+        const response = await axios.get('/api/expenses/export', {
+            params: { month: now.getMonth() + 1, year: now.getFullYear() },
+            headers: { Authorization: `Bearer ${token}` },
+            responseType: 'blob'
+        });
+        const url = URL.createObjectURL(response.data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `notes_frais_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -209,11 +228,7 @@ export default function Expenses() {
                     <p className="text-gray-500 mt-1">Validation rapide des dépenses</p>
                 </div>
                 <button
-                    onClick={() => {
-                        const token = localStorage.getItem('token');
-                        const now = new Date();
-                        window.open(`/api/expenses/export?month=${now.getMonth() + 1}&year=${now.getFullYear()}&token=${token}`, '_blank');
-                    }}
+                    onClick={downloadMonthlyCsv}
                     className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
                 >
                     <Download size={18} />

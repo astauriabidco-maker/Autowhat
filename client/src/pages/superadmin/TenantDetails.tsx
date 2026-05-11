@@ -18,8 +18,7 @@ import {
     UserCheck,
     TrendingUp,
     Zap,
-    Shield,
-    Send
+    Shield
 } from 'lucide-react';
 
 interface Tenant {
@@ -62,6 +61,8 @@ interface Invoice {
     pdf_url: string | null;
 }
 
+type TenantDetailsTab = 'overview' | 'billing' | 'team';
+
 const formatCurrency = (amount: number, currency = 'eur') => {
     return new Intl.NumberFormat('fr-FR', {
         style: 'currency',
@@ -85,7 +86,7 @@ export default function TenantDetails() {
     const [stats, setStats] = useState<TenantStats | null>(null);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
-    const [activeTab, setActiveTab] = useState<'overview' | 'billing' | 'team'>('overview');
+    const [activeTab, setActiveTab] = useState<TenantDetailsTab>('overview');
     const [loadingInvoices, setLoadingInvoices] = useState(false);
 
     // Override state
@@ -177,11 +178,14 @@ export default function TenantDetails() {
         try {
             const res = await fetch(`/admin/tenants/${id}/impersonate`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
-                const data = await res.json();
-                localStorage.setItem('token', data.token);
+                await res.json();
+                sessionStorage.setItem('superadmin_original_token', 'cookie');
+                sessionStorage.setItem('impersonated_tenant_name', tenant?.name || 'Tenant');
+                localStorage.setItem('token', 'cookie');
                 window.open('/dashboard', '_blank');
             }
         } catch (error) {
@@ -277,14 +281,14 @@ export default function TenantDetails() {
             {/* Tabs */}
             <div className="border-b border-slate-200">
                 <div className="flex gap-6">
-                    {[
+                    {([
                         { key: 'overview', label: 'Vue d\'ensemble', icon: TrendingUp },
                         { key: 'billing', label: 'Abonnement & Factures', icon: CreditCard },
                         { key: 'team', label: 'Collaborateurs', icon: Users }
-                    ].map(tab => (
+                    ] satisfies Array<{ key: TenantDetailsTab; label: string; icon: typeof TrendingUp }>).map((tab) => (
                         <button
                             key={tab.key}
-                            onClick={() => setActiveTab(tab.key as any)}
+                            onClick={() => setActiveTab(tab.key)}
                             className={`pb-3 px-1 border-b-2 font-medium flex items-center gap-2 transition ${activeTab === tab.key
                                 ? 'border-indigo-600 text-indigo-600'
                                 : 'border-transparent text-slate-500 hover:text-slate-700'

@@ -79,6 +79,14 @@ interface AutomationStats {
     successRate: number;
 }
 
+interface AutomationLog {
+    id: string;
+    status: string;
+    recipient: string;
+    createdAt: string;
+    error?: string | null;
+}
+
 // ============ CONSTANTS ============
 
 const SOURCES = [
@@ -141,7 +149,7 @@ export default function CrmLeads() {
     const [showRuleModal, setShowRuleModal] = useState(false);
     const [editingRule, setEditingRule] = useState<AutomationRule | null>(null);
     const [expandedLogs, setExpandedLogs] = useState<string | null>(null);
-    const [logs, setLogs] = useState<any[]>([]);
+    const [logs, setLogs] = useState<AutomationLog[]>([]);
     const [ruleForm, setRuleForm] = useState({
         name: '',
         description: '',
@@ -433,7 +441,7 @@ export default function CrmLeads() {
                         ].map(item => (
                             <div
                                 key={item.key}
-                                onClick={() => setActiveFilter(item.key as any)}
+                                onClick={() => setActiveFilter(item.key as typeof activeFilter)}
                                 className={`p-4 rounded-xl cursor-pointer transition ${activeFilter === item.key ? `bg-${item.color}-50 border-2 border-${item.color}-500` : 'bg-white border border-gray-200 hover:border-gray-300'}`}
                             >
                                 <div className="flex items-center gap-3">

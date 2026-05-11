@@ -7,6 +7,7 @@ import {
     CheckCircle2, AlertCircle, Loader2, RotateCcw,
     Building2, User, Calendar, Clock, FileText, Pen
 } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
 
 interface InterventionData {
     id: string;
@@ -38,8 +39,8 @@ export default function SignaturePad() {
             try {
                 const res = await axios.get(`/api/public/intervention/${token}`);
                 setData(res.data);
-            } catch (e: any) {
-                setError(e.response?.data?.error || 'Intervention introuvable ou déjà signée.');
+            } catch (e: unknown) {
+                setError(getErrorMessage(e, 'Intervention introuvable ou déjà signée.'));
             } finally {
                 setLoading(false);
             }
@@ -60,8 +61,8 @@ export default function SignaturePad() {
             const signatureDataUrl = sigCanvas.current.toDataURL('image/png');
             await axios.post(`/api/public/intervention/${token}/sign`, { signatureDataUrl });
             setSuccess(true);
-        } catch (e: any) {
-            setError(e.response?.data?.error || 'Une erreur est survenue.');
+        } catch (e: unknown) {
+            setError(getErrorMessage(e, 'Une erreur est survenue.'));
         } finally {
             setSubmitting(false);
         }

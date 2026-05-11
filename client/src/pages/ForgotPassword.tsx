@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, Mail, Loader2, CheckCircle } from 'lucide-react';
+import { getErrorMessage } from '../utils/errors';
 
 export default function ForgotPassword() {
     const [email, setEmail] = useState('');
@@ -17,8 +18,8 @@ export default function ForgotPassword() {
         try {
             await axios.post('/auth/forgot-password', { email });
             setSent(true);
-        } catch (err: any) {
-            setError(err.response?.data?.error || 'Erreur lors de la demande');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Erreur lors de la demande'));
         } finally {
             setLoading(false);
         }

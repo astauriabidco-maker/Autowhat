@@ -72,7 +72,7 @@ export default function ExportModal({ isOpen, onClose }: ExportModalProps) {
         setLoadingExcel(true);
         try {
             const token = localStorage.getItem('token');
-            const params: any = { start: startDate, end: endDate };
+            const params: { start: string; end: string; siteId?: string } = { start: startDate, end: endDate };
             if (selectedSite) params.siteId = selectedSite;
 
             const response = await axios.get('/api/exports/excel', {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, X, AlertTriangle, MapPin, Clock, DollarSign, CheckCheck } from 'lucide-react';
+import { Bell, X, AlertTriangle, MapPin, Clock, DollarSign, CheckCheck, type LucideIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import clsx from 'clsx';
@@ -14,7 +14,7 @@ interface Notification {
     employeeId?: string;
 }
 
-const typeConfig: Record<string, { icon: any; color: string; bgColor: string }> = {
+const typeConfig: Record<string, { icon: LucideIcon; color: string; bgColor: string }> = {
     LATE: { icon: Clock, color: 'text-orange-600', bgColor: 'bg-orange-100' },
     ABSENCE: { icon: AlertTriangle, color: 'text-red-600', bgColor: 'bg-red-100' },
     GEOFENCE: { icon: MapPin, color: 'text-purple-600', bgColor: 'bg-purple-100' },

@@ -13,6 +13,7 @@ import {
     AlertCircle,
     CheckCircle2
 } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
 
 interface WebhookConfig {
     id: string;
@@ -117,8 +118,8 @@ export default function Webhooks() {
             setShowModal(false);
             resetForm();
             fetchWebhooks();
-        } catch (error: any) {
-            alert(error.response?.data?.error || 'Erreur lors de la création');
+        } catch (error: unknown) {
+            alert(getErrorMessage(error, 'Erreur lors de la création'));
         }
     };
 
@@ -143,8 +144,8 @@ export default function Webhooks() {
             });
             alert(res.data.success ? '✅ Test réussi !' : `❌ Échec: ${res.data.error}`);
             fetchWebhooks();
-        } catch (error: any) {
-            alert(`❌ Erreur: ${error.response?.data?.error || 'Erreur inconnue'}`);
+        } catch (error: unknown) {
+            alert(`❌ Erreur: ${getErrorMessage(error, 'Erreur inconnue')}`);
         } finally {
             setTesting(null);
         }

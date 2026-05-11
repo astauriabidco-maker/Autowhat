@@ -4,7 +4,6 @@ import {
     Building2,
     Users,
     DollarSign,
-    TrendingUp,
     Clock,
     AlertCircle,
     MessageSquare,

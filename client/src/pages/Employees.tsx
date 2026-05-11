@@ -16,6 +16,7 @@ import {
     FileSpreadsheet
 } from 'lucide-react';
 import AddEmployeeModal from '../components/AddEmployeeModal';
+import { getErrorStatus } from '../utils/errors';
 
 interface Employee {
     id: string;
@@ -88,8 +89,8 @@ export default function Employees() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setEmployees(response.data.employees);
-        } catch (err: any) {
-            if (err.response?.status === 401) {
+        } catch (err: unknown) {
+            if (getErrorStatus(err) === 401) {
                 localStorage.removeItem('token');
                 navigate('/');
             }

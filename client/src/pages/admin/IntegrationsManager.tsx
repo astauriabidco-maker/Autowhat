@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Network, Plus, Trash2, Edit2, Play, Save, CheckCircle, AlertTriangle, BookOpen, Server, Zap, Briefcase, Database, Activity, ArrowRight } from 'lucide-react';
+import { Network, Plus, Trash2, Edit2, Play, Save, CheckCircle, BookOpen, Server, Zap, Briefcase, Database, Activity, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 
 interface WebhookConfig {
@@ -449,7 +449,9 @@ export default function IntegrationsManager() {
                   onChange={(e) => {
                     try {
                       setFormData({ ...formData, headers: JSON.parse(e.target.value) });
-                    } catch(err) {}
+                    } catch {
+                      // Keep the previous valid JSON while the user is editing.
+                    }
                   }}
                   className="block w-full font-mono text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 />

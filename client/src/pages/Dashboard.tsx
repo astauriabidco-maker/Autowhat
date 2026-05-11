@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import clsx from 'clsx';
 import { Download, Camera, MapPin, Clock, AlertCircle } from 'lucide-react';
+import { getErrorMessage, getErrorStatus } from '../utils/errors';
 
 interface AttendanceRecord {
     id: string;
@@ -58,13 +59,13 @@ export default function Dashboard() {
                 }
             );
             setAttendances(response.data.attendances);
-        } catch (err: any) {
-            if (err.response?.status === 401) {
+        } catch (err: unknown) {
+            if (getErrorStatus(err) === 401) {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
                 navigate('/');
             } else {
-                setError(err.response?.data?.error || 'Erreur lors du chargement');
+                setError(getErrorMessage(err, 'Erreur lors du chargement'));
             }
         } finally {
             setLoading(false);
@@ -254,7 +255,7 @@ export default function Dashboard() {
                                             <td className="px-4 py-3 text-center">
                                                 {a.photoUrl ? (
                                                     <a
-                                                        href={a.photoUrl.startsWith('http') ? a.photoUrl : `http://localhost:3000${a.photoUrl}`}
+                                                        href={a.photoUrl}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="inline-flex p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition"

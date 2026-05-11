@@ -16,6 +16,7 @@ import {
     Brain,
     Wrench
 } from 'lucide-react';
+import { getErrorMessage } from '../utils/errors';
 
 interface Plan {
     id: string;
@@ -110,9 +111,9 @@ export default function Billing() {
             if (res.data.url) {
                 window.location.href = res.data.url;
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Checkout error:', error);
-            alert(error.response?.data?.error || 'Erreur lors de la création de la session de paiement');
+            alert(getErrorMessage(error, 'Erreur lors de la création de la session de paiement'));
         } finally {
             setCheckoutLoading(null);
         }

@@ -22,9 +22,7 @@ import {
     FileText,
     SquareStack,
     BarChart3,
-    Package,
     RefreshCw,
-    FileSpreadsheet,
     Map,
     Network
 } from 'lucide-react';
@@ -180,9 +178,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         };
     }, [location.pathname]);
 
-    const handleExitSupportMode = () => {
+    const handleExitSupportMode = async () => {
         const originalToken = sessionStorage.getItem('superadmin_original_token');
         if (originalToken) {
+            try {
+                await axios.post('/auth/logout-manager');
+            } catch (error) {
+                console.error('Exit support mode error:', error);
+            }
+
             // Restore SuperAdmin token
             localStorage.setItem('superadmin_token', originalToken);
             localStorage.removeItem('token');
@@ -194,7 +198,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         }
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        try {
+            await axios.post('/auth/logout');
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         // Also clear impersonation data
@@ -441,4 +450,3 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
     );
 }
-

@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import {
     Package, Plus, Search, Edit3, Trash2, X, AlertTriangle,
-    ArrowUpDown, Check, Box, Layers, TrendingDown, DollarSign,
-    Filter, BarChart3
+    ArrowUpDown, Check, Box, TrendingDown, DollarSign,
+    BarChart3
 } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
 
 interface Part {
     id: string;
@@ -117,8 +118,8 @@ export default function Parts() {
             }
             setShowModal(false);
             fetchParts();
-        } catch (e: any) {
-            alert(e.response?.data?.error || 'Erreur');
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
         } finally { setSaving(false); }
     };
 
@@ -145,8 +146,8 @@ export default function Parts() {
             }, { headers });
             setShowStockModal(false);
             fetchParts();
-        } catch (e: any) {
-            alert(e.response?.data?.error || 'Erreur');
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
         } finally { setSaving(false); }
     };
 

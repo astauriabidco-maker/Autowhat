@@ -202,7 +202,7 @@ export default function Customers() {
         const headerRow = lines[0].split(';').map(h => h.trim().toLowerCase());
         const parsedCustomers = lines.slice(1).map(line => {
             const values = line.split(';');
-            const obj: any = {};
+            const obj: Record<string, string> = {};
             headerRow.forEach((h, i) => { obj[h] = values[i]?.trim() || ''; });
             return {
                 companyName: obj['société'] || obj['societe'] || obj['company'] || obj['companyname'] || '',

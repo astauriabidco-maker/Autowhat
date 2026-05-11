@@ -5,7 +5,6 @@ import {
     Plus,
     Settings,
     Play,
-    Pause,
     Trash2,
     Clock,
     Mail,
@@ -44,6 +43,14 @@ interface AutomationStats {
     successRate: number;
 }
 
+interface AutomationLog {
+    id: string;
+    status: string;
+    recipient: string;
+    createdAt: string;
+    error?: string | null;
+}
+
 const TRIGGERS = [
     { value: 'DAYS_SINCE_SIGNUP', label: 'Jours depuis inscription', icon: '📝' },
     { value: 'TRIAL_EXPIRES_IN', label: 'Trial expire dans', icon: '⏳' },
@@ -73,7 +80,7 @@ export default function AutomationCockpit() {
     const [showModal, setShowModal] = useState(false);
     const [editingRule, setEditingRule] = useState<AutomationRule | null>(null);
     const [expandedLogs, setExpandedLogs] = useState<string | null>(null);
-    const [logs, setLogs] = useState<any[]>([]);
+    const [logs, setLogs] = useState<AutomationLog[]>([]);
 
     const [formData, setFormData] = useState({
         name: '',

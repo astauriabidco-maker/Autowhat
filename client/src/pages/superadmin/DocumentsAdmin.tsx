@@ -68,7 +68,7 @@ export default function DocumentsAdmin() {
     // Fetch stats
     const fetchStats = useCallback(async () => {
         try {
-            const token = localStorage.getItem('superAdminToken');
+            const token = localStorage.getItem('superadmin_token');
             const response = await fetch('/superadmin/documents/stats', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -84,7 +84,7 @@ export default function DocumentsAdmin() {
     const fetchDocuments = useCallback(async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('superAdminToken');
+            const token = localStorage.getItem('superadmin_token');
             const params = new URLSearchParams();
             if (selectedTenant !== 'all') params.append('tenantId', selectedTenant);
             if (selectedType !== 'all') params.append('type', selectedType);

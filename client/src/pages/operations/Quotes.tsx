@@ -7,6 +7,7 @@ import {
     FileText, ChevronDown, ChevronUp,
     Clock, CheckCircle2, TrendingUp
 } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
 
 interface QuoteLineItem {
     id?: string;
@@ -136,9 +137,9 @@ export default function Quotes() {
         } catch (e) { console.error(e); }
     };
 
-    const updateLine = (idx: number, field: keyof QuoteLineItem, value: any) => {
+    const updateLine = <K extends keyof QuoteLineItem>(idx: number, field: K, value: QuoteLineItem[K]) => {
         const updated = [...lines];
-        (updated[idx] as any)[field] = value;
+        updated[idx] = { ...updated[idx], [field]: value };
         if (field === 'quantity' || field === 'unitPrice') {
             updated[idx].totalPrice = (updated[idx].quantity || 0) * (updated[idx].unitPrice || 0);
         }
@@ -188,8 +189,8 @@ export default function Quotes() {
             }
             setShowModal(false);
             fetchAll();
-        } catch (e: any) {
-            alert(e.response?.data?.error || 'Erreur');
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
         } finally { setSaving(false); }
     };
 
@@ -206,13 +207,19 @@ export default function Quotes() {
         try {
             await axios.post(`/api/quotes/${id}/convert`, {}, { headers });
             fetchAll();
-        } catch (e: any) {
-            alert(e.response?.data?.error || 'Erreur');
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
         }
     };
 
-    const downloadPdf = (id: string) => {
-        window.open(`/api/quotes/${id}/pdf?token=${token}`, '_blank');
+    const downloadPdf = async (id: string) => {
+        const response = await axios.get(`/api/quotes/${id}/pdf`, {
+            headers,
+            responseType: 'blob'
+        });
+        const url = URL.createObjectURL(response.data);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
     };
 
     const selectedCustomerSites = useMemo(() => {

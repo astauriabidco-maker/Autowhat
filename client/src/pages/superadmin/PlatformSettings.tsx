@@ -19,6 +19,7 @@ import {
     Loader2,
     Scale
 } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
 
 type TabType = 'general' | 'team' | 'health' | 'legal';
 
@@ -149,8 +150,8 @@ export default function PlatformSettings() {
             setNewAdmin({ name: '', email: '', password: '' });
             setShowAddAdmin(false);
             fetchAdmins();
-        } catch (error: any) {
-            alert(error.response?.data?.error || 'Erreur lors de la création');
+        } catch (error: unknown) {
+            alert(getErrorMessage(error, 'Erreur lors de la création'));
         }
     };
 
@@ -523,7 +524,7 @@ export default function PlatformSettings() {
 }
 
 // Service Card Component
-function ServiceCard({ icon: Icon, name, status, configured }: {
+function ServiceCard({ icon: Icon, name, status, configured: _configured }: {
     icon: React.ElementType;
     name: string;
     status: string;

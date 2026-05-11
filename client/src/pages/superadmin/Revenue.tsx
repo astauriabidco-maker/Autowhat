@@ -209,7 +209,7 @@ export default function Revenue() {
                                 <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#9ca3af" />
                                 <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" tickFormatter={(v) => `${v}€`} />
                                 <Tooltip
-                                    formatter={(value: any) => [`${value}€`, 'MRR']}
+                                    formatter={(value: number | string | undefined) => [`${value ?? 0}€`, 'MRR']}
                                     contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
                                 />
                                 <Area
@@ -241,7 +241,7 @@ export default function Revenue() {
                                     outerRadius={90}
                                     paddingAngle={5}
                                     dataKey="value"
-                                    label={(props: any) => `${props.name} ${((props.percent || 0) * 100).toFixed(0)}%`}
+                                    label={(props: { name?: string; percent?: number }) => `${props.name} ${((props.percent || 0) * 100).toFixed(0)}%`}
                                     labelLine={false}
                                 >
                                     {pieData.map((entry, index) => (

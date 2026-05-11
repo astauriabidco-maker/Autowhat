@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Loader2, AlertCircle } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
 
 export default function SuperAdminLogin() {
     const navigate = useNavigate();
@@ -17,6 +18,7 @@ export default function SuperAdminLogin() {
         try {
             const response = await fetch('/admin/login', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
             });
@@ -27,13 +29,13 @@ export default function SuperAdminLogin() {
                 throw new Error(data.error || 'Erreur de connexion');
             }
 
-            // Store SuperAdmin token separately
-            localStorage.setItem('superadmin_token', data.token);
+            // Keep only a non-secret marker; the JWT is held in an HttpOnly cookie.
+            localStorage.setItem('superadmin_token', 'cookie');
 
             // Navigate to SuperAdmin dashboard
             navigate('/superadmin');
-        } catch (err: any) {
-            setError(err.message || 'Erreur de connexion');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Erreur de connexion'));
         } finally {
             setLoading(false);
         }

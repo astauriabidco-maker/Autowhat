@@ -1,10 +1,8 @@
 import { motion } from 'framer-motion';
-import { useTranslation } from 'react-i18next';
 import { useVisitor } from '../../context/VisitorContext';
 import { HardHat, Droplets, ShieldCheck, Building, ShoppingBag, Utensils, CheckCircle2 } from 'lucide-react';
 
 export default function SectorsSection() {
-    const { t } = useTranslation();
     const { deviceType } = useVisitor();
     const isMobile = deviceType === 'mobile';
 

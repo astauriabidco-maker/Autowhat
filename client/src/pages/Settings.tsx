@@ -295,7 +295,7 @@ export default function Settings() {
         setHasChanges(true);
     };
 
-    const updateField = (field: keyof Settings, value: any) => {
+    const updateField = <K extends keyof Settings>(field: K, value: Settings[K]) => {
         if (!settings) return;
         setSettings({ ...settings, [field]: value });
         setHasChanges(true);

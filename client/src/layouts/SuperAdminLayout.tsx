@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
 import clsx from 'clsx';
+import axios from 'axios';
 import {
     LayoutDashboard,
     Users,
@@ -63,7 +64,12 @@ export default function SuperAdminLayout() {
         }
     }, [navigate]);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        try {
+            await axios.post('/auth/logout');
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
         localStorage.removeItem('superadmin_token');
         navigate('/superadmin/login');
     };

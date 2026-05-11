@@ -30,6 +30,7 @@ import {
     Area
 } from 'recharts';
 import { useSiteContext } from '../context/SiteContext';
+import { getErrorStatus } from '../utils/errors';
 
 interface KPIData {
     totalEmployees: number;
@@ -125,8 +126,8 @@ export default function DashboardHome() {
                 setAnalytics(analyticsData);
             }
 
-        } catch (err: any) {
-            if (err.response?.status === 401) {
+        } catch (err: unknown) {
+            if (getErrorStatus(err) === 401) {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
                 navigate('/');

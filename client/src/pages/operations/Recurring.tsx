@@ -3,9 +3,10 @@ import axios from 'axios';
 import { format } from 'date-fns';
 import {
     RefreshCw, Plus, Search, Edit3, Trash2, X, Check,
-    CalendarClock, User, Building2, Tag, SquareStack,
-    Pause, Play, Zap, Clock, AlertCircle, ChevronRight
+    CalendarClock, User, Building2, SquareStack,
+    Pause, Play, Zap, Clock, ChevronRight
 } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
 
 interface RecurringIntervention {
     id: string;
@@ -159,8 +160,8 @@ export default function Recurring() {
             }
             setShowModal(false);
             fetchAll();
-        } catch (e: any) {
-            alert(e.response?.data?.error || 'Erreur');
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
         } finally { setSaving(false); }
     };
 
@@ -177,8 +178,8 @@ export default function Recurring() {
         try {
             await axios.post(`/api/recurring-interventions/${id}/generate`, {}, { headers });
             fetchAll();
-        } catch (e: any) {
-            alert(e.response?.data?.error || 'Erreur');
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
         } finally { setGenerating(null); }
     };
 

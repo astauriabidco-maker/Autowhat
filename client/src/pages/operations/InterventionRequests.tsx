@@ -3,10 +3,12 @@ import axios from 'axios';
 import { format } from 'date-fns';
 import {
     MessageCircle, Search, Check, X, ArrowRight, Clock,
-    Building2, User, Phone, AlertTriangle, Filter,
+    Building2, User, Phone, AlertTriangle,
     Calendar, ChevronDown, ChevronUp, Trash2, MapPin,
-    Tag, FileText, Image
+    Tag, Image,
+    type LucideIcon
 } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
 
 interface IntRequest {
     id: string;
@@ -41,7 +43,7 @@ interface Customer { id: string; companyName: string; contactName: string; sites
 interface Employee { id: string; name: string; phoneNumber: string; }
 interface IntType { id: string; name: string; color: string; }
 
-const STATUS_CONFIG: Record<string, { bg: string; border: string; text: string; label: string; icon: any }> = {
+const STATUS_CONFIG: Record<string, { bg: string; border: string; text: string; label: string; icon: LucideIcon }> = {
     PENDING: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e', label: 'En attente', icon: Clock },
     APPROVED: { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af', label: 'Approuvée', icon: Check },
     PLANNED: { bg: '#dcfce7', border: '#22c55e', text: '#166534', label: 'Planifiée', icon: Calendar },
@@ -116,8 +118,8 @@ export default function InterventionRequests() {
         try {
             await axios.post(`/api/intervention-requests/${id}/approve`, {}, { headers });
             fetchAll();
-        } catch (e: any) {
-            alert(e.response?.data?.error || 'Erreur');
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
         }
     };
 
@@ -128,8 +130,8 @@ export default function InterventionRequests() {
             setRejectModal(null);
             setRejectReason('');
             fetchAll();
-        } catch (e: any) {
-            alert(e.response?.data?.error || 'Erreur');
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
         }
     };
 
@@ -141,8 +143,8 @@ export default function InterventionRequests() {
             setPlanModal(null);
             setPlanForm({ employeeId: '', scheduledStart: '', scheduledEnd: '', title: '', description: '' });
             fetchAll();
-        } catch (e: any) {
-            alert(e.response?.data?.error || 'Erreur');
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
         } finally {
             setPlanSaving(false);
         }
@@ -153,8 +155,8 @@ export default function InterventionRequests() {
         try {
             await axios.delete(`/api/intervention-requests/${id}`, { headers });
             fetchAll();
-        } catch (e: any) {
-            alert(e.response?.data?.error || 'Erreur');
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
         }
     };
 
@@ -162,8 +164,8 @@ export default function InterventionRequests() {
         try {
             await axios.put(`/api/intervention-requests/${reqId}`, { customerId }, { headers });
             fetchAll();
-        } catch (e: any) {
-            alert(e.response?.data?.error || 'Erreur');
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
         }
     };
 
@@ -171,8 +173,8 @@ export default function InterventionRequests() {
         try {
             await axios.put(`/api/intervention-requests/${reqId}`, { interventionTypeId: interventionTypeId || null }, { headers });
             fetchAll();
-        } catch (e: any) {
-            alert(e.response?.data?.error || 'Erreur');
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
         }
     };
 

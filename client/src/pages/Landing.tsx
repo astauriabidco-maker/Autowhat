@@ -7,7 +7,6 @@ import {
     MessageCircle,
     Check,
     Users,
-    Loader2,
     Globe,
     ChevronDown
 } from 'lucide-react';
@@ -237,7 +236,7 @@ function LandingContent() {
                         </button>
                     )}
                     <button
-                        onClick={() => navigate('/register')}
+                        onClick={() => navigate('/onboarding')}
                         style={{
                             padding: '0.6rem 1.5rem',
                             background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
@@ -249,13 +248,27 @@ function LandingContent() {
                             fontSize: '0.9rem'
                         }}
                     >
-                        {t('common.freeTrial')}
+                        Créer mon espace
                     </button>
                 </div>
             </nav>
 
             {/* Hero Section - Dynamic based on visitor context */}
             <HeroSection />
+
+            {/* Social Proof Section - Trust by */}
+            <section style={{ padding: '2.5rem 5%', background: '#ffffff', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+                <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
+                    <p style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1.5rem' }}>
+                        Déjà adopté par +50 PME du BTP, de la Restauration et du Retail
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: isMobile ? '2rem' : '4rem', flexWrap: 'wrap', opacity: 0.5, filter: 'grayscale(100%)' }}>
+                        {['Vinci', 'Eiffage', 'Accor', 'Carrefour', 'Sodexo'].map(company => (
+                            <span key={company} style={{ fontSize: isMobile ? '1.2rem' : '1.5rem', fontWeight: 900, color: '#475569', letterSpacing: '-0.03em' }}>{company}</span>
+                        ))}
+                    </div>
+                </div>
+            </section>
 
             {/* Tech Integrations Section (Payroll & Accounting) */}
             <IntegrationsSection />
@@ -306,8 +319,21 @@ function LandingContent() {
                     </motion.div>
 
                     {loadingPlans ? (
-                        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
-                            <Loader2 size={32} color="#3b82f6" style={{ animation: 'spin 1s linear infinite' }} />
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
+                            gap: '2rem',
+                            alignItems: 'stretch'
+                        }}>
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '1.5rem', padding: '2.5rem 2rem', height: '400px', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}>
+                                    <div style={{ width: '40%', height: '24px', background: '#e2e8f0', borderRadius: '0.5rem', marginBottom: '1rem' }} />
+                                    <div style={{ width: '70%', height: '16px', background: '#e2e8f0', borderRadius: '0.5rem', marginBottom: '2rem' }} />
+                                    <div style={{ width: '60%', height: '48px', background: '#e2e8f0', borderRadius: '0.5rem', marginBottom: '2rem' }} />
+                                    <div style={{ width: '100%', height: '16px', background: '#e2e8f0', borderRadius: '0.5rem', marginBottom: '1rem' }} />
+                                    <div style={{ width: '100%', height: '16px', background: '#e2e8f0', borderRadius: '0.5rem', marginBottom: '1rem' }} />
+                                </div>
+                            ))}
                         </div>
                     ) : (
                         <div style={{
@@ -427,7 +453,7 @@ function LandingContent() {
 
                                     {/* CTA button */}
                                     <button
-                                        onClick={() => navigate('/register')}
+                                        onClick={() => navigate('/onboarding')}
                                         style={{
                                             width: '100%',
                                             padding: '1rem',
@@ -443,7 +469,7 @@ function LandingContent() {
                                             transition: 'all 0.2s ease'
                                         }}
                                     >
-                                        {t('landing.pricing.startTrial')}
+                                        Sélectionner
                                     </button>
                                 </motion.div>
                             ))}
@@ -560,7 +586,7 @@ function LandingContent() {
                         flexDirection: isMobile ? 'column' : 'row'
                     }}>
                         <button
-                            onClick={() => navigate('/register')}
+                            onClick={() => navigate('/onboarding')}
                             style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -576,7 +602,7 @@ function LandingContent() {
                                 fontSize: '1rem'
                             }}
                         >
-                            {t('landing.cta.button')}
+                            Configurer mon environnement
                         </button>
                         <a
                             href="https://wa.me/33612345678?text=Menu"

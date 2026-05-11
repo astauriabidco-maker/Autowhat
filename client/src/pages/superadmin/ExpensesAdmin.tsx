@@ -127,7 +127,7 @@ export default function ExpensesAdmin() {
 
     const formatPhotoUrl = (url: string | null | undefined) => {
         if (!url) return '';
-        return url.startsWith('http') ? url : `http://localhost:3000${url}`;
+        return url;
     };
 
     return (

@@ -6,11 +6,9 @@ import {
     Eye,
     Ban,
     Trash2,
-    MoreVertical,
     AlertCircle,
     ChevronLeft,
     ChevronRight,
-    Building2,
     Plus
 } from 'lucide-react';
 
@@ -37,7 +35,6 @@ export default function TenantsList() {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [search, setSearch] = useState('');
-    const [actionMenuId, setActionMenuId] = useState<string | null>(null);
     const [extendingId, setExtendingId] = useState<string | null>(null);
 
     useEffect(() => {
@@ -86,7 +83,6 @@ export default function TenantsList() {
             alert('❌ Erreur lors de l\'extension');
         } finally {
             setExtendingId(null);
-            setActionMenuId(null);
         }
     };
 
@@ -129,18 +125,19 @@ export default function TenantsList() {
             const token = localStorage.getItem('superadmin_token');
             const response = await fetch(`/admin/tenants/${tenantId}/impersonate`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (response.ok) {
-                const data = await response.json();
+                await response.json();
 
                 // Store SuperAdmin token for later restoration
-                sessionStorage.setItem('superadmin_original_token', token || '');
+                sessionStorage.setItem('superadmin_original_token', 'cookie');
                 sessionStorage.setItem('impersonated_tenant_name', tenantName);
 
-                // Replace main token with impersonation token
-                localStorage.setItem('token', data.token);
+                // Keep only a non-secret marker; the impersonation JWT is held in an HttpOnly cookie.
+                localStorage.setItem('token', 'cookie');
 
                 // Redirect to client dashboard
                 navigate('/dashboard');
@@ -225,17 +222,6 @@ export default function TenantsList() {
             month: 'short',
             year: 'numeric'
         });
-    };
-
-    const getStatusBadge = (tenant: Tenant) => {
-        switch (tenant.status) {
-            case 'ACTIVE':
-                return <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Actif</span>;
-            case 'TRIAL':
-                return <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Essai</span>;
-            case 'EXPIRED':
-                return <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Expiré</span>;
-        }
     };
 
     const filteredTenants = search

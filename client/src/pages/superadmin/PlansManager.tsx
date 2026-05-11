@@ -13,9 +13,9 @@ import {
     Users,
     DollarSign,
     Save,
-    AlertTriangle,
     Info
 } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
 
 interface Plan {
     id: string;
@@ -146,9 +146,9 @@ export default function PlansManager() {
 
             setShowForm(false);
             await fetchPlans();
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error saving plan:', error);
-            alert(error.response?.data?.error || 'Erreur lors de la sauvegarde');
+            alert(getErrorMessage(error, 'Erreur lors de la sauvegarde'));
         } finally {
             setSaving(false);
         }

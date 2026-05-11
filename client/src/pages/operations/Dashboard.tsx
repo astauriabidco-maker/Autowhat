@@ -5,9 +5,9 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
     BarChart3, CalendarClock, AlertTriangle, CheckCircle2, Clock, Users,
-    TrendingUp, Zap, PenTool, ArrowRight, Send, Bell, RefreshCw,
-    Timer, Target, ChevronRight, Building2, User, MapPin, SquareStack,
-    Filter, MessageCircle, Check, Download
+    TrendingUp, Zap, PenTool, ArrowRight, Bell, RefreshCw,
+    Timer, Target, Building2, SquareStack,
+    MessageCircle
 } from 'lucide-react';
 
 interface DashboardData {

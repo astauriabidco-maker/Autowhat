@@ -412,7 +412,7 @@ export default function Documents() {
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center justify-center gap-2">
                                                         <a
-                                                            href={doc.url.startsWith('http') ? doc.url : `http://localhost:3000${doc.url}`}
+                                                            href={doc.url}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"

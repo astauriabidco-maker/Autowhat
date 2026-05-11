@@ -9,11 +9,10 @@ import {
 import { useVisitor } from '../../context/VisitorContext';
 import {
     getHeroImage,
-    getHeroTitleKey,
-    HERO_SUBTITLES
+    getHeroTitleKey
 } from '../../config/landingVariants';
 import { useState, useEffect } from 'react';
-import { Camera, FileText, Wrench, Clock as ClockIcon, Shield, ArrowRightLeft, CheckCircle2 } from 'lucide-react';
+import { FileText, Clock as ClockIcon, ArrowRightLeft, CheckCircle2 } from 'lucide-react';
 
 export default function HeroSection() {
     const navigate = useNavigate();
@@ -23,9 +22,6 @@ export default function HeroSection() {
     // Get dynamic content based on visitor context
     const heroImageSrc = getHeroImage(countryCode, zone);
     const titleKey = getHeroTitleKey(trafficSource);
-    const subtitleKey = trafficSource && HERO_SUBTITLES[trafficSource]
-        ? HERO_SUBTITLES[trafficSource].key
-        : HERO_SUBTITLES.default.key;
 
     // Mobile vs Desktop layout adjustments
     const isMobile = deviceType === 'mobile';
@@ -84,14 +80,15 @@ export default function HeroSection() {
             color: '#8b5cf6'
         }
     ];
+    const slideCount = SLIDES.length;
 
     useEffect(() => {
         if (isHovered) return;
         const timer = setInterval(() => {
-            setCurrentSlide((prev) => (prev + 1) % SLIDES.length);
+            setCurrentSlide((prev) => (prev + 1) % slideCount);
         }, 8500);
         return () => clearInterval(timer);
-    }, [isHovered]);
+    }, [isHovered, slideCount]);
 
     return (
         <section style={{
@@ -253,7 +250,7 @@ export default function HeroSection() {
                             {t('landing.hero.demo')}
                         </a>
                         <button
-                            onClick={() => navigate('/register')}
+                            onClick={() => navigate('/onboarding')}
                             style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -279,7 +276,7 @@ export default function HeroSection() {
                                 e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
                             }}
                         >
-                            Démarrer gratuitement
+                            Créer mon environnement
                         </button>
                     </div>
 

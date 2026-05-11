@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, Lock, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { getErrorMessage } from '../utils/errors';
 
 export default function ResetPassword() {
     const [searchParams] = useSearchParams();
@@ -42,8 +43,8 @@ export default function ResetPassword() {
             setSuccess(true);
             // Redirect to login after 3 seconds
             setTimeout(() => navigate('/login'), 3000);
-        } catch (err: any) {
-            setError(err.response?.data?.error || 'Erreur lors de la réinitialisation');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Erreur lors de la réinitialisation'));
         } finally {
             setLoading(false);
         }

@@ -62,7 +62,7 @@ export default function MapKanban() {
         try {
             const from = `${filterDate}T00:00:00`;
             const to = `${filterDate}T23:59:59`;
-            const params: any = { from, to };
+            const params: { from: string; to: string; employeeId?: string } = { from, to };
             if (filterEmployee) params.employeeId = filterEmployee;
 
             const [intRes, empRes] = await Promise.all([

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Phone, Loader2, MessageCircle, Quote, CheckCircle, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { getErrorMessage, isMaintenanceModeError } from '../utils/errors';
 
 export default function Login() {
     const navigate = useNavigate();
@@ -37,11 +38,11 @@ export default function Login() {
             await axios.post('/auth/request-otp', { phoneNumber });
             setStep(2);
             setCountdown(60);
-        } catch (err: any) {
-            if (err.response?.data?.maintenanceMode) {
+        } catch (err: unknown) {
+            if (isMaintenanceModeError(err)) {
                 setError('🔧 La plateforme est en maintenance. Réessayez dans quelques minutes.');
             } else {
-                setError(err.response?.data?.error || 'Erreur lors de l\'envoi du code');
+                setError(getErrorMessage(err, 'Erreur lors de l\'envoi du code'));
             }
         } finally {
             setLoading(false);
@@ -61,11 +62,11 @@ export default function Login() {
                 phoneNumber,
                 otpCode: code,
             });
-            localStorage.setItem('token', response.data.token);
+            localStorage.setItem('token', 'cookie');
             localStorage.setItem('user', JSON.stringify(response.data.user));
             navigate('/dashboard');
-        } catch (err: any) {
-            setError(err.response?.data?.error || 'Code invalide');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Code invalide'));
             setOtp(['', '', '', '', '', '']);
             setTimeout(() => inputRefs.current[0]?.focus(), 100);
         } finally {
@@ -131,8 +132,8 @@ export default function Login() {
             setCountdown(60);
             setOtp(['', '', '', '', '', '']);
             inputRefs.current[0]?.focus();
-        } catch (err: any) {
-            setError(err.response?.data?.error || 'Erreur lors du renvoi');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Erreur lors du renvoi'));
         } finally {
             setLoading(false);
         }

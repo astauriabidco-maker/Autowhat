@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, User, Phone, Briefcase, Loader2, Building2, Globe } from 'lucide-react';
+import { getErrorMessage } from '../utils/errors';
 
 interface AddEmployeeModalProps {
     isOpen: boolean;
@@ -92,8 +93,8 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
 
             onSuccess();
             onClose();
-        } catch (err: any) {
-            setError(err.message || 'Erreur lors de la création de l\'employé');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Erreur lors de la création de l\'employé'));
         } finally {
             setLoading(false);
         }

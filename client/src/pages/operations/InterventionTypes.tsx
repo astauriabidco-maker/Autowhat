@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
     Wrench, Plus, X, Pencil, Trash2, Archive, Clock, FileText,
-    Shield, Camera, GripVertical, Palette, Zap, Thermometer,
+    Shield, Camera, Palette, Zap, Thermometer,
     Droplets, Hammer, Cog, Truck, Phone, Wifi, Bug, Eye,
-    HardHat, Lightbulb, PaintBucket, Pipette, Plug, Router,
-    Scan, Scissors, ShieldCheck, Shovel, Snowflake, SquareStack,
-    AlertTriangle, CheckCircle2
+    HardHat, Lightbulb, PaintBucket, Plug, Router,
+    Scan, Scissors, ShieldCheck, Snowflake, SquareStack,
+    CheckCircle2
 } from 'lucide-react';
 
 const token = localStorage.getItem('token');

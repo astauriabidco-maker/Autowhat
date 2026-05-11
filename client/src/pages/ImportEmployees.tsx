@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import * as XLSX from 'xlsx';
 import {
     FileSpreadsheet,
     Upload,
@@ -12,6 +11,7 @@ import {
     Loader2,
     FileUp
 } from 'lucide-react';
+import { getErrorMessage } from '../utils/errors';
 
 interface ImportResult {
     imported: number;
@@ -29,42 +29,22 @@ export default function ImportEmployees() {
     const [result, setResult] = useState<ImportResult | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // Generate and download Excel template
+    // Generate and download CSV template
     const downloadTemplate = () => {
-        const templateData = [
-            {
-                FirstName: 'Jean',
-                LastName: 'Dupont',
-                Phone: '0612345678',
-                JobTitle: 'Ouvrier',
-                SiteName: 'Agence Paris',
-                Profile: 'MOBILE'
-            },
-            {
-                FirstName: 'Marie',
-                LastName: 'Martin',
-                Phone: '+33698765432',
-                JobTitle: 'Chef d\'équipe',
-                SiteName: 'Agence Lyon',
-                Profile: 'SEDENTARY'
-            }
-        ];
-
-        const worksheet = XLSX.utils.json_to_sheet(templateData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Employés');
-
-        // Set column widths
-        worksheet['!cols'] = [
-            { wch: 15 },
-            { wch: 15 },
-            { wch: 15 },
-            { wch: 20 },
-            { wch: 20 },
-            { wch: 12 }
-        ];
-
-        XLSX.writeFile(workbook, 'modele_import_employes.xlsx');
+        const csv = [
+            'FirstName;LastName;Phone;JobTitle;SiteName;Profile',
+            'Jean;Dupont;0612345678;Ouvrier;Agence Paris;MOBILE',
+            "Marie;Martin;+33698765432;Chef d'equipe;Agence Lyon;SEDENTARY"
+        ].join('\n');
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'modele_import_employes.csv';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -119,8 +99,8 @@ export default function ImportEmployees() {
             });
 
             setResult(response.data);
-        } catch (err: any) {
-            setError(err.response?.data?.error || 'Erreur lors de l\'import');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Erreur lors de l\'import'));
         } finally {
             setLoading(false);
         }

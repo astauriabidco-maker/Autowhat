@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, User, Mail, Lock, ArrowLeft, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
 
 type Plan = 'TRIAL' | 'PRO' | 'ENTERPRISE';
 
@@ -44,8 +45,8 @@ export default function CreateTenant() {
             setTimeout(() => {
                 navigate(`/superadmin/tenants/${data.tenant.id}`);
             }, 1500);
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Erreur lors de la création'));
         } finally {
             setLoading(false);
         }
