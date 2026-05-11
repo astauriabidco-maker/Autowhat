@@ -5,9 +5,8 @@
  */
 
 import axios from 'axios';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 interface KPaieBalance {
     paid_leave: number;

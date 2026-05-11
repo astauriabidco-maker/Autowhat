@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { sendMessage } from '../services/whatsappService';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * Middleware or inline auth helper for External API Keys

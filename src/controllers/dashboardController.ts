@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { startOfWeek, addDays, format, differenceInMinutes } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import prisma from '../lib/prisma';
+import { signUploadUrlIfNeeded } from '../utils/signedFileUrl';
 
-const prisma = new PrismaClient();
 
 /**
  * Formate une date en heure locale (Europe/Paris)
@@ -109,7 +109,7 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
             checkIn: formatTimeInParis(a.checkIn),
             checkOut: a.checkOut ? formatTimeInParis(a.checkOut) : null,
             status: a.status,
-            photoUrl: a.photoUrl || null,
+            photoUrl: signUploadUrlIfNeeded(a.photoUrl),
             latitude: a.latitude || null,
             longitude: a.longitude || null,
             distanceFromSite: a.distanceFromSite || null,

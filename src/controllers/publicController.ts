@@ -4,10 +4,9 @@
  */
 
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 // Zone mapping : pays → zone tarifaire
 const ZONE_MAPPING: Record<string, string> = {

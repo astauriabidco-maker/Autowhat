@@ -36,6 +36,8 @@ router.post('/auth/forgot-password', authController.forgotPassword);
 router.post('/auth/reset-password', authController.resetPassword);
 router.post('/auth/request-otp', authController.requestOtp);
 router.post('/auth/verify-otp', authController.verifyOtp);
+router.post('/auth/logout', authController.logout);
+router.post('/auth/logout-manager', authController.logoutManager);
 
 // Public Config Routes (No Auth)
 router.get('/api/config/legal', adminController.getLegalContent);
@@ -68,6 +70,8 @@ router.put('/api/expenses/:id', authenticateManager, expenseController.updateExp
 router.patch('/api/expenses/:id/status', authenticateManager, expenseController.updateExpenseStatus);
 
 // Document API Routes (Protected - Manager only)
+router.get('/api/files/:filename', documentController.serveSignedUpload);
+router.get('/api/files/:folder/:filename', documentController.serveSignedUpload);
 router.get('/api/documents', authenticateManager, documentController.getDocuments);
 router.get('/api/documents/employees', authenticateManager, documentController.getEmployees);
 router.post('/api/documents', authenticateManager, documentController.upload.single('file'), documentController.uploadDocumentHandler);
@@ -94,6 +98,16 @@ router.post('/api/user/complete-onboarding', authenticateManager, userController
 router.get('/api/settings', authenticateManager, tenantController.getSettings);
 router.put('/api/settings', authenticateManager, tenantController.updateSettings);
 router.post('/api/settings/logo', authenticateManager, importController.upload.single('logo'), tenantController.uploadLogo);
+
+// Outgoing Webhooks (Protected - Manager only, tenant-scoped)
+import * as webhookConfigController from '../controllers/webhookConfigController';
+router.get('/api/admin/webhooks', authenticateManager, webhookConfigController.getWebhooks);
+router.get('/api/admin/webhooks/events', authenticateManager, webhookConfigController.getWebhookEvents);
+router.get('/api/admin/webhooks/:id', authenticateManager, webhookConfigController.getWebhook);
+router.post('/api/admin/webhooks', authenticateManager, webhookConfigController.createWebhook);
+router.put('/api/admin/webhooks/:id', authenticateManager, webhookConfigController.updateWebhook);
+router.delete('/api/admin/webhooks/:id', authenticateManager, webhookConfigController.deleteWebhook);
+router.post('/api/admin/webhooks/:id/test', authenticateManager, webhookConfigController.testWebhookEndpoint);
 
 // Import API Routes (Protected - Manager only)
 router.get('/api/import/template', authenticateManager, importController.downloadTemplate);
@@ -213,7 +227,6 @@ router.put('/admin/pricing/regional', authenticateSuperAdmin, regionalPricingCon
 router.delete('/admin/pricing/regional/:id', authenticateSuperAdmin, regionalPricingController.deleteRegionalPricing);
 
 // Outgoing Webhooks
-import * as webhookConfigController from '../controllers/webhookConfigController';
 router.get('/admin/webhooks', authenticateSuperAdmin, webhookConfigController.getWebhooks);
 router.get('/admin/webhooks/events', authenticateSuperAdmin, webhookConfigController.getWebhookEvents);
 router.get('/admin/webhooks/:id', authenticateSuperAdmin, webhookConfigController.getWebhook);
@@ -245,8 +258,8 @@ router.post('/admin/queue/pause', authenticateSuperAdmin, queueController.pause)
 router.post('/admin/queue/resume', authenticateSuperAdmin, queueController.resume);
 
 
-// Debug Routes
-router.use('/debug', debugRoutes);
+// Debug Routes (protected to avoid exposing operational tools publicly)
+router.use('/debug', authenticateSuperAdmin, debugRoutes);
 
 // =============================================
 // FIELD SERVICE MANAGEMENT (FSM) Routes

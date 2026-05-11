@@ -1,8 +1,7 @@
-import { PrismaClient } from '@prisma/client';
 import { startOfWeek, format, subDays, differenceInMinutes } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 interface WeeklySummary {
     totalHours: number;

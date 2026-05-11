@@ -1,7 +1,8 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { dispatchWebhook, WEBHOOK_EVENTS } from './webhookService';
+import prisma from '../lib/prisma';
+import { absoluteSignedUploadUrlIfNeeded } from '../utils/signedFileUrl';
 
-const prisma = new PrismaClient();
 
 // Expense categories
 export const EXPENSE_CATEGORIES = {
@@ -10,6 +11,10 @@ export const EXPENSE_CATEGORIES = {
     HOTEL: '🏨 Hôtel',
     MATERIEL: '🛠️ Matériel'
 };
+
+function getBackendBaseUrl(): string {
+    return process.env.BACKEND_URL || process.env.BASE_URL || process.env.APP_URL || 'http://localhost:3000';
+}
 
 /**
  * Update employee's conversation state and temporary data
@@ -95,7 +100,7 @@ export async function createExpense(
         employeeId: expense.employeeId,
         employeeName: expense.employee.name,
         employeePhone: expense.employee.phoneNumber,
-        photoUrl: expense.photoUrl,
+        photoUrl: absoluteSignedUploadUrlIfNeeded(getBackendBaseUrl(), expense.photoUrl, 60 * 60),
         status: expense.status
     }, tenantId);
 

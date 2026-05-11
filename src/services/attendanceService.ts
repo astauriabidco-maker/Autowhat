@@ -1,7 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { dispatchWebhook, WEBHOOK_EVENTS } from './webhookService';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 // Type pour l'employé retourné par authService
 interface Employee {

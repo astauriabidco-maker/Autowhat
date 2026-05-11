@@ -4,10 +4,9 @@
  */
 
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { deflectSupportTicketViaRAG } from '../services/aiAgentService';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * POST /api/tickets
@@ -15,9 +14,13 @@ const prisma = new PrismaClient();
  */
 export const createTicket = async (req: Request, res: Response): Promise<any> => {
     try {
-        const managerId = (req as any).managerId;
-        const tenantId = (req as any).tenantId;
+        const managerId = req.user?.userId;
+        const tenantId = req.user?.tenantId;
         const { subject, priority, message } = req.body;
+
+        if (!managerId || !tenantId) {
+            return res.status(401).json({ error: 'Non autorisé' });
+        }
 
         if (!subject || !message) {
             return res.status(400).json({ error: 'Subject and message are required' });
@@ -86,7 +89,10 @@ export const createTicket = async (req: Request, res: Response): Promise<any> =>
  */
 export const getTickets = async (req: Request, res: Response): Promise<any> => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
+        if (!tenantId) {
+            return res.status(401).json({ error: 'Non autorisé' });
+        }
 
         const tickets = await prisma.ticket.findMany({
             where: { tenantId },
@@ -110,8 +116,12 @@ export const getTickets = async (req: Request, res: Response): Promise<any> => {
  */
 export const getTicket = async (req: Request, res: Response): Promise<any> => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
         const id = req.params.id as string;
+
+        if (!tenantId) {
+            return res.status(401).json({ error: 'Non autorisé' });
+        }
 
         const ticket = await prisma.ticket.findFirst({
             where: { id, tenantId },
@@ -138,10 +148,14 @@ export const getTicket = async (req: Request, res: Response): Promise<any> => {
  */
 export const replyToTicket = async (req: Request, res: Response): Promise<any> => {
     try {
-        const managerId = (req as any).managerId;
-        const tenantId = (req as any).tenantId;
+        const managerId = req.user?.userId;
+        const tenantId = req.user?.tenantId;
         const id = req.params.id as string;
         const { message } = req.body;
+
+        if (!managerId || !tenantId) {
+            return res.status(401).json({ error: 'Non autorisé' });
+        }
 
         if (!message) {
             return res.status(400).json({ error: 'Message is required' });

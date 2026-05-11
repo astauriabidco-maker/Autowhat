@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 // Initialize Stripe only if key is configured
 const stripe = process.env.STRIPE_SECRET_KEY

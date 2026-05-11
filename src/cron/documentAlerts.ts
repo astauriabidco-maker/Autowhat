@@ -4,12 +4,11 @@
  * and sends email notifications to managers
  */
 
-import { PrismaClient } from '@prisma/client';
 import { getExpiringDocuments, getExpiredDocuments } from '../services/documentService';
 import { differenceInDays, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 interface DocumentAlert {
     documentName: string;

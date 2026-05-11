@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { MANAGER_AUTH_COOKIE } from '../utils/authCookies';
 
 // Extend Express Request type
 declare global {
@@ -14,7 +15,13 @@ declare global {
     }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = (() => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        throw new Error('JWT_SECRET is not defined in environment variables');
+    }
+    return secret;
+})();
 
 /**
  * Middleware to authenticate Manager requests using JWT Bearer Token.
@@ -22,13 +29,15 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
  */
 export const authenticateManager = (req: Request, res: Response, next: NextFunction): void => {
     const authHeader = req.headers.authorization;
+    const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : undefined;
+    const token = headerToken && !['cookie', 'null', 'undefined'].includes(headerToken)
+        ? headerToken
+        : req.cookies?.[MANAGER_AUTH_COOKIE];
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!token) {
         res.status(401).json({ error: 'Token manquant ou format invalide' });
         return;
     }
-
-    const token = authHeader.split(' ')[1];
 
     try {
         const decoded = jwt.verify(token, JWT_SECRET) as {

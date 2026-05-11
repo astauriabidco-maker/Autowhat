@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * GET /api/sites
@@ -9,7 +8,10 @@ const prisma = new PrismaClient();
  */
 export const getSites = async (req: Request, res: Response) => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
+        if (!tenantId) {
+            return res.status(401).json({ error: 'Non autorisé - tenantId manquant' });
+        }
 
         const sites = await prisma.site.findMany({
             where: { tenantId },
@@ -36,8 +38,12 @@ export const getSites = async (req: Request, res: Response) => {
  */
 export const createSite = async (req: Request, res: Response) => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
         const { name, address, latitude, longitude } = req.body;
+
+        if (!tenantId) {
+            return res.status(401).json({ error: 'Non autorisé - tenantId manquant' });
+        }
 
         if (!name) {
             return res.status(400).json({ error: 'Le nom du site est requis' });
@@ -66,9 +72,13 @@ export const createSite = async (req: Request, res: Response) => {
  */
 export const updateSite = async (req: Request, res: Response) => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
         const id = req.params.id as string;
         const { name, address, latitude, longitude, radius } = req.body;
+
+        if (!tenantId) {
+            return res.status(401).json({ error: 'Non autorisé - tenantId manquant' });
+        }
 
         // Vérifier que le site appartient au tenant
         const existingSite = await prisma.site.findFirst({
@@ -103,8 +113,12 @@ export const updateSite = async (req: Request, res: Response) => {
  */
 export const deleteSite = async (req: Request, res: Response) => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
         const id = req.params.id as string;
+
+        if (!tenantId) {
+            return res.status(401).json({ error: 'Non autorisé - tenantId manquant' });
+        }
 
         // Vérifier que le site appartient au tenant
         const existingSite = await prisma.site.findFirst({

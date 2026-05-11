@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { signUploadUrlIfNeeded } from '../utils/signedFileUrl';
 import crypto from 'crypto';
 
 // =============================================
@@ -529,7 +530,13 @@ export const getInterventions = async (req: Request, res: Response) => {
             orderBy: { scheduledStart: 'asc' },
         });
 
-        res.json(interventions);
+        res.json(interventions.map(intervention => ({
+            ...intervention,
+            signatureUrl: signUploadUrlIfNeeded(intervention.signatureUrl),
+            reportPhotos: Array.isArray(intervention.reportPhotos)
+                ? intervention.reportPhotos.map((url: unknown) => typeof url === 'string' ? signUploadUrlIfNeeded(url) : url)
+                : intervention.reportPhotos
+        })));
     } catch (error) {
         console.error('Error fetching interventions:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -709,12 +716,16 @@ export const getInterventionByToken = async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Intervention already completed and signed' });
         }
 
+        const reportPhotos = Array.isArray(intervention.reportPhotos)
+            ? intervention.reportPhotos.map((url: unknown) => typeof url === 'string' ? signUploadUrlIfNeeded(url) : url)
+            : intervention.reportPhotos;
+
         res.json({
             id: intervention.id,
             title: intervention.title,
             description: intervention.description,
             reportContent: intervention.reportContent,
-            reportPhotos: intervention.reportPhotos,
+            reportPhotos,
             scheduledStart: intervention.scheduledStart,
             scheduledEnd: intervention.scheduledEnd,
             realStart: intervention.realStart,

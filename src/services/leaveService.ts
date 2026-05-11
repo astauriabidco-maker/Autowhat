@@ -1,7 +1,7 @@
-import { PrismaClient, Employee, LeaveRequest } from '@prisma/client';
+import { Employee, LeaveRequest } from '@prisma/client';
 import { dispatchWebhook, WEBHOOK_EVENTS } from './webhookService';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * Result of a leave request creation

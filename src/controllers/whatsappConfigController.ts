@@ -11,9 +11,8 @@ import {
     toggleWhatsAppConfig
 } from '../services/whatsappConfigService';
 import { testConnection } from '../services/whatsappService';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * Get current WhatsApp config for tenant (token masked)

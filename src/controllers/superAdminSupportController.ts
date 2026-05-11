@@ -4,10 +4,9 @@
  */
 
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { sendTicketReplyEmail } from '../services/emailService';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * GET /admin/tickets
@@ -79,9 +78,13 @@ export const getTicketDetails = async (req: Request, res: Response): Promise<any
  */
 export const adminReply = async (req: Request, res: Response): Promise<any> => {
     try {
-        const adminId = (req as any).superAdminId;
+        const adminId = req.superAdmin?.id;
         const id = req.params.id as string;
         const { message, markResolved } = req.body;
+
+        if (!adminId) {
+            return res.status(401).json({ error: 'Non autorisé' });
+        }
 
         if (!message) {
             return res.status(400).json({ error: 'Message is required' });

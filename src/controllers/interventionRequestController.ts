@@ -6,6 +6,14 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import crypto from 'crypto';
+import { signUploadUrlIfNeeded } from '../utils/signedFileUrl';
+
+function withSignedPhoto<T extends { photoUrl?: string | null }>(request: T): T {
+    return {
+        ...request,
+        photoUrl: signUploadUrlIfNeeded(request.photoUrl)
+    };
+}
 
 // ─── LIST ────────────────────────────────────────────────────────────────────
 /** GET /api/intervention-requests */
@@ -32,7 +40,7 @@ export const listRequests = async (req: Request, res: Response) => {
             ],
         });
 
-        res.json(requests);
+        res.json(requests.map(withSignedPhoto));
     } catch (error) {
         console.error('Error listing intervention requests:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -57,7 +65,7 @@ export const getRequest = async (req: Request, res: Response) => {
         });
 
         if (!request) return res.status(404).json({ error: 'Request not found' });
-        res.json(request);
+        res.json(withSignedPhoto(request));
     } catch (error) {
         console.error('Error getting intervention request:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -93,7 +101,7 @@ export const updateRequest = async (req: Request, res: Response) => {
             },
         });
 
-        res.json(updated);
+        res.json(withSignedPhoto(updated));
     } catch (error) {
         console.error('Error updating intervention request:', error);
         res.status(500).json({ error: 'Internal server error' });

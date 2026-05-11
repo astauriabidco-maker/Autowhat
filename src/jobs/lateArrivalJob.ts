@@ -1,8 +1,7 @@
 import cron from 'node-cron';
-import { PrismaClient } from '@prisma/client';
 import { sendMessage } from '../services/whatsappService';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * Core logic to scan for missing attendance and notify managers

@@ -1,10 +1,16 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import prisma from '../lib/prisma';
+import { setManagerAuthCookie, setSuperAdminAuthCookie } from '../utils/authCookies';
 
-const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = (() => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        throw new Error('JWT_SECRET is not defined in environment variables');
+    }
+    return secret;
+})();
 const JWT_EXPIRES_IN = '24h';
 
 // Pricing configuration (module-level for reuse)
@@ -51,6 +57,8 @@ export const adminLogin = async (req: Request, res: Response): Promise<void> => 
             JWT_SECRET,
             { expiresIn: JWT_EXPIRES_IN }
         );
+
+        setSuperAdminAuthCookie(res, token);
 
         res.status(200).json({
             message: 'Connexion réussie',
@@ -578,6 +586,8 @@ export const impersonateTenant = async (req: Request, res: Response): Promise<vo
             JWT_SECRET,
             { expiresIn: '2h' } // Shorter expiry for security
         );
+
+        setManagerAuthCookie(res, impersonationToken);
 
         console.log(`🕵️ IMPERSONATION: SuperAdmin ${superAdmin.email} -> ${tenant.name} (${admin.name})`);
 

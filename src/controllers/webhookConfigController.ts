@@ -4,11 +4,10 @@
  */
 
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
 import { WEBHOOK_EVENTS, testWebhook } from '../services/webhookService';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * GET /admin/webhooks
@@ -16,8 +15,8 @@ const prisma = new PrismaClient();
  */
 export const getWebhooks = async (req: Request, res: Response): Promise<any> => {
     try {
-        const isSuperAdmin = !!(req as any).superAdminId;
-        const tenantId = (req as any).tenantId;
+        const isSuperAdmin = !!req.superAdmin;
+        const tenantId = req.user?.tenantId;
 
         const webhooks = await prisma.webhookConfig.findMany({
             where: isSuperAdmin
@@ -43,9 +42,11 @@ export const getWebhooks = async (req: Request, res: Response): Promise<any> => 
 export const getWebhook = async (req: Request, res: Response): Promise<any> => {
     try {
         const id = req.params.id as string;
+        const isSuperAdmin = !!req.superAdmin;
+        const tenantId = req.user?.tenantId;
 
-        const webhook = await prisma.webhookConfig.findUnique({
-            where: { id },
+        const webhook = await prisma.webhookConfig.findFirst({
+            where: isSuperAdmin ? { id } : { id, tenantId },
             include: {
                 logs: {
                     orderBy: { createdAt: 'desc' },
@@ -72,7 +73,12 @@ export const getWebhook = async (req: Request, res: Response): Promise<any> => {
 export const createWebhook = async (req: Request, res: Response): Promise<any> => {
     try {
         const { name, url, events, tenantId, generateSecret, payloadMapping, httpMethod, headers } = req.body;
-        const isSuperAdmin = !!(req as any).superAdminId;
+        const isSuperAdmin = !!req.superAdmin;
+        const managerTenantId = req.user?.tenantId;
+
+        if (!isSuperAdmin && !managerTenantId) {
+            return res.status(401).json({ error: 'Non autorisé' });
+        }
 
         // Validation
         if (!name || !url || !events || !Array.isArray(events)) {
@@ -108,7 +114,7 @@ export const createWebhook = async (req: Request, res: Response): Promise<any> =
                 url,
                 secret,
                 events,
-                tenantId: isSuperAdmin ? (tenantId || null) : (req as any).tenantId,
+                tenantId: isSuperAdmin ? (tenantId || null) : managerTenantId,
                 isActive: true,
                 payloadMapping: payloadMapping || undefined,
                 httpMethod: httpMethod || 'POST',
@@ -137,8 +143,12 @@ export const updateWebhook = async (req: Request, res: Response): Promise<any> =
     try {
         const id = req.params.id as string;
         const { name, url, events, isActive, regenerateSecret, payloadMapping, httpMethod, headers } = req.body;
+        const isSuperAdmin = !!req.superAdmin;
+        const tenantId = req.user?.tenantId;
 
-        const existing = await prisma.webhookConfig.findUnique({ where: { id } });
+        const existing = await prisma.webhookConfig.findFirst({
+            where: isSuperAdmin ? { id } : { id, tenantId }
+        });
         if (!existing) {
             return res.status(404).json({ error: 'Webhook not found' });
         }
@@ -198,8 +208,12 @@ export const updateWebhook = async (req: Request, res: Response): Promise<any> =
 export const deleteWebhook = async (req: Request, res: Response): Promise<any> => {
     try {
         const id = req.params.id as string;
+        const isSuperAdmin = !!req.superAdmin;
+        const tenantId = req.user?.tenantId;
 
-        const existing = await prisma.webhookConfig.findUnique({ where: { id } });
+        const existing = await prisma.webhookConfig.findFirst({
+            where: isSuperAdmin ? { id } : { id, tenantId }
+        });
         if (!existing) {
             return res.status(404).json({ error: 'Webhook not found' });
         }
@@ -222,6 +236,16 @@ export const deleteWebhook = async (req: Request, res: Response): Promise<any> =
 export const testWebhookEndpoint = async (req: Request, res: Response): Promise<any> => {
     try {
         const id = req.params.id as string;
+        const isSuperAdmin = !!req.superAdmin;
+        const tenantId = req.user?.tenantId;
+
+        const existing = await prisma.webhookConfig.findFirst({
+            where: isSuperAdmin ? { id } : { id, tenantId },
+            select: { id: true }
+        });
+        if (!existing) {
+            return res.status(404).json({ error: 'Webhook not found' });
+        }
 
         const result = await testWebhook(id);
 

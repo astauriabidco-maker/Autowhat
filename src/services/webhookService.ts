@@ -3,10 +3,9 @@
  * Dispatches events to configured webhook endpoints
  */
 
-import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 // Supported webhook event types
 export const WEBHOOK_EVENTS = {

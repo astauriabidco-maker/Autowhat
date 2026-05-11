@@ -6,11 +6,10 @@
  */
 
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { getPurgeEstimate, triggerManualPurge } from '../modules/privacy/retentionJob';
 import { getAnonymizationPreview } from '../modules/privacy/anonymizer';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * GET /api/privacy/settings
@@ -18,7 +17,7 @@ const prisma = new PrismaClient();
  */
 export const getPrivacySettings = async (req: Request, res: Response): Promise<void> => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
 
         if (!tenantId) {
             res.status(401).json({ error: 'Tenant non authentifié' });
@@ -52,7 +51,7 @@ export const getPrivacySettings = async (req: Request, res: Response): Promise<v
  */
 export const updatePrivacySettings = async (req: Request, res: Response): Promise<void> => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
 
         if (!tenantId) {
             res.status(401).json({ error: 'Tenant non authentifié' });
@@ -95,7 +94,7 @@ export const updatePrivacySettings = async (req: Request, res: Response): Promis
  */
 export const getPurgeEstimateHandler = async (req: Request, res: Response): Promise<void> => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
 
         if (!tenantId) {
             res.status(401).json({ error: 'Tenant non authentifié' });
@@ -157,7 +156,7 @@ export const getAnonymizationPreviewHandler = async (req: Request, res: Response
  */
 export const triggerPurge = async (req: Request, res: Response): Promise<void> => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
 
         if (!tenantId) {
             res.status(401).json({ error: 'Tenant non authentifié' });

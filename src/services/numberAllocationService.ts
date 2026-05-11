@@ -5,10 +5,10 @@
  * Implements load balancing across the number pool with country-based routing.
  */
 
-import { PrismaClient, SystemPhoneNumber } from '@prisma/client';
+import { SystemPhoneNumber } from '@prisma/client';
 import axios from 'axios';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * Assigns a system phone number to a tenant based on their country.

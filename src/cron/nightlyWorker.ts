@@ -1,10 +1,9 @@
 import cron from 'node-cron';
 import fs from 'fs';
 import path from 'path';
-import { PrismaClient } from '@prisma/client';
 import { sendMessage } from '../services/whatsappService';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 const RETENTION_HOURS = 24; // 24h grace period for external APIs to download the file before RGPD wipe

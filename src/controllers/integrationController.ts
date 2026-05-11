@@ -4,10 +4,9 @@
  * SECURITY: Never returns raw secret values - only masked previews.
  */
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { encrypt, decrypt } from '../utils/crypto';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 // Define known providers and their expected keys
 const PROVIDER_DEFINITIONS: Record<string, { name: string; icon: string; keys: string[] }> = {

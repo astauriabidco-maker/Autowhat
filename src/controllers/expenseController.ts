@@ -1,10 +1,14 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { sendMessage } from '../services/whatsappService';
 import { EXPENSE_CATEGORIES } from '../services/expenseService';
 import { dispatchWebhook, WEBHOOK_EVENTS } from '../services/webhookService';
+import prisma from '../lib/prisma';
+import { absoluteSignedUploadUrlIfNeeded, signUploadUrlIfNeeded } from '../utils/signedFileUrl';
 
-const prisma = new PrismaClient();
+function getBackendBaseUrl(): string {
+    return process.env.BACKEND_URL || process.env.BASE_URL || process.env.APP_URL || 'http://localhost:3000';
+}
+
 
 /**
  * Get all expenses for the manager's tenant
@@ -45,7 +49,7 @@ export const getExpenses = async (req: Request, res: Response): Promise<any> => 
             amount: exp.amount,
             category: exp.category,
             categoryLabel: EXPENSE_CATEGORIES[exp.category as keyof typeof EXPENSE_CATEGORIES] || exp.category,
-            photoUrl: exp.photoUrl,
+            photoUrl: signUploadUrlIfNeeded(exp.photoUrl),
             status: exp.status,
             employee: {
                 id: exp.employee.id,
@@ -114,7 +118,7 @@ export const updateExpenseStatus = async (req: Request, res: Response): Promise<
                 employeeName: expense.employee.name,
                 employeePhone: expense.employee.phoneNumber,
                 date: expense.date,
-                photoUrl: expense.photoUrl,
+                photoUrl: absoluteSignedUploadUrlIfNeeded(getBackendBaseUrl(), expense.photoUrl, 60 * 60),
                 status: updated.status
             },
             tenantId
@@ -308,7 +312,7 @@ export const getSuperAdminExpenses = async (req: Request, res: Response): Promis
                 amount: e.amount,
                 category: e.category,
                 description: e.description,
-                photoUrl: e.photoUrl,
+                photoUrl: signUploadUrlIfNeeded(e.photoUrl),
                 status: e.status,
                 currency: e.currency,
                 employee: e.employee ? {

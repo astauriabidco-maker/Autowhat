@@ -12,7 +12,7 @@ let redisConnection: IORedis | null = null;
  * Check if Redis is enabled via environment
  */
 export function isRedisEnabled(): boolean {
-    return process.env.USE_REDIS !== 'false';
+    return process.env.USE_REDIS === 'true';
 }
 
 /**

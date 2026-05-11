@@ -1,12 +1,11 @@
 import { Request, Response } from 'express';
 import multer from 'multer';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { parsePhoneNumber, isValidPhoneNumber, CountryCode } from 'libphonenumber-js';
-import { PrismaClient } from '@prisma/client';
 import { sendMessage } from '../services/whatsappService';
 import { getCredentialsForTenant } from '../services/whatsappConfigService';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 // Multer configuration for file uploads
 const storage = multer.memoryStorage();
@@ -43,13 +42,93 @@ interface ImportResult {
     errors: Array<{ row: number; message: string }>;
 }
 
+const IMPORT_HEADERS: Array<keyof ImportRow> = ['FirstName', 'LastName', 'Phone', 'JobTitle', 'SiteName', 'Profile'];
+
+async function parseImportRows(file: Express.Multer.File): Promise<ImportRow[]> {
+    const filename = file.originalname.toLowerCase();
+
+    if (filename.endsWith('.csv') || file.mimetype === 'text/csv') {
+        return parseCsvRows(file.buffer.toString('utf8'));
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(file.buffer as any);
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet) return [];
+
+    const headerRow = worksheet.getRow(1);
+    const headers = headerRow.values as Array<string | undefined>;
+    const rows: ImportRow[] = [];
+
+    worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        const item: ImportRow = {};
+        headers.forEach((header, index) => {
+            if (!header || !IMPORT_HEADERS.includes(header as keyof ImportRow)) return;
+            const value = row.getCell(index).text;
+            item[header as keyof ImportRow] = value;
+        });
+        if (Object.values(item).some(Boolean)) rows.push(item);
+    });
+
+    return rows;
+}
+
+function parseCsvRows(content: string): ImportRow[] {
+    const lines = content.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim());
+    const [headerLine, ...dataLines] = lines;
+    if (!headerLine) return [];
+
+    const delimiter = headerLine.includes(';') ? ';' : ',';
+    const headers = splitCsvLine(headerLine, delimiter);
+
+    return dataLines.map(line => {
+        const values = splitCsvLine(line, delimiter);
+        const row: ImportRow = {};
+        headers.forEach((header, index) => {
+            if (!IMPORT_HEADERS.includes(header as keyof ImportRow)) return;
+            row[header as keyof ImportRow] = values[index] || '';
+        });
+        return row;
+    });
+}
+
+function splitCsvLine(line: string, delimiter: string): string[] {
+    const values: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const next = line[i + 1];
+        if (char === '"' && next === '"') {
+            current += '"';
+            i++;
+        } else if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === delimiter && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    values.push(current.trim());
+    return values;
+}
+
 /**
  * POST /api/import/employees
  * Import employees from Excel/CSV file with auto-site creation
  */
 export const importEmployees = async (req: Request, res: Response): Promise<void> => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
+
+        if (!tenantId) {
+            res.status(401).json({ error: 'Non autorisé' });
+            return;
+        }
 
         if (!req.file) {
             res.status(400).json({ error: 'Aucun fichier fourni' });
@@ -72,11 +151,7 @@ export const importEmployees = async (req: Request, res: Response): Promise<void
         // Get WhatsApp credentials once before the loop (for auto-onboarding messages)
         const tenantCredentials = await getCredentialsForTenant(tenantId);
 
-        // Parse the file
-        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const rows: ImportRow[] = XLSX.utils.sheet_to_json(worksheet);
+        const rows = await parseImportRows(req.file);
 
         if (rows.length === 0) {
             res.status(400).json({ error: 'Le fichier est vide' });
@@ -262,21 +337,19 @@ export const downloadTemplate = async (req: Request, res: Response): Promise<voi
             }
         ];
 
-        const worksheet = XLSX.utils.json_to_sheet(templateData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Employés');
-
-        // Set column widths
-        worksheet['!cols'] = [
-            { wch: 15 }, // FirstName
-            { wch: 15 }, // LastName
-            { wch: 15 }, // Phone
-            { wch: 20 }, // JobTitle
-            { wch: 20 }, // SiteName
-            { wch: 12 }  // Profile
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Employés');
+        worksheet.columns = [
+            { header: 'FirstName', key: 'FirstName', width: 15 },
+            { header: 'LastName', key: 'LastName', width: 15 },
+            { header: 'Phone', key: 'Phone', width: 15 },
+            { header: 'JobTitle', key: 'JobTitle', width: 20 },
+            { header: 'SiteName', key: 'SiteName', width: 20 },
+            { header: 'Profile', key: 'Profile', width: 12 }
         ];
+        worksheet.addRows(templateData);
 
-        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        const buffer = await workbook.xlsx.writeBuffer();
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', 'attachment; filename=modele_import_employes.xlsx');

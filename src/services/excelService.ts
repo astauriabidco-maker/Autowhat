@@ -1,8 +1,7 @@
 import ExcelJS from 'exceljs';
-import { PrismaClient } from '@prisma/client';
 import { Response } from 'express';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * Format date in Paris timezone

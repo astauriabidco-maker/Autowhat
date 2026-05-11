@@ -3,9 +3,9 @@
  * Vérifie la conformité de localisation selon le profil de l'employé
  */
 
-import { PrismaClient, Employee, Site } from '@prisma/client';
+import { Employee, Site } from '@prisma/client';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 interface LocationComplianceResult {
     isCompliant: boolean;

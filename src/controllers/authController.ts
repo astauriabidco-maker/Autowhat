@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -8,9 +7,16 @@ import { sendWelcomeEmail, sendPasswordResetEmail } from '../services/emailServi
 import { assignNumberToTenant } from '../services/numberAllocationService';
 import { sendMessage } from '../services/whatsappService';
 import { getDefaultConfig } from '../services/whatsappConfigService';
+import prisma from '../lib/prisma';
+import { clearAuthCookies, clearManagerAuthCookie, setManagerAuthCookie, setSuperAdminAuthCookie } from '../utils/authCookies';
 
-const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = (() => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        throw new Error('JWT_SECRET is not defined in environment variables');
+    }
+    return secret;
+})();
 const JWT_EXPIRES_IN = '24h';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5174';
 
@@ -55,13 +61,16 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
             const token = jwt.sign(
                 {
-                    userId: superAdmin.id,
-                    role: 'SUPERADMIN',
-                    isSuperAdmin: true,
+                    id: superAdmin.id,
+                    email: superAdmin.email,
+                    name: superAdmin.name,
+                    role: 'SUPER_ADMIN',
                 },
                 JWT_SECRET,
                 { expiresIn: JWT_EXPIRES_IN }
             );
+
+            setSuperAdminAuthCookie(res, token);
 
             res.status(200).json({
                 message: 'Connexion réussie',
@@ -69,7 +78,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
                 user: {
                     id: superAdmin.id,
                     name: superAdmin.name,
-                    role: 'SUPERADMIN',
+                    role: 'SUPER_ADMIN',
                 },
             });
             return;
@@ -131,6 +140,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             JWT_SECRET,
             { expiresIn: JWT_EXPIRES_IN }
         );
+
+        setManagerAuthCookie(res, token);
 
         res.status(200).json({
             message: 'Connexion réussie',
@@ -259,6 +270,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
             JWT_SECRET,
             { expiresIn: JWT_EXPIRES_IN }
         );
+
+        setManagerAuthCookie(res, token);
 
         console.log(`✅ New tenant registered: ${companyName} (${industryKey})`);
 
@@ -586,6 +599,8 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
             { expiresIn: JWT_EXPIRES_IN }
         );
 
+        setManagerAuthCookie(res, token);
+
         console.log(`✅ OTP login successful for ${employee.name} (${employee.tenant.name})`);
 
         res.status(200).json({
@@ -602,4 +617,14 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
         console.error('Verify OTP error:', error);
         res.status(500).json({ error: 'Erreur lors de la vérification du code' });
     }
+};
+
+export const logout = async (_req: Request, res: Response): Promise<void> => {
+    clearAuthCookies(res);
+    res.status(200).json({ message: 'Déconnexion réussie' });
+};
+
+export const logoutManager = async (_req: Request, res: Response): Promise<void> => {
+    clearManagerAuthCookie(res);
+    res.status(200).json({ message: 'Session manager fermée' });
 };

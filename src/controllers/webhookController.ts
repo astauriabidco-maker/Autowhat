@@ -12,6 +12,7 @@ import { getDocumentsForEmployee, getDocumentById, formatDocumentListMessage } f
 import { notifyAllManagers } from '../services/notificationService';
 import { getBotMessage, getEmployeeLanguage } from '../config/i18nBot';
 import { dispatchWebhook, WEBHOOK_EVENTS } from '../services/webhookService';
+import { absoluteSignedUploadUrl, absoluteSignedUploadUrlIfNeeded } from '../utils/signedFileUrl';
 
 // Anti-spam cooldown for Magic Link messages (in-memory cache)
 // In production, consider using Redis for persistence across restarts
@@ -890,7 +891,11 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                             employeeId: employee.id,
                                             employeeName: employee.name,
                                             type: 'SICK',
-                                            documentUrl: photoUrl,
+                                            documentUrl: absoluteSignedUploadUrlIfNeeded(
+                                                process.env.BACKEND_URL || process.env.BASE_URL || process.env.APP_URL || 'http://localhost:3000',
+                                                photoUrl,
+                                                60 * 60
+                                            ),
                                             startDate: sickLeave.startDate.toISOString(),
                                             endDate: sickLeave.endDate.toISOString()
                                         }, employee.tenantId);
@@ -1310,7 +1315,7 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                             // Send the document via WhatsApp
                             const baseUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-                            const documentUrl = `${baseUrl}${document.url}`;
+                            const documentUrl = absoluteSignedUploadUrl(baseUrl, document.url, 60 * 60);
 
                             try {
                                 await sendDocument(
@@ -1496,4 +1501,3 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
         return res.sendStatus(500);
     }
 };
-

@@ -3,10 +3,9 @@
  * Retrieves decrypted provider configurations from the Integration vault.
  * Falls back to process.env for backward compatibility.
  */
-import { PrismaClient } from '@prisma/client';
 import { decrypt } from '../utils/crypto';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 // Mapping of provider keys to environment variable names
 const ENV_FALLBACK_MAP: Record<string, Record<string, string>> = {

@@ -12,12 +12,11 @@
  */
 
 import axios from 'axios';
-import { PrismaClient } from '@prisma/client';
 import { WhatsAppCredentials, getDefaultConfig } from './whatsappConfigService';
 import { addToQueue, WhatsAppJob } from './queueService';
 import { isRedisEnabled } from './redisConnection';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 // Type for backward compatibility: accepts either config object or legacy phoneNumberId string
 export type ConfigOrPhoneId = WhatsAppCredentials | string | undefined;

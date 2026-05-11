@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 // Initialize Stripe only if key is configured
 const stripe = process.env.STRIPE_SECRET_KEY
@@ -18,8 +17,13 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5174';
  */
 export const createCheckout = async (req: Request, res: Response): Promise<void> => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
         const { priceId } = req.body;
+
+        if (!tenantId) {
+            res.status(401).json({ error: 'Non autorisé' });
+            return;
+        }
 
         if (!stripe) {
             res.status(500).json({ error: 'Stripe non configuré (STRIPE_SECRET_KEY manquant)' });
@@ -107,7 +111,12 @@ export const createCheckout = async (req: Request, res: Response): Promise<void>
  */
 export const createPortal = async (req: Request, res: Response): Promise<void> => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
+
+        if (!tenantId) {
+            res.status(401).json({ error: 'Non autorisé' });
+            return;
+        }
 
         if (!stripe) {
             res.status(500).json({ error: 'Stripe non configuré' });
@@ -160,7 +169,12 @@ export const createPortal = async (req: Request, res: Response): Promise<void> =
  */
 export const getStatus = async (req: Request, res: Response): Promise<void> => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
+
+        if (!tenantId) {
+            res.status(401).json({ error: 'Non autorisé' });
+            return;
+        }
 
         const tenant = await prisma.tenant.findUnique({
             where: { id: tenantId },
@@ -196,7 +210,12 @@ export const getStatus = async (req: Request, res: Response): Promise<void> => {
  */
 export const getInvoices = async (req: Request, res: Response): Promise<void> => {
     try {
-        const tenantId = (req as any).tenantId;
+        const tenantId = req.user?.tenantId;
+
+        if (!tenantId) {
+            res.status(401).json({ error: 'Non autorisé' });
+            return;
+        }
 
         if (!stripe) {
             res.status(200).json([]); // Return empty if Stripe not configured
@@ -314,4 +333,3 @@ export const getTenantInvoices = async (req: Request, res: Response): Promise<vo
         res.status(500).json({ error: 'Erreur lors de la récupération des factures' });
     }
 };
-

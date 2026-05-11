@@ -4,9 +4,8 @@
  */
 
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 // Liste des pays/zones disponibles
 const AVAILABLE_REGIONS = [

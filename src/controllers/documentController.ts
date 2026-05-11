@@ -2,11 +2,11 @@ import { Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { PrismaClient } from '@prisma/client';
 import { uploadDocument, getDocumentsForTenant, getDocumentsForSpecificEmployee, getEmployeesForTenant, DOCUMENT_TYPES, getExpiryStatus } from '../services/documentService';
 import { sendMessage } from '../services/whatsappService';
+import prisma from '../lib/prisma';
+import { signUploadPath, verifySignedUploadPath } from '../utils/signedFileUrl';
 
-const prisma = new PrismaClient();
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
@@ -39,6 +39,10 @@ export const upload = multer({
     fileFilter,
     limits: { fileSize: 10 * 1024 * 1024 } // 10MB max
 });
+
+function signedDocumentUrl(url: string): string {
+    return signUploadPath(url);
+}
 
 /**
  * Upload a new document and send WhatsApp notification
@@ -109,7 +113,7 @@ export const uploadDocumentHandler = async (req: Request, res: Response): Promis
                 id: document.id,
                 name: document.name,
                 type: document.type,
-                url: document.url,
+                url: signedDocumentUrl(document.url),
                 expiryDate: document.expiryDate,
                 createdAt: document.createdAt
             }
@@ -138,7 +142,7 @@ export const getDocuments = async (req: Request, res: Response): Promise<any> =>
             name: doc.name,
             type: doc.type,
             typeLabel: DOCUMENT_TYPES[doc.type as keyof typeof DOCUMENT_TYPES] || doc.type,
-            url: doc.url,
+            url: signedDocumentUrl(doc.url),
             expiryDate: doc.expiryDate,
             expiryStatus: getExpiryStatus(doc.expiryDate),
             createdAt: doc.createdAt,
@@ -189,7 +193,7 @@ export const getEmployeeDocuments = async (req: Request, res: Response): Promise
             name: doc.name,
             type: doc.type,
             typeLabel: DOCUMENT_TYPES[doc.type as keyof typeof DOCUMENT_TYPES] || doc.type,
-            url: doc.url,
+            url: signedDocumentUrl(doc.url),
             expiryDate: doc.expiryDate,
             expiryStatus: getExpiryStatus(doc.expiryDate),
             createdAt: doc.createdAt
@@ -278,6 +282,38 @@ export const deleteDocument = async (req: Request, res: Response): Promise<any> 
     }
 };
 
+/**
+ * GET /api/files/:filename
+ * GET /api/files/:folder/:filename
+ * Serve an uploaded file only when the URL signature is valid.
+ */
+export const serveSignedUpload = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const rawFolder = req.params.folder;
+        const rawFilename = req.params.filename;
+        const folder = Array.isArray(rawFolder) ? rawFolder[0] : rawFolder;
+        const filename = path.basename(Array.isArray(rawFilename) ? rawFilename[0] : rawFilename);
+        const uploadPath = folder ? `/uploads/${path.basename(folder)}/${filename}` : `/uploads/${filename}`;
+        const expires = Number(req.query.expires);
+        const signature = String(req.query.sig || '');
+
+        if (!verifySignedUploadPath(uploadPath, expires, signature)) {
+            return res.status(403).json({ error: 'Lien expiré ou invalide' });
+        }
+
+        const uploadsRoot = path.join(process.cwd(), 'uploads');
+        const filePath = path.resolve(process.cwd(), uploadPath.replace(/^\//, ''));
+        if (!(filePath === uploadsRoot || filePath.startsWith(uploadsRoot + path.sep)) || !fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'Fichier introuvable' });
+        }
+
+        return res.sendFile(filePath);
+    } catch (error) {
+        console.error('❌ Error serving signed document:', error);
+        return res.status(500).json({ error: 'Erreur serveur' });
+    }
+};
+
 // ==================== SUPER ADMIN ENDPOINTS ====================
 
 /**
@@ -327,7 +363,7 @@ export const getSuperAdminDocuments = async (req: Request, res: Response): Promi
                 name: doc.name,
                 type: doc.type,
                 typeLabel: DOCUMENT_TYPES[doc.type as keyof typeof DOCUMENT_TYPES] || doc.type,
-                url: doc.url,
+                url: signedDocumentUrl(doc.url),
                 expiryDate: doc.expiryDate,
                 expiryStatus: status,
                 createdAt: doc.createdAt,

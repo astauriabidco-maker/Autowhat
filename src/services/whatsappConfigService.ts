@@ -1,11 +1,10 @@
+import prisma from '../lib/prisma';
 /**
  * WhatsApp Config Service
  * Manages BYON (Bring Your Own Number) configurations for enterprise tenants.
  */
 
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
 
 // Interface for WhatsApp API credentials
 export interface WhatsAppCredentials {

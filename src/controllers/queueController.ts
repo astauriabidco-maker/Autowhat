@@ -4,7 +4,6 @@
  */
 
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import {
     getQueueStats,
     pauseQueue,
@@ -12,8 +11,8 @@ import {
     isQueuePaused
 } from '../services/queueService';
 import { isRedisEnabled } from '../services/redisConnection';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * GET /admin/queue/stats

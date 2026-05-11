@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * Update current user preferences (language, etc.)
@@ -9,8 +8,12 @@ const prisma = new PrismaClient();
  */
 export const updateCurrentUser = async (req: Request, res: Response): Promise<any> => {
     try {
-        const managerId = (req as any).managerId;
+        const managerId = req.user?.userId;
         const { language } = req.body;
+
+        if (!managerId) {
+            return res.status(401).json({ error: 'Non autorisé' });
+        }
 
         const updateData: { language?: string } = {};
 
@@ -51,7 +54,11 @@ export const updateCurrentUser = async (req: Request, res: Response): Promise<an
  */
 export const getCurrentUser = async (req: Request, res: Response): Promise<any> => {
     try {
-        const managerId = (req as any).managerId;
+        const managerId = req.user?.userId;
+
+        if (!managerId) {
+            return res.status(401).json({ error: 'Non autorisé' });
+        }
 
         const employee = await prisma.employee.findUnique({
             where: { id: managerId },
@@ -88,7 +95,11 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<any> 
  */
 export const getOnboardingStatus = async (req: Request, res: Response): Promise<any> => {
     try {
-        const managerId = (req as any).managerId;
+        const managerId = req.user?.userId;
+
+        if (!managerId) {
+            return res.status(401).json({ error: 'Non autorisé' });
+        }
 
         const employee = await prisma.employee.findUnique({
             where: { id: managerId },
@@ -133,7 +144,11 @@ export const getOnboardingStatus = async (req: Request, res: Response): Promise<
  */
 export const completeOnboarding = async (req: Request, res: Response): Promise<any> => {
     try {
-        const managerId = (req as any).managerId;
+        const managerId = req.user?.userId;
+
+        if (!managerId) {
+            return res.status(401).json({ error: 'Non autorisé' });
+        }
 
         await prisma.employee.update({
             where: { id: managerId },

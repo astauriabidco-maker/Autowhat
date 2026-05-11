@@ -1,10 +1,9 @@
 import cron from 'node-cron';
-import { PrismaClient } from '@prisma/client';
 import { sendInteractiveButtons } from '../services/whatsappService';
 import { getTenantText } from '../utils/textHelper';
 import { notifyAllManagers } from '../services/notificationService';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * Parse HH:MM time string to hours and minutes

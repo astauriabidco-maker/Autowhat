@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 
 dotenv.config();
@@ -19,25 +20,44 @@ import * as webhookStripe from './controllers/webhookStripe';
 app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), webhookStripe.handleWebhook);
 
 // Middleware de base
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin) || (allowedOrigins.length === 0 && process.env.NODE_ENV !== 'production')) {
+            callback(null, true);
+            return;
+        }
+        callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true
+}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Swagger API Documentation
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-    customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'AutoWhats API Documentation'
-}));
-// Serve OpenAPI JSON spec
-app.get('/api/docs.json', (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.send(swaggerSpec);
-});
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
+    app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+        customCss: '.swagger-ui .topbar { display: none }',
+        customSiteTitle: 'AutoWhats API Documentation'
+    }));
+    // Serve OpenAPI JSON spec
+    app.get('/api/docs.json', (req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.send(swaggerSpec);
+    });
+}
 
-// Static file serving for uploaded photos
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+// Uploaded media is served through short-lived signed URLs under /api/files.
+app.use('/uploads', (_req, res) => {
+    res.status(403).json({ error: 'Direct upload access is forbidden' });
+});
 
 // Health Check (Pour vérifier que le serveur tourne)
 app.get('/api/health', (req, res) => {

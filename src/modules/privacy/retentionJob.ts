@@ -8,9 +8,8 @@
  */
 
 import cron from 'node-cron';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../lib/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * Purge old records for a specific tenant.

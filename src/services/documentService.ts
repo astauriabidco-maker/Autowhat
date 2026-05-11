@@ -1,8 +1,7 @@
-import { PrismaClient } from '@prisma/client';
 import { format, differenceInDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 // Document types for HR documents
 export const DOCUMENT_TYPES = {

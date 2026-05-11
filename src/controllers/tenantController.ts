@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { getTemplate } from '../config/industryTemplates';
+import prisma from '../lib/prisma';
+import { signUploadUrlIfNeeded, uploadPathFromUrl } from '../utils/signedFileUrl';
 
-const prisma = new PrismaClient();
 
 /**
  * Get tenant settings
@@ -26,6 +26,13 @@ export const getSettings = async (req: Request, res: Response): Promise<any> => 
         // Get template defaults for this industry
         const template = getTemplate(tenant.industry);
 
+        const config: Record<string, any> = {
+            ...(tenant.config && typeof tenant.config === 'object' ? tenant.config as Record<string, any> : template.config),
+        };
+        if (typeof config.logoUrl === 'string') {
+            config.logoUrl = signUploadUrlIfNeeded(config.logoUrl);
+        }
+
         return res.json({
             // Basic info
             name: tenant.name,
@@ -42,7 +49,7 @@ export const getSettings = async (req: Request, res: Response): Promise<any> => 
             // Work config
             workStartTime: tenant.workStartTime,
             maxWorkHours: tenant.maxWorkHours,
-            config: tenant.config || template.config,
+            config,
             vocabulary: tenant.vocabulary || template.vocabulary,
 
             // Template defaults for reference
@@ -97,7 +104,7 @@ export const uploadLogo = async (req: Request, res: Response): Promise<any> => {
 
         console.log(`🖼️ Logo mis à jour pour le tenant ${tenantId}`);
 
-        return res.json({ success: true, logoUrl });
+        return res.json({ success: true, logoUrl: signUploadUrlIfNeeded(logoUrl) });
     } catch (error) {
         console.error('❌ Erreur uploadLogo:', error);
         return res.status(500).json({ error: 'Erreur serveur lors de l\'upload' });
@@ -161,7 +168,11 @@ export const updateSettings = async (req: Request, res: Response): Promise<any> 
 
         // Handle config update
         if (config) {
-            updateData.config = config;
+            const nextConfig = { ...config };
+            if (typeof nextConfig.logoUrl === 'string') {
+                nextConfig.logoUrl = uploadPathFromUrl(nextConfig.logoUrl) || nextConfig.logoUrl;
+            }
+            updateData.config = nextConfig;
         }
 
         // Handle vocabulary update
@@ -189,6 +200,13 @@ export const updateSettings = async (req: Request, res: Response): Promise<any> 
         // Get template for response
         const template = getTemplate(updatedTenant.industry);
 
+        const responseConfig: Record<string, any> = {
+            ...(updatedTenant.config && typeof updatedTenant.config === 'object' ? updatedTenant.config as Record<string, any> : template.config),
+        };
+        if (typeof responseConfig.logoUrl === 'string') {
+            responseConfig.logoUrl = signUploadUrlIfNeeded(responseConfig.logoUrl);
+        }
+
         return res.json({
             success: true,
             message: 'Paramètres mis à jour',
@@ -203,7 +221,7 @@ export const updateSettings = async (req: Request, res: Response): Promise<any> 
                 city: updatedTenant.city,
                 workStartTime: updatedTenant.workStartTime,
                 maxWorkHours: updatedTenant.maxWorkHours,
-                config: updatedTenant.config || template.config,
+                config: responseConfig,
                 vocabulary: updatedTenant.vocabulary || template.vocabulary
             }
         });

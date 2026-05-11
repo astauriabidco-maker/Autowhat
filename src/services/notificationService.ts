@@ -1,7 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { sendMessage } from './whatsappService';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 export type NotificationType = 'LATE' | 'ABSENCE' | 'GEOFENCE' | 'EXPENSE';
 

@@ -16,10 +16,12 @@
   "type": "commonjs",
   "dependencies": {
     "@prisma/client": "^6.19.2",
+    "@types/cookie-parser": "^1.4.10",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
     "body-parser": "^2.2.2",
     "bullmq": "^5.67.2",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
@@ -30,12 +32,11 @@
     "libphonenumber-js": "^1.12.35",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
-    "nodemailer": "^7.0.13",
+    "nodemailer": "^8.0.7",
     "pdfkit": "^0.17.2",
     "stripe": "^20.3.0",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1",
-    "xlsx": "^0.18.5"
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -45,7 +46,7 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^25.0.9",
     "@types/node-cron": "^3.0.11",
-    "@types/nodemailer": "^7.0.9",
+    "@types/nodemailer": "^8.0.0",
     "@types/pdfkit": "^0.17.4",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
