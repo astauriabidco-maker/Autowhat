@@ -34,6 +34,7 @@ export const listRequests = async (req: Request, res: Response) => {
                 customerSite: { select: { id: true, name: true, address: true, city: true } },
                 interventionType: { select: { id: true, name: true, color: true } },
                 intervention: { select: { id: true, title: true, status: true, scheduledStart: true } },
+                assignedTo: { select: { id: true, name: true, phoneNumber: true } },
             },
             orderBy: [
                 { status: 'asc' },    // PENDING first

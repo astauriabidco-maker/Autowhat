@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
@@ -6,7 +6,7 @@ import {
     MessageCircle, Search, Check, X, ArrowRight, Clock,
     Building2, User, Phone, AlertTriangle,
     Calendar, ChevronDown, ChevronUp, Trash2, MapPin,
-    Tag, Image,
+    Tag, Image, History, Send, ShieldCheck,
     type LucideIcon
 } from 'lucide-react';
 import { getErrorMessage } from '../../utils/errors';
@@ -30,6 +30,22 @@ interface IntRequest {
     customerSite?: { id: string; name: string; address: string; city: string } | null;
     interventionType?: { id: string; name: string; color: string } | null;
     intervention?: { id: string; title: string; status: string; scheduledStart: string } | null;
+    assignedToId?: string | null;
+    assignedTo?: { id: string; name: string | null; phoneNumber: string } | null;
+    slaDueAt?: string | null;
+    slaBreachedAt?: string | null;
+    lastInternalCommentAt?: string | null;
+    lastEventAt?: string | null;
+}
+
+interface RequestEvent {
+    id: string;
+    type: string;
+    actorType: string;
+    actorId?: string | null;
+    message?: string | null;
+    metadata?: Record<string, unknown> | null;
+    createdAt: string;
 }
 
 interface Stats {
@@ -51,6 +67,31 @@ const STATUS_CONFIG: Record<string, { bg: string; border: string; text: string; 
     REJECTED: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b', label: 'Refusée', icon: X },
 };
 
+const EVENT_LABELS: Record<string, string> = {
+    UPDATED: 'Mise à jour',
+    ASSIGNED: 'Assignation',
+    UNASSIGNED: 'Désassignation',
+    COMMENTED: 'Commentaire',
+    STATUS_CHANGED: 'Statut modifié',
+    SLA_SET: 'SLA défini',
+    SLA_CLEARED: 'SLA retiré',
+};
+
+function toDateTimeLocalValue(value?: string | null) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return format(date, "yyyy-MM-dd'T'HH:mm");
+}
+
+function getSlaLabel(value?: string | null) {
+    if (!value) return 'Aucun SLA défini';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'SLA invalide';
+    const isLate = date.getTime() < Date.now();
+    return `${isLate ? 'En retard depuis' : 'Échéance'} ${format(date, 'dd/MM/yyyy HH:mm')}`;
+}
+
 export default function InterventionRequests() {
     const [searchParams] = useSearchParams();
     const targetRequestId = searchParams.get('request') || searchParams.get('requestId');
@@ -63,6 +104,11 @@ export default function InterventionRequests() {
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [expanded, setExpanded] = useState<string | null>(null);
+    const [eventsByRequest, setEventsByRequest] = useState<Record<string, RequestEvent[]>>({});
+    const [eventsLoadingId, setEventsLoadingId] = useState<string | null>(null);
+    const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+    const [slaDrafts, setSlaDrafts] = useState<Record<string, string>>({});
+    const [savingKey, setSavingKey] = useState<string | null>(null);
 
     // Plan modal
     const [planModal, setPlanModal] = useState<IntRequest | null>(null);
@@ -74,9 +120,9 @@ export default function InterventionRequests() {
     const [rejectReason, setRejectReason] = useState('');
 
     const token = localStorage.getItem('token');
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
-    const fetchAll = async () => {
+    const fetchAll = useCallback(async () => {
         try {
             setLoading(true);
             const [reqRes, statsRes, custRes, empRes, typesRes] = await Promise.all([
@@ -96,9 +142,21 @@ export default function InterventionRequests() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [headers]);
 
-    useEffect(() => { fetchAll(); }, []);
+    const fetchRequestEvents = useCallback(async (reqId: string) => {
+        setEventsLoadingId(reqId);
+        try {
+            const res = await axios.get(`/api/intervention-requests/${reqId}/events`, { headers });
+            setEventsByRequest(prev => ({ ...prev, [reqId]: res.data.events || [] }));
+        } catch (e: unknown) {
+            console.error('Error fetching request events', e);
+        } finally {
+            setEventsLoadingId(current => current === reqId ? null : current);
+        }
+    }, [headers]);
+
+    useEffect(() => { fetchAll(); }, [fetchAll]);
 
     useEffect(() => {
         if (loading || !targetRequestId || requests.length === 0) return;
@@ -109,6 +167,16 @@ export default function InterventionRequests() {
         setFilterStatus('');
         setExpanded(target.id);
     }, [loading, requests, targetRequestId]);
+
+    useEffect(() => {
+        if (!expanded) return;
+        const current = requests.find(req => req.id === expanded);
+        setSlaDrafts(prev => ({
+            ...prev,
+            [expanded]: prev[expanded] ?? toDateTimeLocalValue(current?.slaDueAt),
+        }));
+        fetchRequestEvents(expanded);
+    }, [expanded, fetchRequestEvents, requests]);
 
     useEffect(() => {
         if (loading || !targetRequestId) return;
@@ -194,6 +262,50 @@ export default function InterventionRequests() {
             fetchAll();
         } catch (e: unknown) {
             alert(getErrorMessage(e, 'Erreur'));
+        }
+    };
+
+    const handleAssignOwner = async (reqId: string, employeeId: string) => {
+        setSavingKey(`${reqId}:assignment`);
+        try {
+            await axios.patch(`/api/intervention-requests/${reqId}/assignment`, { employeeId: employeeId || null }, { headers });
+            await fetchAll();
+            await fetchRequestEvents(reqId);
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
+        } finally {
+            setSavingKey(null);
+        }
+    };
+
+    const handleSaveSla = async (reqId: string) => {
+        setSavingKey(`${reqId}:sla`);
+        try {
+            const value = slaDrafts[reqId] || '';
+            await axios.patch(`/api/intervention-requests/${reqId}/sla`, { slaDueAt: value || null }, { headers });
+            await fetchAll();
+            await fetchRequestEvents(reqId);
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
+        } finally {
+            setSavingKey(null);
+        }
+    };
+
+    const handleAddComment = async (reqId: string) => {
+        const message = (commentDrafts[reqId] || '').trim();
+        if (!message) return;
+
+        setSavingKey(`${reqId}:comment`);
+        try {
+            await axios.post(`/api/intervention-requests/${reqId}/comments`, { message }, { headers });
+            setCommentDrafts(prev => ({ ...prev, [reqId]: '' }));
+            await fetchAll();
+            await fetchRequestEvents(reqId);
+        } catch (e: unknown) {
+            alert(getErrorMessage(e, 'Erreur'));
+        } finally {
+            setSavingKey(null);
         }
     };
 
@@ -483,6 +595,126 @@ export default function InterventionRequests() {
                                                     <MapPin size={12} /> {req.customerSite.name} — {req.customerSite.city}
                                                 </span>
                                             )}
+                                        </div>
+
+                                        {/* Internal coordination */}
+                                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-3">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                                                    <ShieldCheck size={13} /> Coordination interne
+                                                </p>
+                                                {req.lastEventAt && (
+                                                    <span className="text-[11px] text-slate-400">
+                                                        Dernière activité {format(new Date(req.lastEventAt), 'dd/MM HH:mm')}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-500 mb-1">Responsable</label>
+                                                    <select
+                                                        value={req.assignedToId || ''}
+                                                        onChange={(e) => handleAssignOwner(req.id, e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-slate-500 focus:border-transparent bg-white"
+                                                        disabled={savingKey === `${req.id}:assignment`}
+                                                    >
+                                                        <option value="">Non assigné</option>
+                                                        {employees.map(employee => (
+                                                            <option key={employee.id} value={employee.id}>
+                                                                {employee.name || employee.phoneNumber}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    {req.assignedTo && (
+                                                        <p className="mt-1 text-xs text-slate-500">
+                                                            Assigné à {req.assignedTo.name || req.assignedTo.phoneNumber}
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-500 mb-1">SLA / échéance interne</label>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="datetime-local"
+                                                            value={slaDrafts[req.id] ?? toDateTimeLocalValue(req.slaDueAt)}
+                                                            onChange={(e) => setSlaDrafts(prev => ({ ...prev, [req.id]: e.target.value }))}
+                                                            className="min-w-0 flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-slate-500 focus:border-transparent bg-white"
+                                                        />
+                                                        <button
+                                                            onClick={() => handleSaveSla(req.id)}
+                                                            disabled={savingKey === `${req.id}:sla`}
+                                                            className="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+                                                        >
+                                                            OK
+                                                        </button>
+                                                    </div>
+                                                    <p className={`mt-1 text-xs ${req.slaDueAt && new Date(req.slaDueAt).getTime() < Date.now() ? 'text-red-600' : 'text-slate-500'}`}>
+                                                        {getSlaLabel(req.slaDueAt)}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-500 mb-1">Commentaire interne</label>
+                                                    <div className="flex gap-2">
+                                                        <textarea
+                                                            value={commentDrafts[req.id] || ''}
+                                                            onChange={(e) => setCommentDrafts(prev => ({ ...prev, [req.id]: e.target.value }))}
+                                                            rows={2}
+                                                            placeholder="Ajouter une note visible uniquement en interne..."
+                                                            className="min-w-0 flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-slate-500 focus:border-transparent resize-none bg-white"
+                                                        />
+                                                        <button
+                                                            onClick={() => handleAddComment(req.id)}
+                                                            disabled={savingKey === `${req.id}:comment` || !(commentDrafts[req.id] || '').trim()}
+                                                            className="self-stretch px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                                                            title="Ajouter le commentaire"
+                                                        >
+                                                            <Send size={16} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <label className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                                                            <History size={12} /> Historique
+                                                        </label>
+                                                        <button
+                                                            onClick={() => fetchRequestEvents(req.id)}
+                                                            className="text-xs text-blue-600 hover:text-blue-700"
+                                                        >
+                                                            Actualiser
+                                                        </button>
+                                                    </div>
+                                                    <div className="max-h-32 overflow-y-auto rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
+                                                        {eventsLoadingId === req.id ? (
+                                                            <div className="p-3 text-xs text-slate-400">Chargement...</div>
+                                                        ) : (eventsByRequest[req.id] || []).length === 0 ? (
+                                                            <div className="p-3 text-xs text-slate-400">Aucun événement interne.</div>
+                                                        ) : (
+                                                            (eventsByRequest[req.id] || []).map(event => (
+                                                                <div key={event.id} className="p-3">
+                                                                    <div className="flex items-center justify-between gap-2">
+                                                                        <span className="text-xs font-semibold text-slate-700">
+                                                                            {EVENT_LABELS[event.type] || event.type}
+                                                                        </span>
+                                                                        <span className="text-[11px] text-slate-400">
+                                                                            {format(new Date(event.createdAt), 'dd/MM HH:mm')}
+                                                                        </span>
+                                                                    </div>
+                                                                    {event.message && (
+                                                                        <p className="mt-1 text-xs text-slate-600 line-clamp-2">{event.message}</p>
+                                                                    )}
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         {/* Intervention link */}
