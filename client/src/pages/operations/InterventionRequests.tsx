@@ -304,12 +304,13 @@ export default function InterventionRequests() {
         }
     };
 
-    const handleSaveSla = async (reqId: string) => {
+    const handleSaveSla = async (reqId: string, valueOverride?: string) => {
         setSavingKey(`${reqId}:sla`);
         try {
-            const value = slaDrafts[reqId] || '';
+            const value = valueOverride ?? slaDrafts[reqId] ?? '';
             const slaDueAt = value ? new Date(value).toISOString() : null;
-            await axios.patch(`/api/intervention-requests/${reqId}/sla`, { slaDueAt }, { headers });
+            const res = await axios.patch(`/api/intervention-requests/${reqId}/sla`, { slaDueAt }, { headers });
+            setSlaDrafts(prev => ({ ...prev, [reqId]: toDateTimeLocalValue(res.data.slaDueAt) }));
             await fetchAll();
             await fetchRequestEvents(reqId);
         } catch (e: unknown) {
@@ -674,23 +675,26 @@ export default function InterventionRequests() {
                                                     )}
                                                 </div>
 
-	                                                <div>
-	                                                    <label htmlFor={`request-sla-${req.id}`} className="block text-xs font-medium text-gray-500 mb-1">SLA / échéance interne</label>
-	                                                    <div className="flex gap-2">
-	                                                        <input
-	                                                            id={`request-sla-${req.id}`}
-	                                                            type="datetime-local"
-	                                                            value={slaDrafts[req.id] ?? toDateTimeLocalValue(req.slaDueAt)}
+                                                <div>
+                                                    <label htmlFor={`request-sla-${req.id}`} className="block text-xs font-medium text-gray-500 mb-1">SLA / échéance interne</label>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            id={`request-sla-${req.id}`}
+                                                            type="datetime-local"
+                                                            value={slaDrafts[req.id] ?? toDateTimeLocalValue(req.slaDueAt)}
                                                             onChange={(e) => setSlaDrafts(prev => ({ ...prev, [req.id]: e.target.value }))}
                                                             className="min-w-0 flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-slate-500 focus:border-transparent bg-white"
                                                         />
-	                                                        <button
-	                                                            onClick={() => handleSaveSla(req.id)}
-	                                                            disabled={savingKey === `${req.id}:sla`}
-	                                                            className="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
-	                                                            aria-label="Enregistrer le SLA interne"
-	                                                        >
-	                                                            OK
+                                                        <button
+                                                            onClick={() => {
+                                                                const input = document.getElementById(`request-sla-${req.id}`) as HTMLInputElement | null;
+                                                                handleSaveSla(req.id, input?.value);
+                                                            }}
+                                                            disabled={savingKey === `${req.id}:sla`}
+                                                            className="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+                                                            aria-label="Enregistrer le SLA interne"
+                                                        >
+                                                            OK
                                                         </button>
                                                     </div>
                                                     <p className={`mt-1 text-xs ${req.slaDueAt && new Date(req.slaDueAt).getTime() < Date.now() ? 'text-red-600' : 'text-slate-500'}`}>
