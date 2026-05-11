@@ -18,6 +18,7 @@ import FeaturesGrid from '../components/landing/FeaturesGrid';
 import EnterpriseSection from '../components/landing/EnterpriseSection';
 import SectorsSection from '../components/landing/SectorsSection';
 import IntegrationsSection from '../components/landing/IntegrationsSection';
+import OperationsSection from '../components/landing/OperationsSection';
 
 interface Plan {
     id: string;
@@ -71,13 +72,13 @@ function LandingContent() {
                         {
                             id: 'plan_1', stripePriceId: '', name: 'Starter', description: 'Idéal pour les petites équipes.',
                             price: 49, currency: res.data.currency || 'EUR', maxEmployees: 10,
-                            features: ['Pointage WhatsApp (NLP)', 'GPS Automatisé', 'Dashboard Cloud', 'Support Email'],
+                            features: ['Pointage WhatsApp', 'GPS Automatisé', 'Consultation planning', 'Support Email'],
                             isPopular: false, sortOrder: 1
                         },
                         {
                             id: 'plan_2', stripePriceId: '', name: 'Pro', description: 'Pour les PME en pleine croissance.',
                             price: 99, currency: res.data.currency || 'EUR', maxEmployees: 50,
-                            features: ['Pointage WhatsApp (NLP)', 'GPS Automatisé', 'Export Paie (Excel)', 'Support Stratégique WhatsApp'],
+                            features: ['Pointage WhatsApp', 'Planning consultable', 'Transmission RH/paie', 'Support Stratégique WhatsApp'],
                             isPopular: true, sortOrder: 2
                         },
                         {
@@ -144,6 +145,9 @@ function LandingContent() {
                     <div style={{ display: 'flex', gap: '2.5rem' }}>
                         <a href="#features" style={{ color: '#475569', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>
                             {t('landing.nav.features')}
+                        </a>
+                        <a href="#operations" style={{ color: '#475569', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>
+                            {t('landing.nav.operations', 'Opérations')}
                         </a>
                         <a href="#sectors" style={{ color: '#475569', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>
                             {t('landing.nav.sectors')}
@@ -260,11 +264,11 @@ function LandingContent() {
             <section style={{ padding: '2.5rem 5%', background: '#ffffff', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
                     <p style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1.5rem' }}>
-                        Déjà adopté par +50 PME du BTP, de la Restauration et du Retail
+                        Une plateforme terrain qui couvre les workflows essentiels
                     </p>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: isMobile ? '2rem' : '4rem', flexWrap: 'wrap', opacity: 0.5, filter: 'grayscale(100%)' }}>
-                        {['Vinci', 'Eiffage', 'Accor', 'Carrefour', 'Sodexo'].map(company => (
-                            <span key={company} style={{ fontSize: isMobile ? '1.2rem' : '1.5rem', fontWeight: 900, color: '#475569', letterSpacing: '-0.03em' }}>{company}</span>
+                        {['Pointage', 'Présences', 'Plannings', 'Justificatifs', 'Documents', 'Exports'].map(module => (
+                            <span key={module} style={{ fontSize: isMobile ? '1.05rem' : '1.35rem', fontWeight: 850, color: '#475569', letterSpacing: 0 }}>{module}</span>
                         ))}
                     </div>
                 </div>
@@ -280,6 +284,9 @@ function LandingContent() {
             <section id="features">
                 <FeaturesGrid />
             </section>
+
+            {/* Operations / Field Service Section */}
+            <OperationsSection />
 
             {/* Sectors / Industries Section */}
             <SectorsSection />
@@ -476,7 +483,7 @@ function LandingContent() {
                         </div>
                     )}
 
-                    {/* NEW: Modular Add-ons section showcasing Ops and AI */}
+                    {/* Product scope clarification */}
                     <motion.div
                         initial={{ opacity: 0, y: 30 }}
                         whileInView={{ opacity: 1, y: 0 }}
@@ -486,10 +493,10 @@ function LandingContent() {
                     >
                         <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
                             <h3 style={{ color: '#0f172a', fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>
-                                Superchargez votre Hub WhatsApp
+                                Un socle simple, des extensions utiles
                             </h3>
                             <p style={{ color: '#64748b', fontSize: '1.1rem' }}>
-                                Ajoutez des "Super-Pouvoirs" à la carte, selon les besoins de votre terrain.
+                                Commencez par présence + planning. Ajoutez ensuite les demandes et documents qui comptent pour votre organisation.
                             </p>
                         </div>
 
@@ -500,7 +507,6 @@ function LandingContent() {
                             maxWidth: '900px',
                             margin: '0 auto'
                         }}>
-                            {/* Add-on Ops */}
                             <div style={{
                                 background: 'white',
                                 border: '1px solid #e2e8f0',
@@ -513,17 +519,16 @@ function LandingContent() {
                                     <div style={{ padding: '0.75rem', background: '#ffedd5', borderRadius: '1rem' }}>
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
                                     </div>
-                                    <h4 style={{ color: '#0f172a', fontSize: '1.35rem', fontWeight: 800 }}>Module Opérations</h4>
+                                    <h4 style={{ color: '#0f172a', fontSize: '1.35rem', fontWeight: 800 }}>Socle présence</h4>
                                 </div>
                                 <p style={{ color: '#475569', fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.6 }}>
-                                    Débloquez le Suivi GPS Map Kanban, les rapports d'intervention vocaux signés, et la gestion des stocks de pièces détachées depuis le camion.
+                                    Pointage arrivée/départ, prise de service, site, GPS, historique et consultation du planning par WhatsApp.
                                 </p>
                                 <div style={{ color: '#0f172a', fontSize: '2rem', fontWeight: 800 }}>
-                                    +49€ <span style={{ color: '#64748b', fontSize: '1.1rem', fontWeight: 500 }}>/mois (Prix Fixe)</span>
+                                    Présence <span style={{ color: '#64748b', fontSize: '1.1rem', fontWeight: 500 }}>et horaires</span>
                                 </div>
                             </div>
 
-                            {/* Add-on AI */}
                             <div style={{
                                 background: 'white',
                                 border: '1px solid #e2e8f0',
@@ -539,13 +544,13 @@ function LandingContent() {
                                     <div style={{ padding: '0.75rem', background: '#f3e8ff', borderRadius: '1rem' }}>
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9333ea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg>
                                     </div>
-                                    <h4 style={{ color: '#0f172a', fontSize: '1.35rem', fontWeight: 800 }}>Module IA Intégrale</h4>
+                                    <h4 style={{ color: '#0f172a', fontSize: '1.35rem', fontWeight: 800 }}>Demandes & documents</h4>
                                 </div>
                                 <p style={{ color: '#475569', fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.6, position: 'relative', zIndex: 1 }}>
-                                    Activez l'Agent Vision (Lecture OCR illimitée des notes de frais) et l'Agent RAG interactif connecté à la Base Documentaire RH de l'entreprise.
+                                    Justificatifs, absences, retards, incidents, demandes client ou documents: WhatsPoint collecte et oriente sans portail supplémentaire.
                                 </p>
                                 <div style={{ color: '#0f172a', fontSize: '2rem', fontWeight: 800, position: 'relative', zIndex: 1 }}>
-                                    +79€ <span style={{ color: '#64748b', fontSize: '1.1rem', fontWeight: 500 }}>/mois (Jetons Illimités)</span>
+                                    Collecte <span style={{ color: '#64748b', fontSize: '1.1rem', fontWeight: 500 }}>et transmission</span>
                                 </div>
                             </div>
                         </div>

@@ -3,10 +3,10 @@ import {
     MapPin,
     Camera,
     FileText,
-    MessageCircle,
     Clock,
     CheckCircle,
-    Smartphone
+    Smartphone,
+    CalendarDays
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useVisitor } from '../../context/VisitorContext';
@@ -41,7 +41,7 @@ export default function FeaturesGrid() {
                     }}>
                         <Smartphone size={16} color="#3b82f6" />
                         <span style={{ color: '#2563eb', fontSize: '0.85rem', fontWeight: 600 }}>
-                            {t('landing.suite.badge', 'POCKET HR SUITE')}
+                            {t('landing.suite.badge', 'PRESENCE & PLANNING')}
                         </span>
                     </div>
                     <h2 style={{
@@ -51,7 +51,7 @@ export default function FeaturesGrid() {
                         marginBottom: '1rem',
                         letterSpacing: '-0.02em'
                     }}>
-                        {t('landing.suite.title', 'Bien plus qu\'une pointeuse.')}
+                        {t('landing.suite.title', 'Le pointage reste le socle.')}
                     </h2>
                     <p style={{
                         color: '#475569',
@@ -59,7 +59,7 @@ export default function FeaturesGrid() {
                         maxWidth: '600px',
                         margin: '0 auto'
                     }}>
-                        {t('landing.suite.subtitle', 'Une suite RH complète accessible depuis WhatsApp. Vos managers adorent le dashboard.')}
+                        {t('landing.suite.subtitle', 'Présences, horaires, sites et justificatifs accessibles depuis WhatsApp, puis transmis au bon service.')}
                     </p>
                 </motion.div>
 
@@ -138,7 +138,7 @@ export default function FeaturesGrid() {
                         }}>
                             {[
                                 t('landing.suite.gps.f1', 'Vérification site automatique'),
-                                t('landing.suite.gps.f2', 'Export Excel pour la paie'),
+                                t('landing.suite.gps.f2', 'Transmission vers vos outils métier'),
                                 t('landing.suite.gps.f3', 'Historique géolocalisé')
                             ].map((f, idx) => (
                                 <div key={idx} style={{
@@ -273,7 +273,7 @@ export default function FeaturesGrid() {
                         </div>
                     </motion.div>
 
-                    {/* Card 4: Support Intégré */}
+                    {/* Card 4: Planning consultable */}
                     <motion.div
                         initial={{ opacity: 0, y: 30 }}
                         whileInView={{ opacity: 1, y: 0 }}
@@ -299,7 +299,7 @@ export default function FeaturesGrid() {
                             justifyContent: 'center',
                             marginBottom: '1rem'
                         }}>
-                            <MessageCircle size={24} color="#8b5cf6" />
+                            <CalendarDays size={24} color="#8b5cf6" />
                         </div>
                         <h3 style={{
                             color: '#0f172a',
@@ -307,7 +307,7 @@ export default function FeaturesGrid() {
                             fontWeight: 800,
                             marginBottom: '0.5rem'
                         }}>
-                            {t('landing.suite.support.title', 'Support Intégré')}
+                            {t('landing.suite.support.title', 'Planning consultable')}
                         </h3>
                         <p style={{
                             color: '#475569',
@@ -315,7 +315,7 @@ export default function FeaturesGrid() {
                             lineHeight: 1.5,
                             flex: 1
                         }}>
-                            {t('landing.suite.support.desc', 'Vos équipes nous parlent directement via WhatsApp. Réponse < 2h.')}
+                            {t('landing.suite.support.desc', 'Chaque collaborateur peut demander son prochain horaire, son service ou un changement de planning.')}
                         </p>
                         <div style={{
                             display: 'flex',
@@ -328,7 +328,7 @@ export default function FeaturesGrid() {
                         }}>
                             <Clock size={16} color="#8b5cf6" />
                             <span style={{ color: '#a78bfa', fontSize: '0.8rem', fontWeight: 600 }}>
-                                {t('landing.suite.support.badge', 'SLA 2 heures')}
+                                {t('landing.suite.support.badge', 'Horaires à jour')}
                             </span>
                         </div>
                     </motion.div>

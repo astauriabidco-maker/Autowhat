@@ -86,9 +86,12 @@
             "contact": "Contacto"
         },
         "nav": {
-            "features": "Funcionalidades",
+            "features": "Suite campo",
             "sectors": "Sectores",
-            "pricing": "Precios"
+            "operations": "Operaciones",
+            "pricing": "Precios",
+            "testimonials": "Testimonios",
+            "enterprise": "Enterprise"
         }
     },
     "sidebar": {

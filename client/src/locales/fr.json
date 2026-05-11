@@ -25,10 +25,10 @@
             "title.social": "Rejoignez 500+ entreprises qui nous font confiance.",
             "titleAccent": "Pourquoi leur imposer autre chose ?",
             "subtitle1": "Arrêtez de courir après les feuilles d'heures papier ou les SMS perdus.",
-            "subtitle.btp": "GPS, photos de chantier et export paie automatique.",
+            "subtitle.btp": "GPS, photos terrain et transmission vers vos outils métier.",
             "subtitle.cleaning": "Chaque site validé, chaque intervention tracée.",
             "subtitle.security": "Vacations, rondes et relèves sous contrôle total.",
-            "subtitle2": "✅ Tout est centralisé, horodaté et prêt pour la paie.",
+            "subtitle2": "✅ Tout est centralisé, horodaté et prêt à transmettre.",
             "cta": "🚀 Créer mon compte gratuit",
             "cta.btp": "🏗️ Essayer pour le BTP",
             "cta.cleaning": "🧹 Essayer pour le Nettoyage",
@@ -61,19 +61,19 @@
             }
         },
         "suite": {
-            "badge": "POCKET HR SUITE",
-            "title": "Bien plus qu'une pointeuse.",
-            "subtitle": "Une suite RH complète accessible depuis WhatsApp. Vos managers adorent le dashboard.",
+            "badge": "PRESENCE & PLANNING",
+            "title": "Le pointage reste le socle.",
+            "subtitle": "Présences, horaires, sites et justificatifs accessibles depuis WhatsApp, puis transmis au bon service.",
             "gps": {
                 "title": "Pointage GPS",
                 "desc": "Un \"Hi\" suffit. Le GPS vérifie automatiquement que l'employé est bien sur site.",
                 "f1": "Vérification site automatique",
-                "f2": "Export Excel pour la paie",
+                "f2": "Transmission vers vos outils métier",
                 "f3": "Historique géolocalisé"
             },
             "expenses": {
                 "title": "Notes de Frais",
-                "desc": "Une photo du ticket, et c'est comptabilisé. L'IA extrait les montants.",
+                "desc": "Une photo du justificatif, et WhatsPoint extrait les informations utiles avant transmission.",
                 "badge": "OCR Intelligent"
             },
             "docs": {
@@ -82,9 +82,9 @@
                 "badge": "Accès Hors-Ligne"
             },
             "support": {
-                "title": "Support Intégré",
-                "desc": "Vos équipes nous parlent directement via WhatsApp. Réponse < 2h.",
-                "badge": "SLA 2 heures"
+                "title": "Planning consultable",
+                "desc": "Chaque collaborateur peut demander son prochain horaire, son service ou un changement de planning.",
+                "badge": "Horaires à jour"
             },
             "dashboard": {
                 "title": "Dashboard Manager",
@@ -132,7 +132,7 @@
             },
             "auto": {
                 "title": "100% Automatisé",
-                "desc": "Le bot relance les retardataires et génère le fichier Excel de paie."
+                "desc": "Le bot accuse réception, structure la demande et la transmet au bon service métier."
             },
             "realtime": "Pointage temps réel",
             "excel": "Export Excel",
@@ -188,8 +188,9 @@
             "contact": "Contact"
         },
         "nav": {
-            "features": "Suite HR",
+            "features": "Suite terrain",
             "sectors": "Secteurs",
+            "operations": "Opérations",
             "pricing": "Tarifs",
             "testimonials": "Témoignages",
             "enterprise": "Enterprise"

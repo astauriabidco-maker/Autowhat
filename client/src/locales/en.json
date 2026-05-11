@@ -25,10 +25,10 @@
             "title.social": "Join 500+ companies who trust us.",
             "titleAccent": "Why force them to use something else?",
             "subtitle1": "Stop chasing paper timesheets or lost SMS.",
-            "subtitle.btp": "GPS, site photos and automatic payroll export.",
+            "subtitle.btp": "GPS, field photos and transmission to your business tools.",
             "subtitle.cleaning": "Every site validated, every intervention tracked.",
             "subtitle.security": "Shifts, rounds and handovers under total control.",
-            "subtitle2": "✅ Everything is centralized, timestamped and ready for payroll.",
+            "subtitle2": "✅ Everything is centralized, timestamped and ready to transmit.",
             "cta": "🚀 Create my free account",
             "cta.btp": "🏗️ Try for Construction",
             "cta.cleaning": "🧹 Try for Cleaning",
@@ -61,19 +61,19 @@
             }
         },
         "suite": {
-            "badge": "POCKET HR SUITE",
-            "title": "Much more than a time clock.",
-            "subtitle": "A complete HR suite accessible from WhatsApp. Your managers love the dashboard.",
+            "badge": "ATTENDANCE & SCHEDULING",
+            "title": "Attendance remains the foundation.",
+            "subtitle": "Presence, schedules, sites and supporting documents are available from WhatsApp, then sent to the right service.",
             "gps": {
                 "title": "GPS Attendance",
                 "desc": "A \"Hi\" is enough. GPS automatically verifies the employee is on site.",
                 "f1": "Automatic site verification",
-                "f2": "Excel export for payroll",
+                "f2": "Transmission to business tools",
                 "f3": "Geolocalized history"
             },
             "expenses": {
                 "title": "Expense Reports",
-                "desc": "One photo of the receipt, and it's accounted for. AI extracts the amounts.",
+                "desc": "One photo of the supporting document, and WhatsPoint extracts the useful information before transmission.",
                 "badge": "Smart OCR"
             },
             "docs": {
@@ -82,9 +82,9 @@
                 "badge": "Offline Access"
             },
             "support": {
-                "title": "Integrated Support",
-                "desc": "Your teams talk to us directly via WhatsApp. Response < 2h.",
-                "badge": "SLA 2 hours"
+                "title": "Schedule lookup",
+                "desc": "Each team member can ask for their next shift, department or schedule update.",
+                "badge": "Up-to-date hours"
             },
             "dashboard": {
                 "title": "Manager Dashboard",
@@ -132,7 +132,7 @@
             },
             "auto": {
                 "title": "100% Automated",
-                "desc": "The bot reminds latecomers and generates the payroll Excel file."
+                "desc": "The bot acknowledges receipt, structures the request and transmits it to the right business service."
             },
             "realtime": "Real-time attendance",
             "excel": "Excel Export",
@@ -188,8 +188,9 @@
             "contact": "Contact"
         },
         "nav": {
-            "features": "HR Suite",
+            "features": "Field suite",
             "sectors": "Sectors",
+            "operations": "Operations",
             "pricing": "Pricing",
             "testimonials": "Testimonials",
             "enterprise": "Enterprise"

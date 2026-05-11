@@ -1,19 +1,71 @@
 import { motion } from 'framer-motion';
 import { useVisitor } from '../../context/VisitorContext';
-import { ArrowRightLeft } from 'lucide-react';
+import {
+    ArrowRightLeft,
+    BriefcaseBusiness,
+    Cable,
+    FileJson,
+    FileText,
+    Headphones,
+    Scale,
+    UserRoundCheck,
+    Webhook,
+    Wrench
+} from 'lucide-react';
 
 export default function IntegrationsSection() {
     const { deviceType } = useVisitor();
     const isMobile = deviceType === 'mobile';
 
-    const integrations = [
-        { name: 'KPaie', category: 'Paie (Zero-Touch)', color: '#8b5cf6' },
-        { name: 'Silae', category: 'Paie', color: '#0ea5e9' },
-        { name: 'PayFit', category: 'Paie', color: '#0d9488' },
-        { name: 'Pennylane', category: 'Comptabilité', color: '#16a34a' },
-        { name: 'Sage', category: 'Compta & Paie', color: '#00cc66' },
-        { name: 'Lucca', category: 'SIRH', color: '#4f46e5' },
-        { name: 'Evoliz', category: 'Facturation', color: '#ea580c' }
+    const businessFlows = [
+        {
+            title: 'Pointage & planning',
+            example: 'Arrivée, départ, prise de service, prochain horaire',
+            target: 'vers le planning ou RH',
+            icon: <UserRoundCheck size={22} />,
+            color: '#16a34a'
+        },
+        {
+            title: 'Intervention client',
+            example: 'Panne, photo, urgence, adresse',
+            target: 'vers l’outil d’intervention',
+            icon: <Wrench size={22} />,
+            color: '#ea580c'
+        },
+        {
+            title: 'Absences & justificatifs',
+            example: 'Retard, arrêt maladie, absence, document',
+            target: 'vers les RH ou la paie',
+            icon: <FileText size={22} />,
+            color: '#8b5cf6'
+        },
+        {
+            title: 'Support client',
+            example: 'Réclamation, demande, suivi dossier',
+            target: 'vers le helpdesk ou CRM',
+            icon: <Headphones size={22} />,
+            color: '#2563eb'
+        },
+        {
+            title: 'Juridique & conformité',
+            example: 'Question, mandat, pièce, signature',
+            target: 'vers le service juridique',
+            icon: <Scale size={22} />,
+            color: '#16a34a'
+        },
+        {
+            title: 'Commerce & terrain',
+            example: 'Commande, incident, remontée magasin',
+            target: 'vers l’ERP ou CRM',
+            icon: <BriefcaseBusiness size={22} />,
+            color: '#0d9488'
+        }
+    ];
+
+    const capabilities = [
+        { name: 'API', category: 'REST / JSON', icon: <FileJson size={18} /> },
+        { name: 'Webhooks', category: 'temps réel', icon: <Webhook size={18} /> },
+        { name: 'CSV / SFTP', category: 'flux batch', icon: <Cable size={18} /> }
     ];
 
     return (
@@ -43,7 +95,7 @@ export default function IntegrationsSection() {
                     }}>
                         <ArrowRightLeft size={16} color="#64748b" />
                         <span style={{ color: '#475569', fontSize: '0.85rem', fontWeight: 600 }}>
-                            Intégrations & Export
+                            Cas d’usage métiers
                         </span>
                     </div>
 
@@ -52,42 +104,121 @@ export default function IntegrationsSection() {
                         fontSize: isMobile ? '1.5rem' : '2.2rem',
                         fontWeight: 800,
                         marginBottom: '1rem',
-                        letterSpacing: '-0.02em'
+                        letterSpacing: 0
                     }}>
-                        Au cœur de votre écosystème
+                        Autour du pointage, toutes les demandes peuvent suivre.
                     </h2>
                     <p style={{
                         color: '#64748b',
                         fontSize: '1.05rem',
-                        maxWidth: '700px',
+                        maxWidth: '720px',
                         margin: '0 auto 2.5rem',
                         lineHeight: 1.6
                     }}>
-                        WhatsPoint collecte et structure la donnée brute depuis WhatsApp (Congés, Absences, Notes de frais). Ensuite ? Exportez automatiquement ou injectez vos variables directement dans votre moteur avec le concept unique de <strong>Zero-Touch Payroll</strong> (intégration native bidirectionnelle avec <strong>KPaie</strong>). Finie la double saisie.
+                        Le socle reste la présence et le planning. Les mêmes habitudes WhatsApp
+                        servent ensuite à transmettre un justificatif, signaler un incident ou suivre une demande.
                     </p>
                 </motion.div>
 
-                {/* Integrations Grid */}
                 <div style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    justifyContent: 'center',
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))',
                     gap: isMobile ? '1rem' : '1.5rem'
                 }}>
-                    {integrations.map((integration, idx) => (
+                    {businessFlows.map((flow, idx) => (
                         <motion.div
-                            key={integration.name}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            whileInView={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.4, delay: idx * 0.1 }}
+                            key={flow.title}
+                            initial={{ opacity: 0, y: 20 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4, delay: idx * 0.08 }}
                             viewport={{ once: true }}
                             style={{
                                 background: 'white',
-                                padding: '1.5rem',
+                                padding: '1.35rem',
                                 borderRadius: '1rem',
                                 border: '1px solid #e2e8f0',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-                                minWidth: '180px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'flex-start',
+                                gap: '0.75rem',
+                                minHeight: '190px',
+                                textAlign: 'left'
+                            }}
+                        >
+                            <div style={{
+                                width: '46px',
+                                height: '46px',
+                                borderRadius: '0.85rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: flow.color,
+                                background: `${flow.color}14`
+                            }}>
+                                {flow.icon}
+                            </div>
+                            <h3 style={{
+                                color: '#0f172a',
+                                fontSize: '1.08rem',
+                                fontWeight: 800
+                            }}>
+                                {flow.title}
+                            </h3>
+                            <p style={{
+                                color: '#475569',
+                                fontSize: '0.92rem',
+                                lineHeight: 1.5,
+                                margin: 0
+                            }}>
+                                {flow.example}
+                            </p>
+                            <span style={{
+                                marginTop: 'auto',
+                                color: flow.color,
+                                background: `${flow.color}10`,
+                                border: `1px solid ${flow.color}28`,
+                                borderRadius: '999px',
+                                padding: '0.35rem 0.7rem',
+                                fontSize: '0.78rem',
+                                fontWeight: 700
+                            }}>
+                                {flow.target}
+                            </span>
+                        </motion.div>
+                    ))}
+                </div>
+
+                <div style={{
+                    marginTop: '2rem',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'center',
+                    gap: '1rem'
+                }}>
+                    <div style={{
+                        width: '100%',
+                        color: '#64748b',
+                        fontSize: '0.88rem',
+                        fontWeight: 600,
+                        marginBottom: '0.25rem'
+                    }}>
+                        Se connecte à vos outils existants si besoin
+                    </div>
+                    {capabilities.map((capability, idx) => (
+                        <motion.div
+                            key={capability.name}
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            whileInView={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.4, delay: idx * 0.08 }}
+                            viewport={{ once: true }}
+                            style={{
+                                background: '#0f172a',
+                                padding: '1rem 1.25rem',
+                                borderRadius: '1rem',
+                                border: '1px solid #1e293b',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                                minWidth: '160px',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
@@ -95,59 +226,57 @@ export default function IntegrationsSection() {
                             }}
                         >
                             <span style={{
-                                color: integration.color,
-                                fontSize: '1.5rem',
-                                fontWeight: 900,
-                                letterSpacing: '-0.05em'
+                                color: 'white',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.45rem',
+                                fontSize: '1.1rem',
+                                fontWeight: 800
                             }}>
-                                {integration.name}
+                                {capability.icon}
+                                {capability.name}
                             </span>
                             <span style={{
                                 color: '#94a3b8',
-                                fontSize: '0.8rem',
+                                fontSize: '0.75rem',
                                 fontWeight: 500,
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.05em'
                             }}>
-                                {integration.category}
+                                {capability.category}
                             </span>
                         </motion.div>
                     ))}
-                    
-                    {/* Add CSV API fallback */}
+
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
                         whileInView={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.4, delay: integrations.length * 0.1 }}
+                        transition={{ duration: 0.4, delay: 0.24 }}
                         viewport={{ once: true }}
                         style={{
-                            background: '#0f172a',
-                            padding: '1.5rem',
+                            background: '#ffffff',
+                            padding: '1rem 1.25rem',
                             borderRadius: '1rem',
-                            border: '1px solid #1e293b',
+                            border: '1px dashed #94a3b8',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-                            minWidth: '180px',
+                            minWidth: '160px',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             gap: '0.5rem'
                         }}
                     >
-                        <span style={{
-                            color: 'white',
-                            fontSize: '1.5rem',
-                            fontWeight: 800,
-                        }}>
-                            API & CSV
+                        <span style={{ color: '#0f172a', fontSize: '1.1rem', fontWeight: 800 }}>
+                            Votre outil
                         </span>
                         <span style={{
-                            color: '#94a3b8',
-                            fontSize: '0.8rem',
+                            color: '#64748b',
+                            fontSize: '0.75rem',
                             fontWeight: 500,
                             textTransform: 'uppercase',
                             letterSpacing: '0.05em'
                         }}>
-                            Export Universel
+                            connecteur sur mesure
                         </span>
                     </motion.div>
                 </div>

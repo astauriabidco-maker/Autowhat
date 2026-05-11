@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useVisitor } from '../../context/VisitorContext';
-import { HardHat, Droplets, ShieldCheck, Building, ShoppingBag, Utensils, CheckCircle2 } from 'lucide-react';
+import { HardHat, Droplets, ShieldCheck, Building, ShoppingBag, Utensils, CheckCircle2, Stethoscope } from 'lucide-react';
 
 export default function SectorsSection() {
     const { deviceType } = useVisitor();
@@ -33,6 +33,15 @@ export default function SectorsSection() {
             features: ['Pointage des extras', 'Notes vocales urgentes', 'Validation de présence'],
             color: '#ec4899',
             bgColor: '#fbcfe8'
+        },
+        {
+            id: 'hospital',
+            icon: <Stethoscope size={32} />,
+            title: 'Hôpital & Santé',
+            description: 'Les équipes consultent leurs horaires, confirment leur prise de service et signalent absences ou retards sans appeler le standard.',
+            features: ['Consultation planning par WhatsApp', 'Pointage prise de service', 'Absences et remplacements'],
+            color: '#0ea5e9',
+            bgColor: '#bae6fd'
         },
         {
             id: 'btp',

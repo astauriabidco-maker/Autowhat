@@ -12,7 +12,7 @@ import {
     getHeroTitleKey
 } from '../../config/landingVariants';
 import { useState, useEffect } from 'react';
-import { FileText, Clock as ClockIcon, ArrowRightLeft, CheckCircle2 } from 'lucide-react';
+import { FileText, Clock as ClockIcon, ArrowRightLeft, CheckCircle2, ShieldCheck, LockKeyhole, Smartphone } from 'lucide-react';
 
 export default function HeroSection() {
     const navigate = useNavigate();
@@ -34,49 +34,49 @@ export default function HeroSection() {
         {
             id: 'collect',
             icon: <ClockIcon size={16} />,
-            h1: 'La donnée part du',
-            h1Accent: 'terrain.',
-            label: '1. Saisie Terrain',
-            title: 'Pointage & Frais.',
-            desc: 'La donnée est captée à la source. Vos équipes de terrain démarrent leur journée ou envoient un reçu de péage d\'un simple message WhatsApp.',
-            userText: 'Salut, je viens d\'arriver sur le chantier Rivoli 🏗️',
-            botText: '✅ Pointage enregistré !\n📍 Chantier Rivoli\n🕐 08:02',
+            h1: 'Pointage et présence',
+            h1Accent: 'sans friction.',
+            label: '1. Présence',
+            title: 'Le cœur de WhatsPoint.',
+            desc: 'Les équipes pointent leur arrivée, leur départ ou leur présence directement dans WhatsApp, avec heure, site, GPS et historique exploitable.',
+            userText: 'Bonjour, je prends mon service aux urgences.',
+            botText: '✅ Présence enregistrée.\n📍 Service Urgences\n🕐 07:02',
             color: '#22c55e'
         },
         {
             id: 'hr',
             icon: <FileText size={16} />,
-            h1: 'L\'IA vous fait gagner',
-            h1Accent: '30h / mois.',
-            label: '2. Demandes RH',
-            title: 'Un assistant RH 24/7.',
-            desc: 'L\'IA extrait les infos des photos et répond aux questions RH. Les employés posent leurs congés au chatbot sans déranger l\'administration.',
-            userText: 'Je peux poser 2 jours de congés la semaine prochaine ?',
-            botText: '📝 Demande pré-remplie.\nSolde restant : 14 jours.\nJ\'envoie au manager pour validation ?',
+            h1: 'Le planning devient',
+            h1Accent: 'consultable.',
+            label: '2. Planning',
+            title: 'Horaires, service, prochain poste.',
+            desc: 'En hôpital, restauration, sécurité ou nettoyage, les équipes consultent leurs horaires et reçoivent les changements sans ouvrir un portail.',
+            userText: 'Quel est mon planning demain ?',
+            botText: '📅 Demain : 07:00 - 14:30\n🏥 Service : Cardiologie\n👤 Référent : Cadre de garde',
             color: '#9333ea'
         },
         {
             id: 'manager',
             icon: <CheckCircle2 size={16} />,
-            h1: 'L\'encadrement valide en',
-            h1Accent: 'un clic.',
-            label: '3. Approbation',
-            title: 'Validation immédiate.',
-            desc: 'Le manager reçoit une alerte (congé, frais, heures sup) sur son téléphone et valide directement dans la conversation WhatsApp.',
-            userText: '🔔 Jean a posé 2 jours de congés.\nSolde actuel : 14 jours.\nApprouver ?',
-            botText: '✅ Congés validés ! Jean a été notifié et le planning d\'équipe est à jour.',
+            h1: 'Les demandes terrain',
+            h1Accent: 'remontent.',
+            label: '3. Demandes',
+            title: 'Absence, justificatif, incident, besoin client.',
+            desc: 'WhatsPoint collecte les demandes simples autour de la présence: absence, retard, justificatif, changement d’horaire, incident ou intervention.',
+            userText: 'Je serai en retard de 20 minutes, transport bloqué.',
+            botText: '📝 Information reçue.\nManager notifié.\nStatut : en attente de prise en compte.',
             color: '#f97316'
         },
         {
             id: 'export',
             icon: <ArrowRightLeft size={16} />,
-            h1: 'La clôture de paie en mode',
-            h1Accent: 'Zero-Touch.',
-            label: '4. Zero-Touch Payroll',
-            title: 'Synchronisation bidirectionnelle.',
-            desc: 'Validation sur WhatsApp = Injection instantanée. WhatsPoint est nativement interconnecté avec KPaie pour automatiser le cycle de vie de l\'EVP sans aucune double saisie.',
-            userText: 'Combien me reste-t-il de congés ?',
-            botText: '✅ Solde RH (KPaie) :\n\n🏖️ Congés Payés : 14.5 j\n\nSouhaites-tu faire une demande ?',
+            h1: 'La réponse revient',
+            h1Accent: 'dans WhatsApp.',
+            label: '4. Notification',
+            title: 'Statut, document ou confirmation.',
+            desc: 'L’utilisateur n’a pas besoin d’ouvrir un portail métier. Il reçoit le suivi, la décision ou le document directement dans la conversation.',
+            userText: 'Avez-vous une mise à jour ?',
+            botText: '📩 Intervention planifiée demain à 09:30.\nTechnicien assigné.\nUn rappel sera envoyé automatiquement.',
             color: '#8b5cf6'
         }
     ];
@@ -93,13 +93,15 @@ export default function HeroSection() {
     return (
         <section style={{
             minHeight: '90vh',
-            background: `linear-gradient(135deg, rgba(2, 6, 23, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%), url(${heroImageSrc})`,
+            background: `linear-gradient(135deg, rgba(248, 250, 252, 0.98) 0%, rgba(239, 246, 255, 0.94) 48%, rgba(240, 253, 244, 0.9) 100%), url(${heroImageSrc})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             display: 'flex',
             alignItems: 'center',
             padding: isMobile ? '6rem 4% 4rem' : '8rem 5% 4rem',
-            borderBottom: '1px solid rgba(255,255,255,0.05)'
+            borderBottom: '1px solid rgba(148, 163, 184, 0.22)',
+            color: '#0f172a',
+            overflow: 'hidden'
         }}>
             <div style={{
                 display: 'grid',
@@ -122,40 +124,40 @@ export default function HeroSection() {
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '0.5rem',
-                        background: 'rgba(34, 197, 94, 0.1)',
+                        background: 'rgba(37, 99, 235, 0.08)',
                         padding: '0.5rem 1rem',
                         borderRadius: '2rem',
                         marginBottom: '1.5rem',
-                        border: '1px solid rgba(34, 197, 94, 0.2)'
+                        border: '1px solid rgba(37, 99, 235, 0.16)'
                     }}>
-                        <Sparkles size={16} color="#4ade80" />
-                        <span style={{ color: '#4ade80', fontSize: '0.85rem', fontWeight: 600 }}>
+                        <Sparkles size={16} color="#2563eb" />
+                        <span style={{ color: '#1d4ed8', fontSize: '0.85rem', fontWeight: 600 }}>
                             {t('landing.hero.badge')} • {t(titleKey)}
                         </span>
                     </div>
 
-                    {/* Dynamic Title */}
-                    <motion.div
-                        key={`h1-${currentSlide}`}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4 }}
-                        style={{ minHeight: isMobile ? '90px' : '110px' }}
-                    >
-                        <h1 style={{
-                            color: 'white',
-                            fontSize: isMobile ? '2.5rem' : '4.2rem',
-                            fontWeight: 800,
-                            lineHeight: 1.1,
-                            marginBottom: '1.5rem',
-                            letterSpacing: '-0.02em'
-                        }}>
-                            {SLIDES[currentSlide].h1}{' '}
-                            <span style={{ color: '#4ade80' }}>
-                                {SLIDES[currentSlide].h1Accent}
-                            </span>
-                        </h1>
-                    </motion.div>
+                    <h1 style={{
+                        color: '#0f172a',
+                        fontSize: isMobile ? '2.55rem' : '4.15rem',
+                        fontWeight: 800,
+                        lineHeight: 1.06,
+                        marginBottom: '1.25rem',
+                        letterSpacing: 0
+                    }}>
+                        Pointage, présence et planning
+                        <span style={{ color: '#2563eb' }}> dans WhatsApp.</span>
+                    </h1>
+
+                    <p style={{
+                        color: '#475569',
+                        fontSize: isMobile ? '1.05rem' : '1.18rem',
+                        lineHeight: 1.65,
+                        maxWidth: '610px',
+                        marginBottom: '1.5rem'
+                    }}>
+                        Vos équipes pointent, consultent leurs horaires et transmettent leurs demandes
+                        sans installer une nouvelle application. WhatsPoint structure tout et l’envoie au bon service.
+                    </p>
 
                     {/* Theme Tabs Navbar */}
                     <div style={{
@@ -174,14 +176,14 @@ export default function HeroSection() {
                                     gap: '0.4rem',
                                     padding: '0.5rem 0.8rem',
                                     borderRadius: '1rem',
-                                    border: currentSlide === idx ? `1px solid ${slide.color}50` : '1px solid rgba(255,255,255,0.1)',
-                                    background: currentSlide === idx ? `${slide.color}15` : 'rgba(255,255,255,0.03)',
-                                    color: currentSlide === idx ? slide.color : '#94a3b8',
+                                    border: currentSlide === idx ? `1px solid ${slide.color}50` : '1px solid rgba(148, 163, 184, 0.26)',
+                                    background: currentSlide === idx ? `${slide.color}12` : 'rgba(255, 255, 255, 0.72)',
+                                    color: currentSlide === idx ? slide.color : '#475569',
                                     fontWeight: 600,
                                     fontSize: '0.85rem',
                                     cursor: 'pointer',
                                     transition: 'all 0.2s ease',
-                                    boxShadow: currentSlide === idx ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
+                                    boxShadow: currentSlide === idx ? '0 10px 22px rgba(15, 23, 42, 0.08)' : 'none'
                                 }}
                             >
                                 {slide.icon}
@@ -199,16 +201,16 @@ export default function HeroSection() {
                         style={{ minHeight: isMobile ? '120px' : '100px', marginBottom: '2.5rem' }}
                     >
                         <h2 style={{
-                            color: 'white',
-                            fontSize: '1.5rem',
+                            color: '#0f172a',
+                            fontSize: '1.25rem',
                             fontWeight: 700,
                             marginBottom: '0.75rem'
                         }}>
                             {SLIDES[currentSlide].title}
                         </h2>
                         <p style={{
-                            color: '#e2e8f0',
-                            fontSize: '1.1rem',
+                            color: '#475569',
+                            fontSize: '1rem',
                             lineHeight: 1.6,
                             maxWidth: '550px'
                         }}>
@@ -257,10 +259,10 @@ export default function HeroSection() {
                                 justifyContent: 'center',
                                 gap: '0.5rem',
                                 padding: '1rem 2rem',
-                                background: 'transparent',
-                                border: '1px solid rgba(255,255,255,0.2)',
+                                background: 'rgba(255, 255, 255, 0.78)',
+                                border: '1px solid rgba(148, 163, 184, 0.45)',
                                 borderRadius: '0.75rem',
-                                color: 'white',
+                                color: '#0f172a',
                                 cursor: 'pointer',
                                 fontWeight: 700,
                                 fontSize: '1rem',
@@ -268,12 +270,14 @@ export default function HeroSection() {
                                 transition: 'all 0.2s ease'
                             }}
                             onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)';
+                                e.currentTarget.style.background = '#ffffff';
+                                e.currentTarget.style.borderColor = 'rgba(37, 99, 235, 0.45)';
+                                e.currentTarget.style.transform = 'translateY(-2px)';
                             }}
                             onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'transparent';
-                                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.78)';
+                                e.currentTarget.style.borderColor = 'rgba(148, 163, 184, 0.45)';
+                                e.currentTarget.style.transform = 'translateY(0)';
                             }}
                         >
                             Créer mon environnement
@@ -288,19 +292,19 @@ export default function HeroSection() {
                         marginTop: '1.5rem'
                     }}>
                         {[
-                            { emoji: '🔒', text: t('landing.hero.badges.gdpr', 'Conforme RGPD') },
-                            { emoji: '🔐', text: t('landing.hero.badges.encrypted', 'Chiffré') },
-                            { emoji: '📲', text: t('landing.hero.badges.noApp', 'Pas d\'app à installer') }
+                            { icon: <ShieldCheck size={17} />, text: t('landing.hero.badges.gdpr', 'Conforme RGPD') },
+                            { icon: <LockKeyhole size={17} />, text: t('landing.hero.badges.encrypted', 'Chiffré') },
+                            { icon: <Smartphone size={17} />, text: t('landing.hero.badges.noApp', 'Pas d\'app à installer') }
                         ].map((badge, idx) => (
                             <div key={idx} style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.35rem',
-                                color: '#94a3b8',
+                                color: '#475569',
                                 fontSize: '0.9rem',
                                 fontWeight: 500
                             }}>
-                                <span>{badge.emoji}</span>
+                                <span style={{ display: 'inline-flex', color: '#2563eb' }}>{badge.icon}</span>
                                 <span>{badge.text}</span>
                             </div>
                         ))}
@@ -324,12 +328,12 @@ export default function HeroSection() {
                     }}
                 >
                         <div style={{
-                            background: '#1e293b',
+                            background: '#0f172a',
                             borderRadius: '2.5rem',
                             padding: '0.6rem',
-                            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+                            boxShadow: '0 28px 70px -24px rgba(15, 23, 42, 0.42)',
                             width: '340px',
-                            border: '1px solid rgba(255,255,255,0.1)',
+                            border: '1px solid rgba(15, 23, 42, 0.12)',
                             position: 'relative'
                         }}>
                             {/* Phone Notch/Inner Border */}
