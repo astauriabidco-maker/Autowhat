@@ -373,6 +373,10 @@ router.put('/api/intervention-requests/:id', authenticateManager, intReqCtrl.upd
 router.post('/api/intervention-requests/:id/approve', authenticateManager, intReqCtrl.approveRequest);
 router.post('/api/intervention-requests/:id/reject', authenticateManager, intReqCtrl.rejectRequest);
 router.post('/api/intervention-requests/:id/plan', authenticateManager, intReqCtrl.planRequest);
+router.patch('/api/intervention-requests/:id/assignment', authenticateManager, intReqCtrl.updateAssignment);
+router.patch('/api/intervention-requests/:id/sla', authenticateManager, intReqCtrl.updateSla);
+router.post('/api/intervention-requests/:id/comments', authenticateManager, intReqCtrl.addComment);
+router.get('/api/intervention-requests/:id/events', authenticateManager, intReqCtrl.listEvents);
 router.delete('/api/intervention-requests/:id', authenticateManager, intReqCtrl.deleteRequest);
 
 export default router;

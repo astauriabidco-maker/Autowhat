@@ -261,6 +261,7 @@ model Employee {
   tickets        Ticket[]
   interventions  Intervention[]   // FSM - Interventions assignées
   recurringInterventions RecurringIntervention[] // FSM - Récurrences assignées
+  assignedInterventionRequests InterventionRequest[] @relation("InterventionRequestAssignee")
 
   // Un numéro est unique pour un tenant donné
   @@unique([phoneNumber, tenantId])
@@ -1015,6 +1016,14 @@ model InterventionRequest {
   managerNotes   String?   @db.Text   // Notes du manager lors du traitement
   rejectionReason String?              // Motif de refus
 
+  // Coordination inbox (sans remplacer le workflow métier)
+  assignedToId String?
+  assignedTo   Employee? @relation("InterventionRequestAssignee", fields: [assignedToId], references: [id])
+  slaDueAt     DateTime?
+  slaBreachedAt DateTime?
+  lastInternalCommentAt DateTime?
+  lastEventAt  DateTime?
+
   // Lien vers l'intervention créée (quand PLANNED)
   interventionId String?  @unique
   intervention   Intervention? @relation(fields: [interventionId], references: [id])
@@ -1031,7 +1040,25 @@ model InterventionRequest {
 
   @@index([tenantId])
   @@index([tenantId, status])
+  @@index([tenantId, assignedToId, status])
+  @@index([tenantId, slaDueAt])
   @@index([senderPhone])
   @@index([customerId])
 }
 
+model RequestEvent {
+  id          String   @id @default(uuid())
+  tenantId    String
+  entityType  String
+  entityId    String
+  type        String
+  actorType   String
+  actorId     String?
+  visibility  String   @default("INTERNAL")
+  message     String?  @db.Text
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, entityType, entityId, createdAt])
+  @@index([tenantId, type, createdAt])
+}

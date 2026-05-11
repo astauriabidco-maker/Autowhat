@@ -7,6 +7,7 @@ import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import crypto from 'crypto';
 import { signUploadUrlIfNeeded } from '../utils/signedFileUrl';
+import { recordRequestEvent, REQUEST_ENTITY_TYPES, REQUEST_EVENT_TYPES } from '../services/requestEventService';
 
 function withSignedPhoto<T extends { photoUrl?: string | null }>(request: T): T {
     return {
@@ -77,6 +78,7 @@ export const getRequest = async (req: Request, res: Response) => {
 export const updateRequest = async (req: Request, res: Response) => {
     try {
         const tenantId = (req as any).user!.tenantId;
+        const userId = (req as any).user!.userId;
         const id = req.params.id as string;
         const { customerId, customerSiteId, interventionTypeId, managerNotes, urgency } = req.body;
 
@@ -93,13 +95,28 @@ export const updateRequest = async (req: Request, res: Response) => {
 
         const updated = await prisma.interventionRequest.update({
             where: { id },
-            data,
+            data: {
+                ...data,
+                lastEventAt: Object.keys(data).length > 0 ? new Date() : existing.lastEventAt,
+            },
             include: {
                 customer: { select: { id: true, companyName: true, contactName: true } },
                 customerSite: { select: { id: true, name: true, address: true, city: true } },
                 interventionType: { select: { id: true, name: true, color: true } },
             },
         });
+
+        if (Object.keys(data).length > 0) {
+            await recordRequestEvent({
+                tenantId,
+                entityType: REQUEST_ENTITY_TYPES.INTERVENTION_REQUEST,
+                entityId: id,
+                type: REQUEST_EVENT_TYPES.UPDATED,
+                actorType: 'MANAGER',
+                actorId: userId,
+                metadata: { fields: Object.keys(data) },
+            });
+        }
 
         res.json(withSignedPhoto(updated));
     } catch (error) {
@@ -126,7 +143,18 @@ export const approveRequest = async (req: Request, res: Response) => {
                 status: 'APPROVED',
                 processedAt: new Date(),
                 processedById: userId,
+                lastEventAt: new Date(),
             },
+        });
+
+        await recordRequestEvent({
+            tenantId,
+            entityType: REQUEST_ENTITY_TYPES.INTERVENTION_REQUEST,
+            entityId: id,
+            type: REQUEST_EVENT_TYPES.STATUS_CHANGED,
+            actorType: 'MANAGER',
+            actorId: userId,
+            metadata: { from: existing.status, to: 'APPROVED' },
         });
 
         // Notify customer via WhatsApp
@@ -174,7 +202,19 @@ export const rejectRequest = async (req: Request, res: Response) => {
                 rejectionReason: rejectionReason || null,
                 processedAt: new Date(),
                 processedById: userId,
+                lastEventAt: new Date(),
             },
+        });
+
+        await recordRequestEvent({
+            tenantId,
+            entityType: REQUEST_ENTITY_TYPES.INTERVENTION_REQUEST,
+            entityId: id,
+            type: REQUEST_EVENT_TYPES.STATUS_CHANGED,
+            actorType: 'MANAGER',
+            actorId: userId,
+            message: rejectionReason || null,
+            metadata: { from: existing.status, to: 'REJECTED' },
         });
 
         // Notify customer via WhatsApp
@@ -262,6 +302,24 @@ export const planRequest = async (req: Request, res: Response) => {
                 interventionId: intervention.id,
                 processedAt: new Date(),
                 processedById: userId,
+                lastEventAt: new Date(),
+            },
+        });
+
+        await recordRequestEvent({
+            tenantId,
+            entityType: REQUEST_ENTITY_TYPES.INTERVENTION_REQUEST,
+            entityId: id,
+            type: REQUEST_EVENT_TYPES.STATUS_CHANGED,
+            actorType: 'MANAGER',
+            actorId: userId,
+            metadata: {
+                from: existing.status,
+                to: 'PLANNED',
+                interventionId: intervention.id,
+                employeeId,
+                scheduledStart,
+                scheduledEnd,
             },
         });
 
@@ -309,6 +367,155 @@ export const deleteRequest = async (req: Request, res: Response) => {
         res.json({ success: true });
     } catch (error) {
         console.error('Error deleting intervention request:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// ─── ASSIGNMENT ──────────────────────────────────────────────────────────────
+/** PATCH /api/intervention-requests/:id/assignment */
+export const updateAssignment = async (req: Request, res: Response) => {
+    try {
+        const tenantId = (req as any).user!.tenantId;
+        const userId = (req as any).user!.userId;
+        const id = req.params.id as string;
+        const { employeeId } = req.body;
+
+        const existing = await prisma.interventionRequest.findFirst({ where: { id, tenantId } });
+        if (!existing) return res.status(404).json({ error: 'Request not found' });
+
+        if (employeeId) {
+            const employee = await prisma.employee.findFirst({ where: { id: employeeId, tenantId } });
+            if (!employee) return res.status(404).json({ error: 'Employee not found' });
+        }
+
+        const updated = await prisma.interventionRequest.update({
+            where: { id },
+            data: {
+                assignedToId: employeeId || null,
+                lastEventAt: new Date(),
+            },
+            include: {
+                assignedTo: { select: { id: true, name: true, phoneNumber: true } },
+            },
+        });
+
+        await recordRequestEvent({
+            tenantId,
+            entityType: REQUEST_ENTITY_TYPES.INTERVENTION_REQUEST,
+            entityId: id,
+            type: employeeId ? REQUEST_EVENT_TYPES.ASSIGNED : REQUEST_EVENT_TYPES.UNASSIGNED,
+            actorType: 'MANAGER',
+            actorId: userId,
+            metadata: { from: existing.assignedToId, to: employeeId || null },
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error('Error updating intervention request assignment:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// ─── SLA ─────────────────────────────────────────────────────────────────────
+/** PATCH /api/intervention-requests/:id/sla */
+export const updateSla = async (req: Request, res: Response) => {
+    try {
+        const tenantId = (req as any).user!.tenantId;
+        const userId = (req as any).user!.userId;
+        const id = req.params.id as string;
+        const { slaDueAt } = req.body;
+
+        const existing = await prisma.interventionRequest.findFirst({ where: { id, tenantId } });
+        if (!existing) return res.status(404).json({ error: 'Request not found' });
+
+        const nextSlaDueAt = slaDueAt ? new Date(slaDueAt) : null;
+        if (slaDueAt && Number.isNaN(nextSlaDueAt?.getTime())) {
+            return res.status(400).json({ error: 'Invalid slaDueAt' });
+        }
+
+        const updated = await prisma.interventionRequest.update({
+            where: { id },
+            data: {
+                slaDueAt: nextSlaDueAt,
+                slaBreachedAt: null,
+                lastEventAt: new Date(),
+            },
+        });
+
+        await recordRequestEvent({
+            tenantId,
+            entityType: REQUEST_ENTITY_TYPES.INTERVENTION_REQUEST,
+            entityId: id,
+            type: nextSlaDueAt ? REQUEST_EVENT_TYPES.SLA_SET : REQUEST_EVENT_TYPES.SLA_CLEARED,
+            actorType: 'MANAGER',
+            actorId: userId,
+            metadata: {
+                from: existing.slaDueAt?.toISOString() || null,
+                to: nextSlaDueAt?.toISOString() || null,
+            },
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error('Error updating intervention request SLA:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// ─── INTERNAL COMMENTS ───────────────────────────────────────────────────────
+/** POST /api/intervention-requests/:id/comments */
+export const addComment = async (req: Request, res: Response) => {
+    try {
+        const tenantId = (req as any).user!.tenantId;
+        const userId = (req as any).user!.userId;
+        const id = req.params.id as string;
+        const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+
+        if (!message) return res.status(400).json({ error: 'Message is required' });
+
+        const existing = await prisma.interventionRequest.findFirst({ where: { id, tenantId } });
+        if (!existing) return res.status(404).json({ error: 'Request not found' });
+
+        await recordRequestEvent({
+            tenantId,
+            entityType: REQUEST_ENTITY_TYPES.INTERVENTION_REQUEST,
+            entityId: id,
+            type: REQUEST_EVENT_TYPES.COMMENTED,
+            actorType: 'MANAGER',
+            actorId: userId,
+            message,
+        });
+
+        res.status(201).json({ success: true });
+    } catch (error) {
+        console.error('Error adding intervention request comment:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// ─── EVENTS ──────────────────────────────────────────────────────────────────
+/** GET /api/intervention-requests/:id/events */
+export const listEvents = async (req: Request, res: Response) => {
+    try {
+        const tenantId = (req as any).user!.tenantId;
+        const id = req.params.id as string;
+
+        const existing = await prisma.interventionRequest.findFirst({ where: { id, tenantId }, select: { id: true } });
+        if (!existing) return res.status(404).json({ error: 'Request not found' });
+
+        const events = await prisma.requestEvent.findMany({
+            where: {
+                tenantId,
+                entityType: REQUEST_ENTITY_TYPES.INTERVENTION_REQUEST,
+                entityId: id,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 100,
+        });
+
+        res.json({ events });
+    } catch (error) {
+        console.error('Error listing intervention request events:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };

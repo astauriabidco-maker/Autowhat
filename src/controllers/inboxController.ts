@@ -119,6 +119,7 @@ export const getInbox = async (req: Request, res: Response): Promise<any> => {
                     include: {
                         customer: { select: { id: true, companyName: true, contactName: true } },
                         interventionType: { select: { id: true, name: true, color: true } },
+                        assignedTo: { select: { id: true, name: true, phoneNumber: true } },
                     },
                     orderBy: { createdAt: 'desc' },
                     take: limit,
@@ -193,6 +194,11 @@ export const getInbox = async (req: Request, res: Response): Promise<any> => {
                     interventionTypeId: request.interventionTypeId,
                     interventionTypeName: request.interventionType?.name,
                     photoUrl: request.photoUrl,
+                    assignedTo: request.assignedTo,
+                    slaDueAt: request.slaDueAt?.toISOString() || null,
+                    slaBreachedAt: request.slaBreachedAt?.toISOString() || null,
+                    lastInternalCommentAt: request.lastInternalCommentAt?.toISOString() || null,
+                    lastEventAt: request.lastEventAt?.toISOString() || null,
                 },
             })),
             ...tickets.map(ticket => ({
