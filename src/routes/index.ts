@@ -10,6 +10,7 @@ import * as employeeController from '../controllers/employeeController';
 import * as siteController from '../controllers/siteController';
 import * as exportController from '../controllers/exportController';
 import * as notificationController from '../controllers/notificationController';
+import * as inboxController from '../controllers/inboxController';
 import * as userController from '../controllers/userController';
 import * as importController from '../controllers/importController';
 import * as billingController from '../controllers/billingController';
@@ -83,6 +84,7 @@ router.get('/api/exports/excel', authenticateManager, exportController.exportExc
 router.get('/api/exports/pdf/:employeeId', authenticateManager, exportController.exportPdf);
 
 // Notification API Routes (Protected - Manager only)
+router.get('/api/inbox', authenticateManager, inboxController.getInbox);
 router.get('/api/notifications', authenticateManager, notificationController.getNotifications);
 router.get('/api/notifications/unread-count', authenticateManager, notificationController.getUnreadCount);
 router.patch('/api/notifications/read-all', authenticateManager, notificationController.markAllAsRead);
