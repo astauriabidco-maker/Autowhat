@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
+import fs from 'fs';
 import path from 'path';
 
 dotenv.config();
@@ -65,6 +66,95 @@ app.get('/api/health', (req, res) => {
         status: 'online',
         message: 'WhatsPoint API is running'
     });
+});
+
+app.get('/api/frontend-diagnostics', (_req, res) => {
+    const distPath = path.join(process.cwd(), 'client/dist');
+    const indexPath = path.join(distPath, 'index.html');
+    const commit = process.env.COOLIFY_GIT_COMMIT_SHA
+        || process.env.SOURCE_COMMIT
+        || process.env.GIT_COMMIT
+        || process.env.COMMIT_SHA
+        || 'unknown';
+
+    let indexHtml = '';
+    let assets: string[] = [];
+
+    try {
+        indexHtml = fs.readFileSync(indexPath, 'utf8');
+    } catch {
+        indexHtml = '';
+    }
+
+    try {
+        assets = fs.readdirSync(path.join(distPath, 'assets'));
+    } catch {
+        assets = [];
+    }
+
+    res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+    });
+    res.status(200).json({
+        status: 'online',
+        commit,
+        nodeEnv: process.env.NODE_ENV || 'development',
+        serveFrontend: process.env.SERVE_FRONTEND || null,
+        distPath,
+        indexExists: Boolean(indexHtml),
+        scripts: [...indexHtml.matchAll(/src="([^"]+\.js)"/g)].map(match => match[1]),
+        stylesheets: [...indexHtml.matchAll(/href="([^"]+\.css)"/g)].map(match => match[1]),
+        assets
+    });
+});
+
+app.get('/api/frontend-reset', (_req, res) => {
+    res.set({
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+    });
+    res.send(`<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WhatsPoint - Nettoyage</title>
+  </head>
+  <body style="min-height:100vh;display:grid;place-items:center;margin:0;background:#f8fafc;color:#0f172a;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+    <main style="width:min(100% - 32px,560px);padding:28px;border:1px solid #dbe4f0;border-radius:12px;background:white;box-shadow:0 18px 45px rgba(15,23,42,.08)">
+      <p style="margin:0 0 8px;color:#2563eb;font-weight:700">WhatsPoint</p>
+      <h1 style="margin:0 0 12px;font-size:28px;line-height:1.15">Nettoyage du cache en cours...</h1>
+      <p id="status" style="margin:0 0 22px;color:#475569;line-height:1.6">Suppression de l'ancien service worker et des caches navigateur.</p>
+      <button id="go" style="border:0;border-radius:8px;padding:12px 16px;background:#2563eb;color:#fff;cursor:pointer;font-weight:700">Retourner a l'accueil</button>
+    </main>
+    <script>
+      (async function () {
+        const status = document.getElementById('status');
+        try {
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister()));
+          }
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((key) => caches.delete(key)));
+          }
+          status.textContent = 'Cache nettoye. Vous pouvez revenir a la landing.';
+        } catch (error) {
+          console.error(error);
+          status.textContent = 'Nettoyage partiel. Utilisez ensuite un rechargement force du navigateur.';
+        }
+        document.getElementById('go').addEventListener('click', () => {
+          window.location.href = '/?v=' + Date.now();
+        });
+      })();
+    </script>
+  </body>
+</html>`);
 });
 
 import router from './routes/index';
