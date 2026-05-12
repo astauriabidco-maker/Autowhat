@@ -250,7 +250,8 @@ export default function HeroSection() {
                         display: 'flex',
                         gap: isMobile ? '0.65rem' : '1rem',
                         flexWrap: 'wrap',
-                        flexDirection: isMobile ? 'column' : 'row'
+                        flexDirection: isMobile ? 'column' : 'row',
+                        alignItems: isMobile ? 'stretch' : 'center'
                     }}>
                         <a
                             href="https://wa.me/33612345678?text=Menu"
@@ -259,9 +260,9 @@ export default function HeroSection() {
                             style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
+                                justifyContent: isMobile ? 'flex-start' : 'center',
                                 gap: '0.5rem',
-                                padding: isMobile ? '0.78rem 1rem' : '1rem 2rem',
+                                padding: isMobile ? '0.78rem 1rem 0.78rem 1.1rem' : '1rem 2rem',
                                 background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
                                 borderRadius: '0.75rem',
                                 color: 'white',
@@ -275,7 +276,7 @@ export default function HeroSection() {
                             onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
                             onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                         >
-                            <MessageCircle size={20} />
+                            <MessageCircle size={20} style={{ flexShrink: 0 }} />
                             Démo WhatsApp
                         </a>
                         <button
@@ -283,9 +284,9 @@ export default function HeroSection() {
                             style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
+                                justifyContent: isMobile ? 'flex-start' : 'center',
                                 gap: '0.5rem',
-                                padding: isMobile ? '0.78rem 1rem' : '1rem 2rem',
+                                padding: isMobile ? '0.78rem 1rem 0.78rem 1.1rem' : '1rem 2rem',
                                 background: 'rgba(255, 255, 255, 0.78)',
                                 border: '1px solid rgba(148, 163, 184, 0.45)',
                                 borderRadius: '0.75rem',
@@ -315,9 +316,9 @@ export default function HeroSection() {
                                 style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
-                                    justifyContent: 'center',
+                                    justifyContent: 'flex-start',
                                     gap: '0.5rem',
-                                    padding: '0.76rem 1rem',
+                                    padding: '0.76rem 1rem 0.76rem 1.1rem',
                                     background: 'rgba(255, 255, 255, 0.55)',
                                     border: '1px solid rgba(148, 163, 184, 0.45)',
                                     borderRadius: '0.75rem',
