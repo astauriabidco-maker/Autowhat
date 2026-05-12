@@ -29,15 +29,30 @@ const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 
     .map(origin => origin.trim())
     .filter(Boolean);
 
-app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin) || (allowedOrigins.length === 0 && process.env.NODE_ENV !== 'production')) {
-            callback(null, true);
-            return;
-        }
-        callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true
+const normalizeOrigin = (origin: string) => origin.replace(/\/$/, '');
+
+app.use(cors((req, callback) => {
+    const origin = req.header('Origin');
+    const host = req.get('host');
+    const forwardedProto = req.get('x-forwarded-proto')?.split(',')[0]?.trim();
+    const requestOrigins = host
+        ? [
+            `${forwardedProto || req.protocol}://${host}`,
+            `https://${host}`,
+            `http://${host}`
+        ].map(normalizeOrigin)
+        : [];
+    const configuredOrigins = allowedOrigins.map(normalizeOrigin);
+    const normalizedOrigin = origin ? normalizeOrigin(origin) : null;
+    const isAllowed = !normalizedOrigin
+        || requestOrigins.includes(normalizedOrigin)
+        || configuredOrigins.includes(normalizedOrigin)
+        || (allowedOrigins.length === 0 && process.env.NODE_ENV !== 'production');
+
+    callback(null, {
+        origin: isAllowed,
+        credentials: true
+    });
 }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
