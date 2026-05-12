@@ -92,13 +92,13 @@ export default function HeroSection() {
 
     return (
         <section style={{
-            minHeight: '90vh',
+            minHeight: isMobile ? 'auto' : '82vh',
             background: `linear-gradient(135deg, rgba(248, 250, 252, 0.98) 0%, rgba(239, 246, 255, 0.94) 48%, rgba(240, 253, 244, 0.9) 100%), url(${heroImageSrc})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             display: 'flex',
             alignItems: 'center',
-            padding: isMobile ? '6rem 4% 4rem' : '8rem 5% 4rem',
+            padding: isMobile ? '5.5rem 4% 3rem' : '7rem 5% 3rem',
             borderBottom: '1px solid rgba(148, 163, 184, 0.22)',
             color: '#0f172a',
             overflow: 'hidden'
@@ -106,7 +106,7 @@ export default function HeroSection() {
             <div style={{
                 display: 'grid',
                 gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-                gap: isMobile ? '3rem' : '4rem',
+                gap: isMobile ? '2rem' : '3rem',
                 maxWidth: '1250px',
                 margin: '0 auto',
                 width: '100%',
@@ -127,7 +127,7 @@ export default function HeroSection() {
                         background: 'rgba(37, 99, 235, 0.08)',
                         padding: '0.5rem 1rem',
                         borderRadius: '2rem',
-                        marginBottom: '1.5rem',
+                        marginBottom: '1.1rem',
                         border: '1px solid rgba(37, 99, 235, 0.16)'
                     }}>
                         <Sparkles size={16} color="#2563eb" />
@@ -141,7 +141,7 @@ export default function HeroSection() {
                         fontSize: isMobile ? '2.55rem' : '4.15rem',
                         fontWeight: 800,
                         lineHeight: 1.06,
-                        marginBottom: '1.25rem',
+                        marginBottom: '1rem',
                         letterSpacing: 0
                     }}>
                         Pointage, présence et planning
@@ -153,7 +153,7 @@ export default function HeroSection() {
                         fontSize: isMobile ? '1.05rem' : '1.18rem',
                         lineHeight: 1.65,
                         maxWidth: '610px',
-                        marginBottom: '1.5rem'
+                        marginBottom: '1.1rem'
                     }}>
                         Vos équipes pointent, consultent leurs horaires et transmettent leurs demandes
                         sans installer une nouvelle application. WhatsPoint structure tout et l’envoie au bon service.
@@ -164,7 +164,7 @@ export default function HeroSection() {
                         display: 'flex',
                         gap: '0.6rem',
                         flexWrap: 'wrap',
-                        marginBottom: '2rem'
+                        marginBottom: '1.4rem'
                     }}>
                         {SLIDES.map((slide, idx) => (
                             <button
@@ -198,7 +198,7 @@ export default function HeroSection() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
-                        style={{ minHeight: isMobile ? '120px' : '100px', marginBottom: '2.5rem' }}
+                        style={{ minHeight: isMobile ? '100px' : '84px', marginBottom: '1.75rem' }}
                     >
                         <h2 style={{
                             color: '#0f172a',
@@ -311,7 +311,7 @@ export default function HeroSection() {
                         display: 'flex',
                         flexWrap: 'wrap',
                         gap: isMobile ? '0.75rem' : '1.5rem',
-                        marginTop: '1.5rem'
+                        marginTop: '1rem'
                     }}>
                         {[
                             { icon: <ShieldCheck size={17} />, text: t('landing.hero.badges.gdpr', 'Conforme RGPD') },

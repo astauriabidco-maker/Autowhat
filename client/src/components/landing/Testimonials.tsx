@@ -155,24 +155,24 @@ export default function Testimonials() {
 
     return (
         <section id="testimonials" style={{
-            padding: '6rem 5%',
+            padding: '4.75rem 5%',
             background: '#f8fafc'
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {/* Header */}
                 <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
+                    initial={{ y: 24 }}
+                    whileInView={{ y: 0 }}
                     transition={{ duration: 0.6 }}
                     viewport={{ once: true }}
-                    style={{ textAlign: 'center', marginBottom: '4rem' }}
+                    style={{ textAlign: 'center', marginBottom: '2.75rem' }}
                 >
                     <h2 style={{
                         color: '#0f172a',
                         fontSize: '2.5rem',
                         fontWeight: 800,
                         marginBottom: '1rem',
-                        letterSpacing: '-0.02em'
+                        letterSpacing: 0
                     }}>
                         {t('landing.testimonials.title', 'Ils nous font confiance')}
                     </h2>
@@ -190,7 +190,7 @@ export default function Testimonials() {
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                    gap: '2rem'
+                    gap: '1.5rem'
                 }}>
                     {relevantTestimonials.map((testimonial, index) => (
                         <TestimonialCard
@@ -203,15 +203,15 @@ export default function Testimonials() {
 
                 {/* Trust indicators */}
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
+                    initial={{ y: 20 }}
+                    whileInView={{ y: 0 }}
                     transition={{ duration: 0.6, delay: 0.3 }}
                     viewport={{ once: true }}
                     style={{
                         display: 'flex',
                         justifyContent: 'center',
                         gap: '3rem',
-                        marginTop: '4rem',
+                        marginTop: '2.75rem',
                         flexWrap: 'wrap'
                     }}
                 >

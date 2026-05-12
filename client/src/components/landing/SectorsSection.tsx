@@ -1,10 +1,12 @@
 import { motion } from 'framer-motion';
 import { useVisitor } from '../../context/VisitorContext';
+import { useIsMobile } from '../../hooks/useMediaQuery';
 import { HardHat, Droplets, ShieldCheck, Building, ShoppingBag, Utensils, CheckCircle2, Stethoscope } from 'lucide-react';
 
 export default function SectorsSection() {
     const { deviceType } = useVisitor();
-    const isMobile = deviceType === 'mobile';
+    const isViewportMobile = useIsMobile();
+    const isMobile = deviceType === 'mobile' || isViewportMobile;
 
     const sectors = [
         {
@@ -74,24 +76,24 @@ export default function SectorsSection() {
 
     return (
         <section id="sectors" style={{
-            padding: isMobile ? '4rem 4%' : '6rem 5%',
+            padding: isMobile ? '3.25rem 4%' : '4.75rem 5%',
             background: '#ffffff',
             borderBottom: '1px solid #e2e8f0'
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
+                    initial={{ y: 24 }}
+                    whileInView={{ y: 0 }}
                     transition={{ duration: 0.6 }}
                     viewport={{ once: true }}
-                    style={{ textAlign: 'center', marginBottom: '4rem' }}
+                    style={{ textAlign: 'center', marginBottom: isMobile ? '2rem' : '2.75rem' }}
                 >
                     <h2 style={{
                         color: '#0f172a',
                         fontSize: isMobile ? '1.75rem' : '2.5rem',
                         fontWeight: 800,
                         marginBottom: '1rem',
-                        letterSpacing: '-0.02em'
+                        letterSpacing: 0
                     }}>
                         Pensé pour le terrain.
                         <br />
@@ -111,20 +113,20 @@ export default function SectorsSection() {
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(350px, 1fr))',
-                    gap: '2rem'
+                    gap: isMobile ? '1rem' : '1.5rem'
                 }}>
                     {sectors.map((sector, idx) => (
                         <motion.div
                             key={sector.id}
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
+                            initial={{ y: 22 }}
+                            whileInView={{ y: 0 }}
                             transition={{ duration: 0.5, delay: idx * 0.1 }}
                             viewport={{ once: true }}
                             style={{
                                 background: 'white',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '1.25rem',
-                                padding: '2rem',
+                                padding: isMobile ? '1.5rem' : '1.75rem',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                 display: 'flex',
                                 flexDirection: 'column',
@@ -151,7 +153,7 @@ export default function SectorsSection() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                marginBottom: '1.5rem'
+                                marginBottom: '1.1rem'
                             }}>
                                 {sector.icon}
                             </div>
@@ -170,7 +172,7 @@ export default function SectorsSection() {
                                 fontSize: '1rem',
                                 lineHeight: 1.6,
                                 flex: 1,
-                                marginBottom: '1.5rem'
+                                marginBottom: '1.1rem'
                             }}>
                                 {sector.description}
                             </p>

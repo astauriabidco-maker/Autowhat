@@ -24,17 +24,17 @@ export default function FeaturesGrid() {
 
     return (
         <section id="hr-suite" style={{
-            padding: isMobile ? '4rem 4%' : '6rem 5%',
+            padding: isMobile ? '3.25rem 4%' : '4.75rem 5%',
             background: '#ffffff'
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {/* Header */}
                 <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
+                    initial={{ y: 24 }}
+                    whileInView={{ y: 0 }}
                     transition={{ duration: 0.6 }}
                     viewport={{ once: true }}
-                    style={{ textAlign: 'center', marginBottom: '3rem' }}
+                    style={{ textAlign: 'center', marginBottom: isMobile ? '2rem' : '2.35rem' }}
                 >
                     <div style={{
                         display: 'inline-flex',
@@ -55,7 +55,7 @@ export default function FeaturesGrid() {
                         fontSize: isMobile ? '1.75rem' : '2.5rem',
                         fontWeight: 800,
                         marginBottom: '1rem',
-                        letterSpacing: '-0.02em'
+                        letterSpacing: 0
                     }}>
                         {t('landing.suite.title', 'Le pointage reste le socle.')}
                     </h2>
@@ -73,12 +73,12 @@ export default function FeaturesGrid() {
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: isMobile ? '1fr' : 'repeat(6, 1fr)',
-                    gap: '1.5rem'
+                    gap: isMobile ? '1rem' : '1.25rem'
                 }}>
                     {/* Pointage - primary workflow */}
                     <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
+                        initial={{ y: 24 }}
+                        whileInView={{ y: 0 }}
                         transition={{ duration: 0.6 }}
                         viewport={{ once: true }}
                         style={{
@@ -86,11 +86,11 @@ export default function FeaturesGrid() {
                             background: 'linear-gradient(135deg, #eff6ff 0%, #ffffff 65%)',
                             border: '1px solid #e2e8f0',
                             borderRadius: '1.5rem',
-                            padding: isMobile ? '1.5rem' : '2rem',
+                            padding: isMobile ? '1.35rem' : '1.75rem',
                             position: 'relative',
                             overflow: 'hidden',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-                            minHeight: isMobile ? 'auto' : '430px'
+                            minHeight: isMobile ? 'auto' : '390px'
                         }}
                     >
                         <div style={{ position: 'absolute', right: '-24px', bottom: '-24px', opacity: 0.08 }}>
@@ -106,7 +106,7 @@ export default function FeaturesGrid() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                marginBottom: '1.5rem'
+                                marginBottom: '1.1rem'
                             }}>
                                 <MapPin size={28} color="#2563eb" />
                             </div>
@@ -125,7 +125,7 @@ export default function FeaturesGrid() {
                                 fontSize: '1rem',
                                 lineHeight: 1.65,
                                 maxWidth: '430px',
-                                marginBottom: '1.5rem'
+                                marginBottom: '1.1rem'
                             }}>
                                 Un message WhatsApp suffit pour enregistrer l’arrivée, la prise de service ou le départ, avec site, heure et contrôle GPS.
                             </p>
@@ -136,7 +136,7 @@ export default function FeaturesGrid() {
                                 padding: '1rem',
                                 color: 'white',
                                 maxWidth: '430px',
-                                marginBottom: '1.5rem',
+                                marginBottom: '1.1rem',
                                 boxShadow: '0 18px 40px -24px rgba(15, 23, 42, 0.75)'
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
@@ -181,8 +181,8 @@ export default function FeaturesGrid() {
 
                     {/* Planning - second pillar */}
                     <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
+                        initial={{ y: 24 }}
+                        whileInView={{ y: 0 }}
                         transition={{ duration: 0.6, delay: 0.1 }}
                         viewport={{ once: true }}
                         style={{
@@ -190,9 +190,9 @@ export default function FeaturesGrid() {
                             background: 'linear-gradient(135deg, #f5f3ff 0%, #ffffff 64%)',
                             border: '1px solid #e2e8f0',
                             borderRadius: '1.5rem',
-                            padding: isMobile ? '1.5rem' : '2rem',
+                            padding: isMobile ? '1.35rem' : '1.75rem',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-                            minHeight: isMobile ? 'auto' : '430px',
+                            minHeight: isMobile ? 'auto' : '390px',
                             position: 'relative',
                             overflow: 'hidden'
                         }}
@@ -210,7 +210,7 @@ export default function FeaturesGrid() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                marginBottom: '1.5rem'
+                                marginBottom: '1.1rem'
                             }}>
                                 <CalendarDays size={28} color="#7c3aed" />
                             </div>
@@ -229,7 +229,7 @@ export default function FeaturesGrid() {
                                 fontSize: '1rem',
                                 lineHeight: 1.65,
                                 maxWidth: '430px',
-                                marginBottom: '1.5rem'
+                                marginBottom: '1.1rem'
                             }}>
                                 Les équipes demandent leur prochain horaire, leur service ou un changement sans appeler le standard ni ouvrir un portail.
                             </p>
@@ -240,7 +240,7 @@ export default function FeaturesGrid() {
                                 borderRadius: '1.25rem',
                                 padding: '1rem',
                                 maxWidth: '430px',
-                                marginBottom: '1.5rem',
+                                marginBottom: '1.1rem',
                                 boxShadow: '0 14px 30px -24px rgba(91, 33, 182, 0.65)'
                             }}>
                                 {[
@@ -324,7 +324,7 @@ export default function FeaturesGrid() {
                                 background: 'white',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '1.25rem',
-                                padding: '1.5rem',
+                                padding: '1.25rem',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.04)'
                             }}
                         >
@@ -336,7 +336,7 @@ export default function FeaturesGrid() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                marginBottom: '1rem'
+                                marginBottom: '0.8rem'
                             }}>
                                 {card.icon}
                             </div>
@@ -362,18 +362,18 @@ export default function FeaturesGrid() {
 
                     {/* Dashboard */}
                     <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
+                        initial={{ y: 24 }}
+                        whileInView={{ y: 0 }}
                         transition={{ duration: 0.6, delay: 0.25 }}
                         viewport={{ once: true }}
                         style={{
                             gridColumn: isMobile ? 'span 1' : 'span 6',
                             background: '#0f172a',
                             borderRadius: '1.5rem',
-                            padding: isMobile ? '1.5rem' : '2rem',
+                            padding: isMobile ? '1.35rem' : '1.75rem',
                             display: 'grid',
                             gridTemplateColumns: isMobile ? '1fr' : '0.9fr 1.1fr',
-                            gap: '2rem',
+                            gap: isMobile ? '1rem' : '1.5rem',
                             alignItems: 'center',
                             boxShadow: '0 24px 60px -34px rgba(15, 23, 42, 0.8)'
                         }}
@@ -403,7 +403,7 @@ export default function FeaturesGrid() {
                             }}>
                                 Pendant que le terrain utilise WhatsApp, le manager pilote tout.
                             </h3>
-                            <p style={{ color: '#cbd5e1', fontSize: '1rem', lineHeight: 1.65, marginBottom: '1.4rem' }}>
+                            <p style={{ color: '#cbd5e1', fontSize: '1rem', lineHeight: 1.6, marginBottom: '1.1rem' }}>
                                 Présences, anomalies, justificatifs et demandes restent structurés dans une interface de suivi.
                             </p>
                             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>

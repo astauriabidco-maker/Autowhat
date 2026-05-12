@@ -40,7 +40,7 @@ export default function TrustSection() {
 
     return (
         <section style={{
-            padding: isMobile ? '4rem 4%' : '6rem 5%',
+            padding: isMobile ? '3.25rem 4%' : '4.75rem 5%',
             background: '#ffffff',
             position: 'relative',
             overflow: 'hidden',
@@ -58,25 +58,25 @@ export default function TrustSection() {
             <div style={{ maxWidth: '1200px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
                 {/* Header */}
                 <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
+                    initial={{ y: 24 }}
+                    whileInView={{ y: 0 }}
                     transition={{ duration: 0.6 }}
                     viewport={{ once: true }}
-                    style={{ textAlign: 'center', marginBottom: '4rem' }}
+                    style={{ textAlign: 'center', marginBottom: isMobile ? '2.25rem' : '2.75rem' }}
                 >
                     {/* Shield icon */}
                     <div style={{
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: '80px',
-                        height: '80px',
+                        width: isMobile ? '64px' : '70px',
+                        height: isMobile ? '64px' : '70px',
                         borderRadius: '50%',
                         background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2))',
-                        marginBottom: '1.5rem',
+                        marginBottom: '1.15rem',
                         border: '1px solid rgba(139, 92, 246, 0.3)'
                     }}>
-                        <Shield size={40} color="#8b5cf6" />
+                        <Shield size={isMobile ? 32 : 36} color="#8b5cf6" />
                     </div>
 
                     <h2 style={{
@@ -104,7 +104,7 @@ export default function TrustSection() {
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
-                    gap: '2rem'
+                    gap: isMobile ? '1rem' : '1.5rem'
                 }}>
                     {trustFeatures.map((feature, idx) => (
                         <motion.div
@@ -117,7 +117,7 @@ export default function TrustSection() {
                                 background: 'white',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '1.25rem',
-                                padding: '2rem',
+                                padding: isMobile ? '1.5rem' : '1.75rem',
                                 textAlign: 'center',
                                 position: 'relative',
                                 overflow: 'hidden',
@@ -138,15 +138,15 @@ export default function TrustSection() {
 
                             {/* Icon */}
                             <div style={{
-                                width: '64px',
-                                height: '64px',
+                                width: '56px',
+                                height: '56px',
                                 borderRadius: '1rem',
                                 background: `${feature.color}15`,
                                 border: `1px solid ${feature.color}30`,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                margin: '0 auto 1.5rem',
+                                margin: '0 auto 1.1rem',
                                 color: feature.color,
                                 position: 'relative'
                             }}>
@@ -182,8 +182,8 @@ export default function TrustSection() {
                         display: 'flex',
                         justifyContent: 'center',
                         flexWrap: 'wrap',
-                        gap: '2rem',
-                        marginTop: '3rem'
+                        gap: isMobile ? '1rem' : '1.5rem',
+                        marginTop: '2rem'
                     }}
                 >
                     {[

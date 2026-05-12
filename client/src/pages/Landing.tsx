@@ -262,12 +262,12 @@ function LandingContent() {
             <HeroSection />
 
             {/* Social Proof Section - Trust by */}
-            <section style={{ padding: '2.5rem 5%', background: '#ffffff', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+            <section style={{ padding: isMobile ? '1.5rem 4%' : '1.75rem 5%', background: '#ffffff', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
-                    <p style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1.5rem' }}>
+                    <p style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>
                         Une plateforme terrain qui couvre les workflows essentiels
                     </p>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: isMobile ? '2rem' : '4rem', flexWrap: 'wrap', opacity: 0.5, filter: 'grayscale(100%)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: isMobile ? '1.25rem' : '3rem', flexWrap: 'wrap', opacity: 0.5, filter: 'grayscale(100%)' }}>
                         {['Pointage', 'Présences', 'Plannings', 'Justificatifs', 'Documents', 'Exports'].map(module => (
                             <span key={module} style={{ fontSize: isMobile ? '1.05rem' : '1.35rem', fontWeight: 850, color: '#475569', letterSpacing: 0 }}>{module}</span>
                         ))}
@@ -302,16 +302,16 @@ function LandingContent() {
 
             {/* Pricing Section */}
             <section id="pricing" style={{
-                padding: isMobile ? '4rem 4%' : '6rem 5%',
+                padding: isMobile ? '3.25rem 4%' : '5rem 5%',
                 background: '#f8fafc'
             }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                     <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
+                        initial={{ y: 24 }}
+                        whileInView={{ y: 0 }}
                         transition={{ duration: 0.6 }}
                         viewport={{ once: true }}
-                        style={{ textAlign: 'center', marginBottom: '4rem' }}
+                        style={{ textAlign: 'center', marginBottom: '2.75rem' }}
                     >
                         <h2 style={{ color: '#0f172a', fontSize: isMobile ? '1.75rem' : '2.5rem', fontWeight: 800, marginBottom: '1rem' }}>
                             {t('landing.pricing.title')}
@@ -330,11 +330,11 @@ function LandingContent() {
                         <div style={{
                             display: 'grid',
                             gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
-                            gap: '2rem',
+                            gap: isMobile ? '1.25rem' : '1.5rem',
                             alignItems: 'stretch'
                         }}>
                             {[1, 2, 3].map((i) => (
-                                <div key={i} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '1.5rem', padding: '2.5rem 2rem', height: '400px', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}>
+                                <div key={i} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '1.5rem', padding: '2rem 1.75rem', height: '360px', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}>
                                     <div style={{ width: '40%', height: '24px', background: '#e2e8f0', borderRadius: '0.5rem', marginBottom: '1rem' }} />
                                     <div style={{ width: '70%', height: '16px', background: '#e2e8f0', borderRadius: '0.5rem', marginBottom: '2rem' }} />
                                     <div style={{ width: '60%', height: '48px', background: '#e2e8f0', borderRadius: '0.5rem', marginBottom: '2rem' }} />
@@ -347,14 +347,14 @@ function LandingContent() {
                         <div style={{
                             display: 'grid',
                             gridTemplateColumns: isMobile ? '1fr' : `repeat(${Math.min(plans.length, 3)}, 1fr)`,
-                            gap: '2rem',
+                            gap: isMobile ? '1.25rem' : '1.5rem',
                             alignItems: 'stretch'
                         }}>
                             {plans.map((plan, idx) => (
                                 <motion.div
                                     key={plan.id}
-                                    initial={{ opacity: 0, y: 30 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
+                                    initial={{ y: 22 }}
+                                    whileInView={{ y: 0 }}
                                     transition={{ duration: 0.6, delay: idx * 0.1 }}
                                     viewport={{ once: true }}
                                     style={{
@@ -366,7 +366,7 @@ function LandingContent() {
                                             : '1px solid #e2e8f0',
                                         boxShadow: plan.isPopular ? '0 20px 40px -15px rgba(59, 130, 246, 0.2)' : 'none',
                                         borderRadius: '1.5rem',
-                                        padding: '2.5rem 2rem',
+                                        padding: isMobile ? '2rem 1.5rem' : '2rem 1.75rem',
                                         position: 'relative',
                                         display: 'flex',
                                         flexDirection: 'column'
@@ -412,7 +412,7 @@ function LandingContent() {
 
                                     {/* Price - Dynamic */}
                                     <div style={{ marginBottom: '1.5rem' }}>
-                                        <span style={{ color: '#0f172a', fontSize: isMobile ? '2rem' : '3.2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                                        <span style={{ color: '#0f172a', fontSize: isMobile ? '2rem' : '3.2rem', fontWeight: 800, letterSpacing: 0 }}>
                                             {formatPrice(plan.price, plan.currency)}
                                         </span>
                                         <span style={{ color: '#64748b', fontSize: '1rem', fontWeight: 500 }}>
@@ -486,13 +486,13 @@ function LandingContent() {
 
                     {/* Product scope clarification */}
                     <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
+                        initial={{ y: 24 }}
+                        whileInView={{ y: 0 }}
                         transition={{ duration: 0.6, delay: 0.3 }}
                         viewport={{ once: true }}
-                        style={{ marginTop: '5rem' }}
+                        style={{ marginTop: isMobile ? '3rem' : '3.5rem' }}
                     >
-                        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+                        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                             <h3 style={{ color: '#0f172a', fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>
                                 Un socle simple, des extensions utiles
                             </h3>
@@ -504,7 +504,7 @@ function LandingContent() {
                         <div style={{
                             display: 'grid',
                             gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-                            gap: '2rem',
+                            gap: isMobile ? '1.25rem' : '1.5rem',
                             maxWidth: '900px',
                             margin: '0 auto'
                         }}>
@@ -512,7 +512,7 @@ function LandingContent() {
                                 background: 'white',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '1.5rem',
-                                padding: '2.5rem',
+                                padding: isMobile ? '1.75rem' : '2rem',
                                 borderTop: '4px solid #ea580c',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
                             }}>
@@ -534,7 +534,7 @@ function LandingContent() {
                                 background: 'white',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '1.5rem',
-                                padding: '2.5rem',
+                                padding: isMobile ? '1.75rem' : '2rem',
                                 borderTop: '4px solid #9333ea',
                                 position: 'relative',
                                 overflow: 'hidden',
@@ -561,7 +561,7 @@ function LandingContent() {
 
             {/* CTA Section */}
             <section style={{
-                padding: isMobile ? '4rem 4%' : '6rem 5%',
+                padding: isMobile ? '3.25rem 4%' : '4.5rem 5%',
                 background: '#ffffff',
                 textAlign: 'center'
             }}>
@@ -575,7 +575,7 @@ function LandingContent() {
                         margin: '0 auto',
                         background: 'linear-gradient(135deg, #1e3a8a 0%, #4f46e5 100%)',
                         borderRadius: '1.5rem',
-                        padding: isMobile ? '3rem 1.5rem' : '4rem 2rem'
+                        padding: isMobile ? '2.5rem 1.5rem' : '3rem 2rem'
                     }}
                 >
                     <h2 style={{ color: 'white', fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 700, marginBottom: '1rem' }}>
@@ -638,7 +638,7 @@ function LandingContent() {
 
             {/* Footer */}
             <footer style={{
-                padding: isMobile ? '2rem 4%' : '3rem 5%',
+                padding: isMobile ? '1.5rem 4%' : '2.25rem 5%',
                 background: '#f8fafc',
                 borderTop: '1px solid #e2e8f0'
             }}>

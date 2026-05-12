@@ -10,10 +10,12 @@ import {
     Users
 } from 'lucide-react';
 import { useVisitor } from '../../context/VisitorContext';
+import { useIsMobile } from '../../hooks/useMediaQuery';
 
 export default function OperationsSection() {
     const { deviceType } = useVisitor();
-    const isMobile = deviceType === 'mobile';
+    const isViewportMobile = useIsMobile();
+    const isMobile = deviceType === 'mobile' || isViewportMobile;
 
     const modules = [
         {
@@ -56,22 +58,22 @@ export default function OperationsSection() {
 
     return (
         <section id="operations" style={{
-            padding: isMobile ? '4rem 4%' : '6rem 5%',
+            padding: isMobile ? '3.25rem 4%' : '4.75rem 5%',
             background: '#f8fafc',
             borderBottom: '1px solid #e2e8f0'
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
+                    initial={{ y: 24 }}
+                    whileInView={{ y: 0 }}
                     transition={{ duration: 0.6 }}
                     viewport={{ once: true }}
                     style={{
                         display: 'grid',
                         gridTemplateColumns: isMobile ? '1fr' : '0.9fr 1.1fr',
-                        gap: isMobile ? '2rem' : '4rem',
+                        gap: isMobile ? '1.5rem' : '3rem',
                         alignItems: 'center',
-                        marginBottom: '3rem'
+                        marginBottom: isMobile ? '2rem' : '2.5rem'
                     }}
                 >
                     <div>
@@ -170,21 +172,21 @@ export default function OperationsSection() {
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
-                    gap: '1.25rem'
+                    gap: isMobile ? '1rem' : '1.25rem'
                 }}>
                     {modules.map((module, idx) => (
                         <motion.div
                             key={module.title}
-                            initial={{ opacity: 0, y: 24 }}
-                            whileInView={{ opacity: 1, y: 0 }}
+                            initial={{ y: 20 }}
+                            whileInView={{ y: 0 }}
                             transition={{ duration: 0.45, delay: idx * 0.06 }}
                             viewport={{ once: true }}
                             style={{
                                 background: '#ffffff',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '1rem',
-                                padding: '1.35rem',
-                                minHeight: '190px',
+                                padding: '1.2rem',
+                                minHeight: isMobile ? 'auto' : '168px',
                                 boxShadow: '0 4px 6px -1px rgba(15, 23, 42, 0.04)'
                             }}
                         >

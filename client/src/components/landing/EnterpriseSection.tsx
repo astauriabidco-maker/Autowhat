@@ -44,20 +44,20 @@ export default function EnterpriseSection() {
 
     return (
         <section id="enterprise" style={{
-            padding: isMobile ? '4rem 4%' : '6rem 5%',
+            padding: isMobile ? '3.25rem 4%' : '4.75rem 5%',
             background: '#f8fafc',
             borderBottom: '1px solid #e2e8f0'
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {/* Header */}
                 <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
+                    initial={{ y: 24 }}
+                    whileInView={{ y: 0 }}
                     transition={{ duration: 0.6 }}
                     viewport={{ once: true }}
                     style={{
                         textAlign: 'center',
-                        marginBottom: '4rem'
+                        marginBottom: isMobile ? '2rem' : '2.75rem'
                     }}
                 >
                     <div style={{
@@ -81,7 +81,7 @@ export default function EnterpriseSection() {
                         fontSize: isMobile ? '1.75rem' : '2.5rem',
                         fontWeight: 800,
                         marginBottom: '1rem',
-                        letterSpacing: '-0.02em'
+                        letterSpacing: 0
                     }}>
                         {t('landing.enterprise.title', 'Prêt pour les grands comptes.')}
                     </h2>
@@ -99,21 +99,21 @@ export default function EnterpriseSection() {
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
-                    gap: '2rem',
-                    marginBottom: '4rem'
+                    gap: isMobile ? '1rem' : '1.5rem',
+                    marginBottom: isMobile ? '2rem' : '2.75rem'
                 }}>
                     {enterpriseFeatures.map((feature, idx) => (
                         <motion.div
                             key={idx}
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
+                            initial={{ y: 22 }}
+                            whileInView={{ y: 0 }}
                             transition={{ duration: 0.6, delay: idx * 0.1 }}
                             viewport={{ once: true }}
                             style={{
                                 background: 'white',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '1.5rem',
-                                padding: '2rem',
+                                padding: isMobile ? '1.5rem' : '1.75rem',
                                 position: 'relative',
                                 overflow: 'hidden',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
@@ -140,7 +140,7 @@ export default function EnterpriseSection() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                marginBottom: '1.5rem',
+                                marginBottom: '1.1rem',
                                 color: feature.color
                             }}>
                                 {feature.icon}
@@ -183,15 +183,15 @@ export default function EnterpriseSection() {
 
                 {/* CTA for Enterprise */}
                 <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
+                    initial={{ y: 24 }}
+                    whileInView={{ y: 0 }}
                     transition={{ duration: 0.6, delay: 0.3 }}
                     viewport={{ once: true }}
                     style={{
                         background: 'white',
                         border: '1px solid #e2e8f0',
                         borderRadius: '1.5rem',
-                        padding: isMobile ? '2rem' : '3rem',
+                        padding: isMobile ? '1.75rem' : '2.25rem',
                         display: 'flex',
                         flexDirection: isMobile ? 'column' : 'row',
                         alignItems: 'center',

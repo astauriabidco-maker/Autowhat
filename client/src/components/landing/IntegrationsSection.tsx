@@ -72,15 +72,15 @@ export default function IntegrationsSection() {
 
     return (
         <section style={{
-            padding: isMobile ? '3rem 4%' : '4rem 5%',
+            padding: isMobile ? '2.5rem 4%' : '3.25rem 5%',
             background: '#f8fafc',
             borderBottom: '1px solid #e2e8f0',
             overflow: 'hidden'
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
+                    initial={{ y: 20 }}
+                    whileInView={{ y: 0 }}
                     transition={{ duration: 0.6 }}
                     viewport={{ once: true }}
                 >
@@ -91,7 +91,7 @@ export default function IntegrationsSection() {
                         padding: '0.4rem 1rem',
                         background: 'white',
                         borderRadius: '2rem',
-                        marginBottom: '1.5rem',
+                        marginBottom: '1rem',
                         border: '1px solid #e2e8f0',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
                     }}>
@@ -114,7 +114,7 @@ export default function IntegrationsSection() {
                         color: '#64748b',
                         fontSize: '1.05rem',
                         maxWidth: '720px',
-                        margin: '0 auto 2.5rem',
+                        margin: '0 auto 2rem',
                         lineHeight: 1.6
                     }}>
                         WhatsPoint collecte l’information dans WhatsApp, la qualifie, puis la transmet
@@ -125,7 +125,7 @@ export default function IntegrationsSection() {
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))',
-                    gap: isMobile ? '1rem' : '1.5rem'
+                    gap: isMobile ? '0.85rem' : '1.25rem'
                 }}>
                     {businessFlows.map((flow, idx) => (
                         <motion.div
@@ -136,15 +136,15 @@ export default function IntegrationsSection() {
                             viewport={{ once: true }}
                             style={{
                                 background: 'white',
-                                padding: '1.35rem',
+                                padding: '1.15rem',
                                 borderRadius: '1rem',
                                 border: '1px solid #e2e8f0',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'flex-start',
-                                gap: '0.75rem',
-                                minHeight: '190px',
+                                gap: '0.65rem',
+                                minHeight: isMobile ? 'auto' : '168px',
                                 textAlign: 'left'
                             }}
                         >
@@ -192,7 +192,7 @@ export default function IntegrationsSection() {
                 </div>
 
                 <div style={{
-                    marginTop: '2rem',
+                    marginTop: '1.5rem',
                     display: 'flex',
                     flexWrap: 'wrap',
                     justifyContent: 'center',
@@ -216,7 +216,7 @@ export default function IntegrationsSection() {
                             viewport={{ once: true }}
                             style={{
                                 background: '#0f172a',
-                                padding: '1rem 1.25rem',
+                                padding: '0.85rem 1.1rem',
                                 borderRadius: '1rem',
                                 border: '1px solid #1e293b',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
@@ -257,7 +257,7 @@ export default function IntegrationsSection() {
                         viewport={{ once: true }}
                         style={{
                             background: '#ffffff',
-                            padding: '1rem 1.25rem',
+                            padding: '0.85rem 1.1rem',
                             borderRadius: '1rem',
                             border: '1px dashed #94a3b8',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
