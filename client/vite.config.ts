@@ -3,11 +3,13 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// https://vite.dev/config/
-export default defineConfig({
-  plugins: [
-    react(),
-    tailwindcss(),
+const plugins = [
+  react(),
+  tailwindcss(),
+]
+
+if (process.env.VITE_ENABLE_PWA !== 'false') {
+  plugins.push(
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
@@ -86,7 +88,12 @@ export default defineConfig({
         ]
       }
     })
-  ],
+  )
+}
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins,
   server: {
     port: 5180,
     strictPort: true,

@@ -34,7 +34,7 @@ RUN npm ci --include=dev
 
 COPY client/ ./
 # Construire le site statique
-RUN npm run build
+RUN VITE_ENABLE_PWA=false npm run build
 
 
 # --- ETAPE 3: Image Finale (Légère & Sécurisée) ---
