@@ -151,115 +151,98 @@ export default function HeroSection() {
 
                     <h1 style={{
                         color: '#0f172a',
-                        fontSize: isMobile ? '1.82rem' : '3.65rem',
+                        fontSize: isMobile ? '1.78rem' : '3.65rem',
                         fontWeight: 800,
                         lineHeight: isMobile ? 1.06 : 1.03,
                         marginBottom: isMobile ? '0.75rem' : '0.85rem',
                         letterSpacing: 0
                     }}>
-                        WhatsApp pour pointer, planifier et remonter
-                        <span style={{ color: '#2563eb' }}> le terrain.</span>
+                        {isMobile ? (
+                            <>
+                                Pointage et planning
+                                <span style={{ color: '#2563eb' }}> dans WhatsApp.</span>
+                            </>
+                        ) : (
+                            <>
+                                WhatsApp pour pointer, planifier et remonter
+                                <span style={{ color: '#2563eb' }}> le terrain.</span>
+                            </>
+                        )}
                     </h1>
 
                     <p style={{
                         color: '#475569',
-                        fontSize: isMobile ? '0.93rem' : '1.18rem',
-                        lineHeight: isMobile ? 1.5 : 1.55,
-                        maxWidth: '610px',
-                        marginBottom: isMobile ? '0.95rem' : '1.1rem'
+                        fontSize: isMobile ? '0.9rem' : '1.18rem',
+                        lineHeight: isMobile ? 1.45 : 1.55,
+                        maxWidth: isMobile ? '340px' : '610px',
+                        marginBottom: isMobile ? '0.85rem' : '1.1rem'
                     }}>
-                        Vos équipes utilisent WhatsApp. WhatsPoint transforme leurs messages en présences,
-                        plannings, justificatifs et demandes exploitables par vos services métier.
+                        {isMobile
+                            ? 'Vos équipes pointent, consultent leurs horaires et remontent leurs demandes. WhatsPoint transmet aux bons outils.'
+                            : 'Vos équipes utilisent WhatsApp. WhatsPoint transforme leurs messages en présences, plannings, justificatifs et demandes exploitables par vos services métier.'}
                     </p>
 
-                    {isMobile ? (
+                    {isMobile ? null : (
                         <div style={{
                             display: 'flex',
-                            gap: '0.45rem',
-                            overflowX: 'auto',
-                            margin: '0 -0.25rem 0.95rem',
-                            padding: '0 0.25rem 0.2rem',
-                            WebkitOverflowScrolling: 'touch'
+                            gap: '0.6rem',
+                            flexWrap: 'wrap',
+                            margin: '0 0 1.4rem',
+                            padding: 0
                         }}>
-                            {['Pointage GPS', 'Planning', 'Justificatifs', 'Demandes'].map((label, idx) => (
-                                <span key={label} style={{
-                                    flex: '0 0 auto',
-                                    padding: '0.42rem 0.62rem',
-                                    borderRadius: '999px',
-                                    background: idx === currentSlide ? `${SLIDES[currentSlide].color}12` : 'rgba(255,255,255,0.74)',
-                                    border: idx === currentSlide ? `1px solid ${SLIDES[currentSlide].color}40` : '1px solid rgba(148, 163, 184, 0.3)',
-                                    color: idx === currentSlide ? SLIDES[currentSlide].color : '#475569',
-                                    fontSize: '0.76rem',
-                                    fontWeight: 750,
-                                    whiteSpace: 'nowrap'
-                                }}>
-                                    {label}
-                                </span>
+                            {SLIDES.map((slide, idx) => (
+                                <button
+                                    key={slide.id}
+                                    onClick={() => setCurrentSlide(idx)}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.4rem',
+                                        padding: '0.5rem 0.8rem',
+                                        borderRadius: '1rem',
+                                        border: currentSlide === idx ? `1px solid ${slide.color}50` : '1px solid rgba(148, 163, 184, 0.26)',
+                                        background: currentSlide === idx ? `${slide.color}12` : 'rgba(255, 255, 255, 0.72)',
+                                        color: currentSlide === idx ? slide.color : '#475569',
+                                        fontWeight: 600,
+                                        fontSize: '0.85rem',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        boxShadow: currentSlide === idx ? '0 10px 22px rgba(15, 23, 42, 0.08)' : 'none',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    {slide.icon}
+                                    {slide.label}
+                                </button>
                             ))}
                         </div>
-                    ) : (
-                        <>
-                            {/* Theme Tabs Navbar */}
-                            <div style={{
-                                display: 'flex',
-                                gap: '0.6rem',
-                                flexWrap: 'wrap',
-                                margin: '0 0 1.4rem',
-                                padding: 0
-                            }}>
-                                {SLIDES.map((slide, idx) => (
-                                    <button
-                                        key={slide.id}
-                                        onClick={() => setCurrentSlide(idx)}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.4rem',
-                                            padding: '0.5rem 0.8rem',
-                                            borderRadius: '1rem',
-                                            border: currentSlide === idx ? `1px solid ${slide.color}50` : '1px solid rgba(148, 163, 184, 0.26)',
-                                            background: currentSlide === idx ? `${slide.color}12` : 'rgba(255, 255, 255, 0.72)',
-                                            color: currentSlide === idx ? slide.color : '#475569',
-                                            fontWeight: 600,
-                                            fontSize: '0.85rem',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease',
-                                            boxShadow: currentSlide === idx ? '0 10px 22px rgba(15, 23, 42, 0.08)' : 'none',
-                                            whiteSpace: 'nowrap'
-                                        }}
-                                    >
-                                        {slide.icon}
-                                        {slide.label}
-                                    </button>
-                                ))}
-                            </div>
+                    )}
 
-                            {/* Dynamic Slide Content */}
-                            <motion.div
-                                key={currentSlide}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.3 }}
-                                style={{ minHeight: '68px', marginBottom: '1.25rem' }}
-                            >
-                                <h2 style={{
-                                    color: '#0f172a',
-                                    fontSize: '1.25rem',
-                                    fontWeight: 700,
-                                    marginBottom: '0.75rem'
-                                }}>
-                                    {SLIDES[currentSlide].title}
-                                </h2>
-                                <p style={{
-                                    color: '#475569',
-                                    fontSize: '1rem',
-                                    lineHeight: 1.6,
-                                    maxWidth: '550px'
-                                }}>
-                                    {SLIDES[currentSlide].desc}
-                                </p>
-                            </motion.div>
-                        </>
+                    {!isMobile && (
+                        <motion.div
+                            key={currentSlide}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3 }}
+                            style={{ minHeight: '68px', marginBottom: '1.25rem' }}
+                        >
+                            <h2 style={{
+                                color: '#0f172a',
+                                fontSize: '1.25rem',
+                                fontWeight: 700,
+                                marginBottom: '0.75rem'
+                            }}>
+                                {SLIDES[currentSlide].title}
+                            </h2>
+                            <p style={{
+                                color: '#475569',
+                                fontSize: '1rem',
+                                lineHeight: 1.6,
+                                maxWidth: '550px'
+                            }}>
+                                {SLIDES[currentSlide].desc}
+                            </p>
+                        </motion.div>
                     )}
 
                     {/* CTAs */}
@@ -324,7 +307,7 @@ export default function HeroSection() {
                                 e.currentTarget.style.transform = 'translateY(0)';
                             }}
                         >
-                            Créer mon environnement
+                            {isMobile ? 'Créer mon espace' : 'Créer mon environnement'}
                         </button>
                         {isMobile && (
                             <button
