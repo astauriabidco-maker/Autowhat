@@ -14,6 +14,9 @@ validateEncryptionKey();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const shouldServeFrontend = process.env.NODE_ENV === 'production' || process.env.SERVE_FRONTEND === 'true';
+const frontendDistPath = path.join(process.cwd(), 'client/dist');
+const frontendAssetsPath = path.join(frontendDistPath, 'assets');
 
 // IMPORTANT: Stripe webhook MUST be registered BEFORE body-parser
 // because it needs the raw body for signature verification
@@ -69,8 +72,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.get('/api/frontend-diagnostics', (_req, res) => {
-    const distPath = path.join(process.cwd(), 'client/dist');
-    const indexPath = path.join(distPath, 'index.html');
+    const indexPath = path.join(frontendDistPath, 'index.html');
     const commit = process.env.COOLIFY_GIT_COMMIT_SHA
         || process.env.SOURCE_COMMIT
         || process.env.GIT_COMMIT
@@ -87,7 +89,7 @@ app.get('/api/frontend-diagnostics', (_req, res) => {
     }
 
     try {
-        assets = fs.readdirSync(path.join(distPath, 'assets'));
+        assets = fs.readdirSync(frontendAssetsPath);
     } catch {
         assets = [];
     }
@@ -102,7 +104,7 @@ app.get('/api/frontend-diagnostics', (_req, res) => {
         commit,
         nodeEnv: process.env.NODE_ENV || 'development',
         serveFrontend: process.env.SERVE_FRONTEND || null,
-        distPath,
+        distPath: frontendDistPath,
         indexExists: Boolean(indexHtml),
         scripts: [...indexHtml.matchAll(/src="([^"]+\.js)"/g)].map(match => match[1]),
         stylesheets: [...indexHtml.matchAll(/href="([^"]+\.css)"/g)].map(match => match[1]),
@@ -175,6 +177,39 @@ import {
 import { Job } from 'bullmq';
 import { WhatsAppJob } from './services/queueService';
 
+// Static frontend assets must be served before API/router middleware so hashed
+// JS/CSS files never fall through to the React HTML fallback.
+if (shouldServeFrontend) {
+    app.use('/assets', express.static(frontendAssetsPath, {
+        fallthrough: false,
+        immutable: true,
+        index: false,
+        maxAge: '1y'
+    }));
+    app.use('/images', express.static(path.join(frontendDistPath, 'images'), {
+        fallthrough: false,
+        immutable: true,
+        index: false,
+        maxAge: '1y'
+    }));
+    app.use('/icons', express.static(path.join(frontendDistPath, 'icons'), {
+        fallthrough: false,
+        immutable: true,
+        index: false,
+        maxAge: '1y'
+    }));
+    app.get('/vite.svg', (_req, res) => {
+        res.sendFile(path.join(frontendDistPath, 'vite.svg'));
+    });
+    app.get('/manifest.webmanifest', (_req, res) => {
+        res.sendFile(path.join(frontendDistPath, 'manifest.webmanifest'), (error) => {
+            if (error && !res.headersSent) {
+                res.status(404).type('text/plain').send('Manifest not found');
+            }
+        });
+    });
+}
+
 // API Routes
 app.use(router);
 
@@ -182,7 +217,7 @@ app.use(router);
 // SOLOPRENEUR OPTIMIZATION: ONE-CONTAINER DEPLOYMENT
 // Serve the built React App directly via Express in Production
 // ------------------------------------------------------------------
-if (process.env.NODE_ENV === 'production' || process.env.SERVE_FRONTEND === 'true') {
+if (shouldServeFrontend) {
     console.log('📦 Serving compiled Frontend from client/dist');
 
     const serviceWorkerHeaders = {
@@ -234,15 +269,19 @@ if ('serviceWorker' in navigator) {
 `);
     });
 
-    app.use(express.static(path.join(process.cwd(), 'client/dist')));
+    app.use(express.static(frontendDistPath));
     
-    // Fallback for React Router (don't override /api)
+    // Fallback for React Router. Never return HTML for asset-like requests,
+    // otherwise browsers reject CSS/JS because they receive text/html.
     app.use((req, res, next) => {
         if (req.path.startsWith('/api/')) {
             return next();
         }
+        if (path.extname(req.path)) {
+            return res.status(404).type('text/plain').send('Static asset not found');
+        }
         res.set(htmlHeaders);
-        res.sendFile(path.join(process.cwd(), 'client/dist/index.html'));
+        res.sendFile(path.join(frontendDistPath, 'index.html'));
     });
 }
 
