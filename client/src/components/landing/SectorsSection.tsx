@@ -1,12 +1,14 @@
 import { motion } from 'framer-motion';
 import { useVisitor } from '../../context/VisitorContext';
-import { useIsMobile } from '../../hooks/useMediaQuery';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { HardHat, Droplets, ShieldCheck, Building, ShoppingBag, Utensils, CheckCircle2, Stethoscope } from 'lucide-react';
 
 export default function SectorsSection() {
     const { deviceType } = useVisitor();
-    const isViewportMobile = useIsMobile();
-    const isMobile = deviceType === 'mobile' || isViewportMobile;
+    const isNarrowViewport = useMediaQuery('(max-width: 767px)');
+    const isTabletViewport = useMediaQuery('(min-width: 768px) and (max-width: 900px)');
+    const isMobile = deviceType === 'mobile' || isNarrowViewport;
+    const isTablet = !isMobile && isTabletViewport;
 
     const sectors = [
         {
@@ -67,7 +69,7 @@ export default function SectorsSection() {
 
     return (
         <section id="sectors" style={{
-            padding: isMobile ? '2.5rem 4%' : '3.25rem 5%',
+            padding: isMobile ? '2.5rem 4%' : (isTablet ? '2.75rem 5%' : '3.25rem 5%'),
             background: '#ffffff',
             borderBottom: '1px solid #e2e8f0'
         }}>
@@ -81,7 +83,7 @@ export default function SectorsSection() {
                 >
                     <h2 style={{
                         color: '#0f172a',
-                        fontSize: isMobile ? '1.75rem' : '2.5rem',
+                        fontSize: isMobile ? '1.75rem' : (isTablet ? '2.15rem' : '2.5rem'),
                         fontWeight: 800,
                         marginBottom: '1rem',
                         letterSpacing: 0
@@ -92,7 +94,7 @@ export default function SectorsSection() {
                     </h2>
                     <p style={{
                         color: '#64748b',
-                        fontSize: '1.1rem',
+                        fontSize: isMobile ? '1rem' : '1.1rem',
                         maxWidth: '650px',
                         margin: '0 auto',
                         lineHeight: 1.6
@@ -104,7 +106,7 @@ export default function SectorsSection() {
 
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))',
+                    gridTemplateColumns: isMobile ? '1fr' : (isTablet ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))'),
                     gap: isMobile ? '1rem' : '1.5rem'
                 }}>
                     {sectors.map((sector, idx) => (

@@ -11,6 +11,7 @@ import {
     getHeroImage,
     getHeroTitleKey
 } from '../../config/landingVariants';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useState, useEffect } from 'react';
 import {
     FileText,
@@ -35,8 +36,11 @@ export default function HeroSection() {
     const heroImageSrc = getHeroImage(countryCode, zone);
     const titleKey = getHeroTitleKey(trafficSource);
 
-    // Mobile vs Desktop layout adjustments
-    const isMobile = deviceType === 'mobile';
+    // Compact landing layout for mobile and portrait tablets.
+    const isCompactViewport = useMediaQuery('(max-width: 900px)');
+    const isTabletPortrait = useMediaQuery('(min-width: 768px) and (max-width: 900px)');
+    const isMobile = deviceType === 'mobile' || isCompactViewport;
+    const stackActions = isMobile && !isTabletPortrait;
 
     // WhatsApp Slides state
     const [currentSlide, setCurrentSlide] = useState(0);
@@ -110,7 +114,7 @@ export default function HeroSection() {
             backgroundPosition: 'center',
             display: 'flex',
             alignItems: 'center',
-            padding: isMobile ? '4.25rem 4.5% 1.25rem' : '6rem 5% 1.5rem',
+            padding: isMobile ? (isTabletPortrait ? '5.5rem 5% 2rem' : '4.25rem 4.5% 1.25rem') : '6rem 5% 1.5rem',
             borderBottom: '1px solid rgba(148, 163, 184, 0.22)',
             color: '#0f172a',
             overflow: 'hidden'
@@ -151,7 +155,7 @@ export default function HeroSection() {
 
                     <h1 style={{
                         color: '#0f172a',
-                        fontSize: isMobile ? '1.78rem' : '3.65rem',
+                        fontSize: isMobile ? (isTabletPortrait ? '2.55rem' : '1.78rem') : '3.65rem',
                         fontWeight: 800,
                         lineHeight: isMobile ? 1.06 : 1.03,
                         marginBottom: isMobile ? '0.75rem' : '0.85rem',
@@ -172,9 +176,9 @@ export default function HeroSection() {
 
                     <p style={{
                         color: '#475569',
-                        fontSize: isMobile ? '0.9rem' : '1.18rem',
-                        lineHeight: isMobile ? 1.45 : 1.55,
-                        maxWidth: isMobile ? '340px' : '610px',
+                        fontSize: isMobile ? (isTabletPortrait ? '1.08rem' : '0.9rem') : '1.18rem',
+                        lineHeight: isMobile ? (isTabletPortrait ? 1.55 : 1.45) : 1.55,
+                        maxWidth: isMobile ? (isTabletPortrait ? '620px' : '340px') : '610px',
                         marginBottom: isMobile ? '0.85rem' : '1.1rem'
                     }}>
                         {isMobile
@@ -250,7 +254,7 @@ export default function HeroSection() {
                         display: 'flex',
                         gap: isMobile ? '0.65rem' : '1rem',
                         flexWrap: 'wrap',
-                        flexDirection: isMobile ? 'column' : 'row',
+                        flexDirection: stackActions ? 'column' : 'row',
                         alignItems: isMobile ? 'stretch' : 'center'
                     }}>
                         <a
@@ -270,7 +274,7 @@ export default function HeroSection() {
                                 fontWeight: 700,
                                 fontSize: isMobile ? '0.94rem' : '1rem',
                                 boxShadow: '0 10px 30px rgba(34, 197, 94, 0.3)',
-                                width: isMobile ? '100%' : 'auto',
+                                width: stackActions ? '100%' : 'auto',
                                 transition: 'transform 0.2s ease'
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
@@ -294,7 +298,7 @@ export default function HeroSection() {
                                 cursor: 'pointer',
                                 fontWeight: 700,
                                 fontSize: isMobile ? '0.94rem' : '1rem',
-                                width: isMobile ? '100%' : 'auto',
+                                width: stackActions ? '100%' : 'auto',
                                 transition: 'all 0.2s ease'
                             }}
                             onMouseEnter={(e) => {
@@ -326,7 +330,7 @@ export default function HeroSection() {
                                     cursor: 'pointer',
                                     fontWeight: 700,
                                     fontSize: '0.94rem',
-                                    width: '100%'
+                                    width: stackActions ? '100%' : 'auto'
                                 }}
                             >
                                 Connexion
@@ -384,7 +388,7 @@ export default function HeroSection() {
                             borderRadius: isMobile ? '1.8rem' : '2.5rem',
                             padding: isMobile ? '0.45rem' : '0.6rem',
                             boxShadow: '0 28px 70px -24px rgba(15, 23, 42, 0.42)',
-                            width: isMobile ? 'min(100%, 260px)' : '300px',
+                            width: isMobile ? (isTabletPortrait ? '320px' : 'min(100%, 260px)') : '300px',
                             border: '1px solid rgba(15, 23, 42, 0.12)',
                             position: 'relative'
                         }}>
@@ -434,7 +438,7 @@ export default function HeroSection() {
                                     backgroundSize: 'contain',
                                     padding: isMobile ? '0.85rem 0.7rem' : '1.1rem 0.85rem',
                                     flex: 1,
-                                    minHeight: isMobile ? '185px' : '270px',
+                                    minHeight: isMobile ? (isTabletPortrait ? '245px' : '185px') : '270px',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     justifyContent: 'center'
@@ -542,7 +546,7 @@ export default function HeroSection() {
                         </div>
                     </div>
                     <div style={{
-                        width: isMobile ? 'min(100%, 260px)' : '285px',
+                        width: isMobile ? (isTabletPortrait ? '320px' : 'min(100%, 260px)') : '285px',
                         background: 'rgba(255, 255, 255, 0.88)',
                         border: '1px solid rgba(148, 163, 184, 0.28)',
                         borderRadius: isMobile ? '1rem' : '1.25rem',

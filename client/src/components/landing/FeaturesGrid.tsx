@@ -14,17 +14,19 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useVisitor } from '../../context/VisitorContext';
-import { useIsMobile } from '../../hooks/useMediaQuery';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 export default function FeaturesGrid() {
     const { t } = useTranslation();
     const { deviceType } = useVisitor();
-    const isViewportMobile = useIsMobile();
-    const isMobile = deviceType === 'mobile' || isViewportMobile;
+    const isNarrowViewport = useMediaQuery('(max-width: 767px)');
+    const isTabletViewport = useMediaQuery('(min-width: 768px) and (max-width: 900px)');
+    const isMobile = deviceType === 'mobile' || isNarrowViewport;
+    const isTablet = !isMobile && isTabletViewport;
 
     return (
         <section id="hr-suite" style={{
-            padding: isMobile ? '2.5rem 4%' : '3.25rem 5%',
+            padding: isMobile ? '2.5rem 4%' : (isTablet ? '2.75rem 5%' : '3.25rem 5%'),
             background: '#ffffff'
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -52,7 +54,7 @@ export default function FeaturesGrid() {
                     </div>
                     <h2 style={{
                         color: '#0f172a',
-                        fontSize: isMobile ? '1.75rem' : '2.5rem',
+                        fontSize: isMobile ? '1.75rem' : (isTablet ? '2.15rem' : '2.5rem'),
                         fontWeight: 800,
                         marginBottom: '0.65rem',
                         letterSpacing: 0
@@ -61,7 +63,7 @@ export default function FeaturesGrid() {
                     </h2>
                     <p style={{
                         color: '#475569',
-                        fontSize: '1.1rem',
+                        fontSize: isMobile ? '1rem' : '1.1rem',
                         maxWidth: '600px',
                         margin: '0 auto'
                     }}>
@@ -72,7 +74,7 @@ export default function FeaturesGrid() {
                 {/* Product Workflow Grid */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(6, 1fr)',
+                    gridTemplateColumns: isMobile ? '1fr' : (isTablet ? 'repeat(2, minmax(0, 1fr))' : 'repeat(6, 1fr)'),
                     gap: isMobile ? '0.85rem' : '1rem'
                 }}>
                     {/* Pointage - primary workflow */}
@@ -82,7 +84,7 @@ export default function FeaturesGrid() {
                         transition={{ duration: 0.6 }}
                         viewport={{ once: true }}
                         style={{
-                            gridColumn: isMobile ? 'span 1' : 'span 3',
+                            gridColumn: isMobile ? 'span 1' : (isTablet ? 'span 1' : 'span 3'),
                             background: 'linear-gradient(135deg, #eff6ff 0%, #ffffff 65%)',
                             border: '1px solid #e2e8f0',
                             borderRadius: '1.5rem',
@@ -186,7 +188,7 @@ export default function FeaturesGrid() {
                         transition={{ duration: 0.6, delay: 0.1 }}
                         viewport={{ once: true }}
                         style={{
-                            gridColumn: isMobile ? 'span 1' : 'span 3',
+                            gridColumn: isMobile ? 'span 1' : (isTablet ? 'span 1' : 'span 3'),
                             background: 'linear-gradient(135deg, #f5f3ff 0%, #ffffff 64%)',
                             border: '1px solid #e2e8f0',
                             borderRadius: '1.5rem',
@@ -320,7 +322,7 @@ export default function FeaturesGrid() {
                             transition={{ duration: 0.45, delay: 0.08 * idx }}
                             viewport={{ once: true }}
                             style={{
-                                gridColumn: isMobile ? 'span 1' : 'span 2',
+                                gridColumn: isMobile ? 'span 1' : (isTablet ? 'span 1' : 'span 2'),
                                 background: 'white',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '1.25rem',
@@ -367,7 +369,7 @@ export default function FeaturesGrid() {
                         transition={{ duration: 0.6, delay: 0.25 }}
                         viewport={{ once: true }}
                         style={{
-                            gridColumn: isMobile ? 'span 1' : 'span 6',
+                            gridColumn: isMobile ? 'span 1' : (isTablet ? 'span 2' : 'span 6'),
                             background: '#0f172a',
                             borderRadius: '1.5rem',
                             padding: isMobile ? '1.35rem' : '1.75rem',

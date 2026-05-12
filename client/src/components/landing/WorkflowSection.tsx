@@ -10,6 +10,7 @@ import {
     UserRoundCheck,
 } from 'lucide-react';
 import { useVisitor } from '../../context/VisitorContext';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const steps = [
     {
@@ -46,11 +47,14 @@ const outcomes = [
 
 export default function WorkflowSection() {
     const { deviceType } = useVisitor();
-    const isMobile = deviceType === 'mobile';
+    const isCompactViewport = useMediaQuery('(max-width: 900px)');
+    const isNarrowViewport = useMediaQuery('(max-width: 767px)');
+    const isMobile = deviceType === 'mobile' || isCompactViewport;
+    const isNarrow = deviceType === 'mobile' || isNarrowViewport;
 
     return (
         <section style={{
-            padding: isMobile ? '2rem 4.5%' : '3rem 5%',
+            padding: isMobile ? (isNarrow ? '2rem 4.5%' : '2.5rem 5%') : '3rem 5%',
             background: '#ffffff',
             borderBottom: '1px solid rgba(15, 23, 42, 0.08)'
         }}>
@@ -74,7 +78,7 @@ export default function WorkflowSection() {
                     </p>
                     <h2 style={{
                         color: '#0f172a',
-                        fontSize: isMobile ? '1.55rem' : '2.7rem',
+                        fontSize: isMobile ? (isNarrow ? '1.55rem' : '2.1rem') : '2.7rem',
                         lineHeight: 1.08,
                         fontWeight: 850,
                         letterSpacing: 0,
@@ -84,7 +88,7 @@ export default function WorkflowSection() {
                     </h2>
                     <p style={{
                         color: '#475569',
-                        fontSize: isMobile ? '0.95rem' : '1.12rem',
+                        fontSize: isMobile ? (isNarrow ? '0.95rem' : '1.05rem') : '1.12rem',
                         lineHeight: isMobile ? 1.5 : 1.65,
                         maxWidth: '760px',
                         margin: '0 auto'
@@ -96,7 +100,7 @@ export default function WorkflowSection() {
 
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, minmax(0, 1fr))',
+                    gridTemplateColumns: isMobile ? (isNarrow ? '1fr' : 'repeat(2, minmax(0, 1fr))') : 'repeat(4, minmax(0, 1fr))',
                     gap: isMobile ? '0.8rem' : '1rem',
                     alignItems: 'stretch',
                     marginBottom: isMobile ? '1rem' : '2rem'
@@ -115,10 +119,10 @@ export default function WorkflowSection() {
                                 borderRadius: '0.75rem',
                                 padding: isMobile ? '0.95rem' : '1.25rem',
                                 minHeight: isMobile ? 'auto' : '190px',
-                                display: isMobile ? 'grid' : 'block',
-                                gridTemplateColumns: isMobile ? '40px 1fr' : undefined,
-                                columnGap: isMobile ? '0.8rem' : undefined,
-                                alignItems: isMobile ? 'start' : undefined
+                                display: isNarrow ? 'grid' : 'block',
+                                gridTemplateColumns: isNarrow ? '40px 1fr' : undefined,
+                                columnGap: isNarrow ? '0.8rem' : undefined,
+                                alignItems: isNarrow ? 'start' : undefined
                             }}
                         >
                             <div style={{
@@ -129,7 +133,7 @@ export default function WorkflowSection() {
                                 placeItems: 'center',
                                 background: `${step.color}12`,
                                 color: step.color,
-                                marginBottom: isMobile ? 0 : '1rem'
+                                marginBottom: isNarrow ? 0 : '1rem'
                             }}>
                                 {step.icon}
                             </div>
@@ -175,7 +179,7 @@ export default function WorkflowSection() {
 
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))',
+                    gridTemplateColumns: isMobile ? (isNarrow ? '1fr' : 'repeat(3, minmax(0, 1fr))') : 'repeat(3, minmax(0, 1fr))',
                     gap: '0.8rem'
                 }}>
                     {outcomes.map((outcome) => (

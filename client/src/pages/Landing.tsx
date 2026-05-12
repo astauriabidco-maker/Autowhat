@@ -11,6 +11,7 @@ import {
     ChevronDown
 } from 'lucide-react';
 import { VisitorProvider, useVisitor } from '../context/VisitorContext';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import HeroSection from '../components/landing/HeroSection';
 import Testimonials from '../components/landing/Testimonials';
 import TrustSection from '../components/landing/TrustSection';
@@ -59,7 +60,8 @@ function LandingContent() {
     const [loadingPlans, setLoadingPlans] = useState(true);
     const [showLangMenu, setShowLangMenu] = useState(false);
 
-    const isMobile = deviceType === 'mobile';
+    const isCompactViewport = useMediaQuery('(max-width: 900px)');
+    const isMobile = deviceType === 'mobile' || isCompactViewport;
 
     useEffect(() => {
         // Fetch geo-localized offer
