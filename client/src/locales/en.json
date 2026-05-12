@@ -40,24 +40,24 @@
             }
         },
         "trust": {
-            "title": "Your data doesn't belong to Meta.",
-            "subtitle": "WhatsApp is the channel. Never the owner of your information.",
+            "title": "WhatsApp is the channel, not your business system.",
+            "subtitle": "WhatsPoint captures field conversations, keeps data under control, and only sends what needs to be processed.",
             "stealth": {
-                "title": "Stealth Mode",
-                "desc": "Our algorithms anonymize project names before they reach WhatsApp."
+                "title": "Minimized data",
+                "desc": "WhatsPoint only sends the information needed for business processing, with sensitive details masked when required."
             },
             "retention": {
-                "title": "Auto-Destruction",
-                "desc": "Your archives are automatically deleted according to your GDPR rules."
+                "title": "Controlled retention",
+                "desc": "Attendance, supporting documents and requests follow your retention periods, with deletion or archiving based on your rules."
             },
             "isolation": {
-                "title": "Isolation",
-                "desc": "Each company has its own isolated database. Zero mixing."
+                "title": "Client separation",
+                "desc": "Each organization keeps its workspace, roles, flows and history separated from other clients."
             },
             "badges": {
-                "encrypted": "AES-256 Encryption",
-                "gdpr": "GDPR Compliant",
-                "audit": "Annually Audited"
+                "encrypted": "Secured access",
+                "gdpr": "Configurable GDPR rules",
+                "audit": "Traceable history"
             }
         },
         "suite": {

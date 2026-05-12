@@ -40,24 +40,24 @@
             }
         },
         "trust": {
-            "title": "Vos données n'appartiennent pas à Meta.",
-            "subtitle": "WhatsApp est le canal. Jamais le propriétaire de vos informations.",
+            "title": "WhatsApp est le canal, pas votre système métier.",
+            "subtitle": "WhatsPoint capte les échanges terrain, garde la maîtrise des données et transmet uniquement ce qui doit être traité.",
             "stealth": {
-                "title": "Mode Furtif",
-                "desc": "Nos algorithmes anonymisent les noms de chantiers avant qu'ils n'atteignent WhatsApp."
+                "title": "Données minimisées",
+                "desc": "WhatsPoint ne transmet que l'information utile au traitement métier, avec masquage des détails sensibles quand c'est nécessaire."
             },
             "retention": {
-                "title": "Auto-Destruction",
-                "desc": "Vos archives sont supprimées automatiquement selon vos règles RGPD."
+                "title": "Conservation maîtrisée",
+                "desc": "Présences, justificatifs et demandes suivent vos durées de conservation, avec suppression ou archivage selon vos règles."
             },
             "isolation": {
-                "title": "Cloisonnement",
-                "desc": "Chaque entreprise possède sa base de données isolée. Zéro mélange."
+                "title": "Cloisonnement client",
+                "desc": "Chaque organisation garde son espace, ses rôles, ses flux et ses historiques séparés des autres clients."
             },
             "badges": {
-                "encrypted": "Chiffrement AES-256",
-                "gdpr": "Conforme RGPD",
-                "audit": "Audité annuellement"
+                "encrypted": "Accès sécurisés",
+                "gdpr": "Règles RGPD configurables",
+                "audit": "Historique traçable"
             }
         },
         "suite": {

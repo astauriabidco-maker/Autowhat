@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useVisitor } from '../../context/VisitorContext';
+import { useIsMobile } from '../../hooks/useMediaQuery';
 import {
     ArrowRightLeft,
     BriefcaseBusiness,
@@ -15,48 +16,49 @@ import {
 
 export default function IntegrationsSection() {
     const { deviceType } = useVisitor();
-    const isMobile = deviceType === 'mobile';
+    const isViewportMobile = useIsMobile();
+    const isMobile = deviceType === 'mobile' || isViewportMobile;
 
     const businessFlows = [
         {
             title: 'Pointage & planning',
-            example: 'Arrivée, départ, prise de service, prochain horaire',
-            target: 'vers le planning ou RH',
+            example: 'Arrivée, départ, prise de service, prochain horaire.',
+            target: 'collecté puis transmis RH / planning',
             icon: <UserRoundCheck size={22} />,
             color: '#16a34a'
         },
         {
             title: 'Intervention client',
-            example: 'Panne, photo, urgence, adresse',
-            target: 'vers l’outil d’intervention',
+            example: 'Panne, photo, urgence, adresse et compte rendu.',
+            target: 'qualifié puis routé intervention',
             icon: <Wrench size={22} />,
             color: '#ea580c'
         },
         {
             title: 'Absences & justificatifs',
-            example: 'Retard, arrêt maladie, absence, document',
-            target: 'vers les RH ou la paie',
+            example: 'Retard, arrêt maladie, absence ou document.',
+            target: 'contrôlé puis transmis RH / paie',
             icon: <FileText size={22} />,
             color: '#8b5cf6'
         },
         {
             title: 'Support client',
-            example: 'Réclamation, demande, suivi dossier',
-            target: 'vers le helpdesk ou CRM',
+            example: 'Réclamation, demande, pièce jointe et suivi dossier.',
+            target: 'créé puis suivi helpdesk / CRM',
             icon: <Headphones size={22} />,
             color: '#2563eb'
         },
         {
             title: 'Juridique & conformité',
-            example: 'Question, mandat, pièce, signature',
-            target: 'vers le service juridique',
+            example: 'Question, mandat, pièce, signature ou preuve.',
+            target: 'préparé puis transmis juridique',
             icon: <Scale size={22} />,
             color: '#16a34a'
         },
         {
             title: 'Commerce & terrain',
-            example: 'Commande, incident, remontée magasin',
-            target: 'vers l’ERP ou CRM',
+            example: 'Commande, incident, remontée magasin ou visite.',
+            target: 'structuré puis envoyé ERP / CRM',
             icon: <BriefcaseBusiness size={22} />,
             color: '#0d9488'
         }
@@ -106,7 +108,7 @@ export default function IntegrationsSection() {
                         marginBottom: '1rem',
                         letterSpacing: 0
                     }}>
-                        Autour du pointage, toutes les demandes peuvent suivre.
+                        Le pointage ouvre la porte aux demandes terrain.
                     </h2>
                     <p style={{
                         color: '#64748b',
@@ -115,8 +117,8 @@ export default function IntegrationsSection() {
                         margin: '0 auto 2.5rem',
                         lineHeight: 1.6
                     }}>
-                        Le socle reste la présence et le planning. Les mêmes habitudes WhatsApp
-                        servent ensuite à transmettre un justificatif, signaler un incident ou suivre une demande.
+                        WhatsPoint collecte l’information dans WhatsApp, la qualifie, puis la transmet
+                        au bon outil métier. Le pointage et le planning restent le socle, les autres flux suivent.
                     </p>
                 </motion.div>
 
@@ -128,8 +130,8 @@ export default function IntegrationsSection() {
                     {businessFlows.map((flow, idx) => (
                         <motion.div
                             key={flow.title}
-                            initial={{ opacity: 0, y: 20 }}
-                            whileInView={{ opacity: 1, y: 0 }}
+                            initial={{ y: 20 }}
+                            whileInView={{ y: 0 }}
                             transition={{ duration: 0.4, delay: idx * 0.08 }}
                             viewport={{ once: true }}
                             style={{
@@ -203,13 +205,13 @@ export default function IntegrationsSection() {
                         fontWeight: 600,
                         marginBottom: '0.25rem'
                     }}>
-                        Se connecte à vos outils existants si besoin
+                        WhatsPoint ne remplace pas vos logiciels métier : il les alimente.
                     </div>
                     {capabilities.map((capability, idx) => (
                         <motion.div
                             key={capability.name}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            whileInView={{ opacity: 1, scale: 1 }}
+                            initial={{ scale: 0.9 }}
+                            whileInView={{ scale: 1 }}
                             transition={{ duration: 0.4, delay: idx * 0.08 }}
                             viewport={{ once: true }}
                             style={{
@@ -249,8 +251,8 @@ export default function IntegrationsSection() {
                     ))}
 
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
+                        initial={{ scale: 0.9 }}
+                        whileInView={{ scale: 1 }}
                         transition={{ duration: 0.4, delay: 0.24 }}
                         viewport={{ once: true }}
                         style={{

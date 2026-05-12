@@ -1,37 +1,39 @@
 import { motion } from 'framer-motion';
 import {
     Shield,
-    Eye,
-    Trash2,
+    EyeOff,
+    Clock3,
     Database,
     Lock,
-    CheckCircle
+    ClipboardCheck
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useVisitor } from '../../context/VisitorContext';
+import { useIsMobile } from '../../hooks/useMediaQuery';
 
 export default function TrustSection() {
     const { t } = useTranslation();
     const { deviceType } = useVisitor();
-    const isMobile = deviceType === 'mobile';
+    const isViewportMobile = useIsMobile();
+    const isMobile = deviceType === 'mobile' || isViewportMobile;
 
     const trustFeatures = [
         {
-            icon: <Eye size={28} />,
-            title: t('landing.trust.stealth.title', 'Mode Furtif'),
-            description: t('landing.trust.stealth.desc', 'Nos algorithmes anonymisent les noms de chantiers avant qu\'ils n\'atteignent WhatsApp.'),
+            icon: <EyeOff size={28} />,
+            title: t('landing.trust.stealth.title', 'Données minimisées'),
+            description: t('landing.trust.stealth.desc', 'WhatsPoint ne transmet que l’information utile au traitement métier, avec masquage des détails sensibles quand c’est nécessaire.'),
             color: '#8b5cf6'
         },
         {
-            icon: <Trash2 size={28} />,
-            title: t('landing.trust.retention.title', 'Auto-Destruction'),
-            description: t('landing.trust.retention.desc', 'Vos archives sont supprimées automatiquement selon vos règles RGPD.'),
+            icon: <Clock3 size={28} />,
+            title: t('landing.trust.retention.title', 'Conservation maîtrisée'),
+            description: t('landing.trust.retention.desc', 'Présences, justificatifs et demandes suivent vos durées de conservation, avec suppression ou archivage selon vos règles.'),
             color: '#f59e0b'
         },
         {
             icon: <Database size={28} />,
-            title: t('landing.trust.isolation.title', 'Cloisonnement'),
-            description: t('landing.trust.isolation.desc', 'Chaque entreprise possède sa base de données isolée. Zéro mélange.'),
+            title: t('landing.trust.isolation.title', 'Cloisonnement client'),
+            description: t('landing.trust.isolation.desc', 'Chaque organisation garde son espace, ses rôles, ses flux et ses historiques séparés des autres clients.'),
             color: '#10b981'
         }
     ];
@@ -83,9 +85,9 @@ export default function TrustSection() {
                         fontWeight: 800,
                         marginBottom: '1rem',
                         lineHeight: 1.2,
-                        letterSpacing: '-0.02em'
+                        letterSpacing: 0
                     }}>
-                        {t('landing.trust.title', 'Vos données n\'appartiennent pas à Meta.')}
+                        {t('landing.trust.title', 'WhatsApp est le canal, pas votre système métier.')}
                     </h2>
                     <p style={{
                         color: '#475569',
@@ -94,7 +96,7 @@ export default function TrustSection() {
                         margin: '0 auto',
                         lineHeight: 1.6
                     }}>
-                        {t('landing.trust.subtitle', 'WhatsApp est le canal. Jamais le propriétaire de vos informations.')}
+                        {t('landing.trust.subtitle', 'WhatsPoint capte les échanges terrain, garde la maîtrise des données et transmet uniquement ce qui doit être traité.')}
                     </p>
                 </motion.div>
 
@@ -107,8 +109,8 @@ export default function TrustSection() {
                     {trustFeatures.map((feature, idx) => (
                         <motion.div
                             key={idx}
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
+                            initial={{ y: 30 }}
+                            whileInView={{ y: 0 }}
                             transition={{ duration: 0.6, delay: idx * 0.1 }}
                             viewport={{ once: true }}
                             style={{
@@ -172,8 +174,8 @@ export default function TrustSection() {
 
                 {/* Bottom guarantee badges */}
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
+                    initial={{ y: 20 }}
+                    whileInView={{ y: 0 }}
                     transition={{ duration: 0.6, delay: 0.3 }}
                     viewport={{ once: true }}
                     style={{
@@ -185,9 +187,9 @@ export default function TrustSection() {
                     }}
                 >
                     {[
-                        { icon: <Lock size={16} />, text: t('landing.trust.badges.encrypted', 'Chiffrement AES-256') },
-                        { icon: <Shield size={16} />, text: t('landing.trust.badges.gdpr', 'Conforme RGPD') },
-                        { icon: <CheckCircle size={16} />, text: t('landing.trust.badges.audit', 'Audité annuellement') }
+                        { icon: <Lock size={16} />, text: t('landing.trust.badges.encrypted', 'Accès sécurisés') },
+                        { icon: <Shield size={16} />, text: t('landing.trust.badges.gdpr', 'Règles RGPD configurables') },
+                        { icon: <ClipboardCheck size={16} />, text: t('landing.trust.badges.audit', 'Historique traçable') }
                     ].map((badge, idx) => (
                         <div key={idx} style={{
                             display: 'flex',
