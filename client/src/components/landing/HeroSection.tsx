@@ -282,6 +282,28 @@ export default function HeroSection() {
                         >
                             Créer mon environnement
                         </button>
+                        {isMobile && (
+                            <button
+                                onClick={() => navigate('/login')}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem',
+                                    padding: '0.95rem 2rem',
+                                    background: 'rgba(255, 255, 255, 0.55)',
+                                    border: '1px solid rgba(148, 163, 184, 0.45)',
+                                    borderRadius: '0.75rem',
+                                    color: '#334155',
+                                    cursor: 'pointer',
+                                    fontWeight: 700,
+                                    fontSize: '1rem',
+                                    width: '100%'
+                                }}
+                            >
+                                Connexion
+                            </button>
+                        )}
                     </div>
 
                     {/* Reassurance Badges */}

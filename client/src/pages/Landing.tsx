@@ -242,17 +242,18 @@ function LandingContent() {
                     <button
                         onClick={() => navigate('/onboarding')}
                         style={{
-                            padding: '0.6rem 1.5rem',
+                            padding: isMobile ? '0.75rem 1rem' : '0.6rem 1.5rem',
                             background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
                             border: 'none',
                             borderRadius: '0.5rem',
                             color: 'white',
                             cursor: 'pointer',
                             fontWeight: 600,
-                            fontSize: '0.9rem'
+                            fontSize: '0.9rem',
+                            whiteSpace: 'nowrap'
                         }}
                     >
-                        Créer mon espace
+                        {isMobile ? 'Créer' : 'Créer mon espace'}
                     </button>
                 </div>
             </nav>
