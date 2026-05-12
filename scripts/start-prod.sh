@@ -1,6 +1,11 @@
 #!/bin/sh
 set -e
 
+if [ -n "$PRISMA_RESOLVE_APPLIED_MIGRATION" ]; then
+  echo "🛠️ [Startup] Resolving Prisma migration as applied: $PRISMA_RESOLVE_APPLIED_MIGRATION"
+  npx prisma migrate resolve --applied "$PRISMA_RESOLVE_APPLIED_MIGRATION"
+fi
+
 echo "🚀 [Startup] Applying database migrations..."
 npx prisma migrate deploy
 
