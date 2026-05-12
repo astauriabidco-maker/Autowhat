@@ -12,7 +12,19 @@ import {
     getHeroTitleKey
 } from '../../config/landingVariants';
 import { useState, useEffect } from 'react';
-import { FileText, Clock as ClockIcon, ArrowRightLeft, CheckCircle2, ShieldCheck, LockKeyhole, Smartphone } from 'lucide-react';
+import {
+    FileText,
+    Clock as ClockIcon,
+    ArrowRightLeft,
+    CheckCircle2,
+    ShieldCheck,
+    LockKeyhole,
+    Smartphone,
+    BarChart3,
+    CalendarDays,
+    MapPin,
+    UsersRound
+} from 'lucide-react';
 
 export default function HeroSection() {
     const navigate = useNavigate();
@@ -144,8 +156,8 @@ export default function HeroSection() {
                         marginBottom: '0.85rem',
                         letterSpacing: 0
                     }}>
-                        Pointage, présence et planning
-                        <span style={{ color: '#2563eb' }}> dans WhatsApp.</span>
+                        WhatsApp pour pointer, planifier et remonter
+                        <span style={{ color: '#2563eb' }}> le terrain.</span>
                     </h1>
 
                     <p style={{
@@ -155,8 +167,8 @@ export default function HeroSection() {
                         maxWidth: '610px',
                         marginBottom: '1.1rem'
                     }}>
-                        Vos équipes pointent, consultent leurs horaires et transmettent leurs demandes
-                        sans installer une nouvelle application. WhatsPoint structure tout et l’envoie au bon service.
+                        Vos équipes utilisent WhatsApp. WhatsPoint transforme leurs messages en présences,
+                        plannings, justificatifs et demandes exploitables par vos services métier.
                     </p>
 
                     {/* Theme Tabs Navbar */}
@@ -344,6 +356,8 @@ export default function HeroSection() {
                         display: 'flex',
                         justifyContent: 'center',
                         alignItems: 'center',
+                        flexDirection: isMobile ? 'column' : 'row',
+                        gap: isMobile ? '1rem' : '1rem',
                         order: 2,
                         marginTop: isMobile ? '2rem' : 0,
                         width: '100%'
@@ -510,6 +524,98 @@ export default function HeroSection() {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    <div style={{
+                        width: isMobile ? '300px' : '285px',
+                        background: 'rgba(255, 255, 255, 0.88)',
+                        border: '1px solid rgba(148, 163, 184, 0.28)',
+                        borderRadius: '1.25rem',
+                        padding: '1rem',
+                        boxShadow: '0 24px 60px -30px rgba(15, 23, 42, 0.38)'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: '1rem'
+                        }}>
+                            <div>
+                                <p style={{ margin: 0, color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>
+                                    Dashboard manager
+                                </p>
+                                <h3 style={{ margin: '0.15rem 0 0', color: '#0f172a', fontSize: '1.05rem', fontWeight: 850 }}>
+                                    Aujourd'hui
+                                </h3>
+                            </div>
+                            <span style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '0.75rem',
+                                display: 'grid',
+                                placeItems: 'center',
+                                background: '#dbeafe',
+                                color: '#2563eb'
+                            }}>
+                                <BarChart3 size={19} />
+                            </span>
+                        </div>
+
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: '0.6rem',
+                            marginBottom: '0.8rem'
+                        }}>
+                            {[
+                                { label: 'Présents', value: '42', color: '#16a34a' },
+                                { label: 'Alertes', value: '3', color: '#ea580c' },
+                            ].map((metric) => (
+                                <div key={metric.label} style={{
+                                    padding: '0.75rem',
+                                    borderRadius: '0.75rem',
+                                    background: '#f8fafc',
+                                    border: '1px solid #e2e8f0'
+                                }}>
+                                    <p style={{ margin: 0, color: '#64748b', fontSize: '0.72rem', fontWeight: 700 }}>
+                                        {metric.label}
+                                    </p>
+                                    <p style={{ margin: '0.15rem 0 0', color: metric.color, fontSize: '1.35rem', fontWeight: 850 }}>
+                                        {metric.value}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+
+                        {[
+                            { icon: <MapPin size={15} />, title: 'Pointage GPS', detail: 'Service Urgences validé' },
+                            { icon: <CalendarDays size={15} />, title: 'Planning', detail: '2 remplacements à confirmer' },
+                            { icon: <UsersRound size={15} />, title: 'Demande client', detail: 'Intervention à qualifier' },
+                        ].map((item) => (
+                            <div key={item.title} style={{
+                                display: 'flex',
+                                gap: '0.65rem',
+                                alignItems: 'center',
+                                padding: '0.65rem 0',
+                                borderTop: '1px solid #e2e8f0'
+                            }}>
+                                <span style={{
+                                    width: '28px',
+                                    height: '28px',
+                                    borderRadius: '0.55rem',
+                                    display: 'grid',
+                                    placeItems: 'center',
+                                    background: '#eef2ff',
+                                    color: '#4f46e5',
+                                    flexShrink: 0
+                                }}>
+                                    {item.icon}
+                                </span>
+                                <span>
+                                    <strong style={{ display: 'block', color: '#0f172a', fontSize: '0.82rem' }}>{item.title}</strong>
+                                    <span style={{ color: '#64748b', fontSize: '0.75rem' }}>{item.detail}</span>
+                                </span>
+                            </div>
+                        ))}
                     </div>
                 </motion.div>
             </div>

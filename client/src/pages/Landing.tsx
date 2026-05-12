@@ -19,6 +19,7 @@ import EnterpriseSection from '../components/landing/EnterpriseSection';
 import SectorsSection from '../components/landing/SectorsSection';
 import IntegrationsSection from '../components/landing/IntegrationsSection';
 import OperationsSection from '../components/landing/OperationsSection';
+import WorkflowSection from '../components/landing/WorkflowSection';
 
 interface Plan {
     id: string;
@@ -260,6 +261,9 @@ function LandingContent() {
 
             {/* Hero Section - Dynamic based on visitor context */}
             <HeroSection />
+
+            {/* WhatsApp to business tools flow */}
+            <WorkflowSection />
 
             {/* Social Proof Section - Trust by */}
             <section style={{ padding: isMobile ? '1.1rem 4%' : '1.1rem 5%', background: '#ffffff', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
