@@ -26,41 +26,47 @@ export default function CookieBanner() {
     if (!visible) return null;
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-slate-900 text-white shadow-2xl">
-            <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <Cookie className="text-amber-400 flex-shrink-0" size={24} />
-                    <p className="text-sm sm:text-base">
-                        Nous utilisons des cookies pour améliorer votre expérience et analyser l'utilisation du site.{' '}
+        <div className="fixed inset-x-2 bottom-2 z-50 rounded-2xl bg-slate-950/95 p-2.5 text-white shadow-2xl ring-1 ring-white/10 sm:inset-x-0 sm:bottom-0 sm:rounded-none sm:bg-slate-900 sm:p-4">
+            <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="flex items-center gap-2 pr-8 sm:gap-3 sm:pr-0">
+                    <Cookie className="flex-shrink-0 text-amber-400" size={18} />
+                    <p className="text-xs leading-4 text-slate-100 sm:text-base sm:leading-6">
+                        <span className="sm:hidden">
+                            Cookies d'audience.
+                        </span>
+                        <span className="hidden sm:inline">
+                            Nous utilisons des cookies pour améliorer votre expérience et analyser l'utilisation du site.
+                        </span>{' '}
                         <a
                             href="/legal/privacy"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-red-400 hover:text-red-300 underline"
+                            className="font-semibold text-amber-300 underline underline-offset-2 hover:text-amber-200"
                         >
-                            En savoir plus
+                            <span className="sm:hidden">Détails</span>
+                            <span className="hidden sm:inline">En savoir plus</span>
                         </a>
                     </p>
                 </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex w-full items-center gap-2 sm:w-auto sm:flex-shrink-0 sm:gap-3">
                     <button
                         onClick={handleRefuse}
-                        className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-transparent border border-gray-600 hover:border-gray-500 rounded-lg transition"
+                        className="min-h-9 flex-1 rounded-lg border border-slate-600 bg-transparent px-3 py-1.5 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white sm:min-h-10 sm:flex-none sm:px-4 sm:py-2"
                     >
                         Refuser
                     </button>
                     <button
                         onClick={handleAccept}
-                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition"
+                        className="min-h-9 flex-1 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-green-700 sm:min-h-10 sm:flex-none sm:px-4 sm:py-2"
                     >
                         Accepter
                     </button>
                     <button
                         onClick={handleRefuse}
-                        className="p-1 text-gray-400 hover:text-white sm:hidden"
+                        className="absolute right-2.5 top-2.5 p-1 text-slate-400 hover:text-white sm:hidden"
                         aria-label="Fermer"
                     >
-                        <X size={20} />
+                        <X size={18} />
                     </button>
                 </div>
             </div>
