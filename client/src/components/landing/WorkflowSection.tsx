@@ -50,7 +50,7 @@ export default function WorkflowSection() {
 
     return (
         <section style={{
-            padding: isMobile ? '2.5rem 4%' : '3rem 5%',
+            padding: isMobile ? '2rem 4.5%' : '3rem 5%',
             background: '#ffffff',
             borderBottom: '1px solid rgba(15, 23, 42, 0.08)'
         }}>
@@ -60,7 +60,7 @@ export default function WorkflowSection() {
                     whileInView={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
                     viewport={{ once: true }}
-                    style={{ textAlign: 'center', marginBottom: isMobile ? '1.75rem' : '2.25rem' }}
+                    style={{ textAlign: 'center', marginBottom: isMobile ? '1.35rem' : '2.25rem' }}
                 >
                     <p style={{
                         color: '#2563eb',
@@ -68,24 +68,24 @@ export default function WorkflowSection() {
                         fontWeight: 800,
                         textTransform: 'uppercase',
                         letterSpacing: '0.05em',
-                        marginBottom: '0.7rem'
+                        marginBottom: isMobile ? '0.55rem' : '0.7rem'
                     }}>
                         Flux métier
                     </p>
                     <h2 style={{
                         color: '#0f172a',
-                        fontSize: isMobile ? '1.85rem' : '2.7rem',
+                        fontSize: isMobile ? '1.55rem' : '2.7rem',
                         lineHeight: 1.08,
                         fontWeight: 850,
                         letterSpacing: 0,
-                        marginBottom: '0.85rem'
+                        marginBottom: isMobile ? '0.6rem' : '0.85rem'
                     }}>
                         WhatsPoint transforme WhatsApp en données exploitables.
                     </h2>
                     <p style={{
                         color: '#475569',
-                        fontSize: isMobile ? '1rem' : '1.12rem',
-                        lineHeight: 1.65,
+                        fontSize: isMobile ? '0.95rem' : '1.12rem',
+                        lineHeight: isMobile ? 1.5 : 1.65,
                         maxWidth: '760px',
                         margin: '0 auto'
                     }}>
@@ -99,7 +99,7 @@ export default function WorkflowSection() {
                     gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, minmax(0, 1fr))',
                     gap: isMobile ? '0.8rem' : '1rem',
                     alignItems: 'stretch',
-                    marginBottom: isMobile ? '1.5rem' : '2rem'
+                    marginBottom: isMobile ? '1rem' : '2rem'
                 }}>
                     {steps.map((step, index) => (
                         <motion.div
@@ -113,38 +113,44 @@ export default function WorkflowSection() {
                                 background: '#f8fafc',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '0.75rem',
-                                padding: '1.25rem',
-                                minHeight: '190px'
+                                padding: isMobile ? '0.95rem' : '1.25rem',
+                                minHeight: isMobile ? 'auto' : '190px',
+                                display: isMobile ? 'grid' : 'block',
+                                gridTemplateColumns: isMobile ? '40px 1fr' : undefined,
+                                columnGap: isMobile ? '0.8rem' : undefined,
+                                alignItems: isMobile ? 'start' : undefined
                             }}
                         >
                             <div style={{
-                                width: '44px',
-                                height: '44px',
-                                borderRadius: '0.75rem',
+                                width: isMobile ? '38px' : '44px',
+                                height: isMobile ? '38px' : '44px',
+                                borderRadius: isMobile ? '0.65rem' : '0.75rem',
                                 display: 'grid',
                                 placeItems: 'center',
                                 background: `${step.color}12`,
                                 color: step.color,
-                                marginBottom: '1rem'
+                                marginBottom: isMobile ? 0 : '1rem'
                             }}>
                                 {step.icon}
                             </div>
-                            <h3 style={{
-                                color: '#0f172a',
-                                fontSize: '1.08rem',
-                                fontWeight: 800,
-                                marginBottom: '0.55rem'
-                            }}>
-                                {step.title}
-                            </h3>
-                            <p style={{
-                                color: '#475569',
-                                fontSize: '0.95rem',
-                                lineHeight: 1.55,
-                                margin: 0
-                            }}>
-                                {step.text}
-                            </p>
+                            <div>
+                                <h3 style={{
+                                    color: '#0f172a',
+                                    fontSize: isMobile ? '1rem' : '1.08rem',
+                                    fontWeight: 800,
+                                    marginBottom: isMobile ? '0.35rem' : '0.55rem'
+                                }}>
+                                    {step.title}
+                                </h3>
+                                <p style={{
+                                    color: '#475569',
+                                    fontSize: isMobile ? '0.9rem' : '0.95rem',
+                                    lineHeight: isMobile ? 1.42 : 1.55,
+                                    margin: 0
+                                }}>
+                                    {step.text}
+                                </p>
+                            </div>
                             {!isMobile && index < steps.length - 1 && (
                                 <div style={{
                                     position: 'absolute',
@@ -177,7 +183,7 @@ export default function WorkflowSection() {
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.8rem',
-                            padding: '0.9rem 1rem',
+                            padding: isMobile ? '0.8rem 0.9rem' : '0.9rem 1rem',
                             border: '1px solid #dbeafe',
                             borderRadius: '0.75rem',
                             background: '#eff6ff'
@@ -189,9 +195,11 @@ export default function WorkflowSection() {
                             }}>
                                 {outcome.icon}
                             </span>
-                            <span>
+                            <span style={{ fontSize: isMobile ? '0.9rem' : '1rem', lineHeight: 1.35 }}>
                                 <strong style={{ color: '#0f172a' }}>{outcome.label}</strong>
-                                <span style={{ color: '#475569' }}> · {outcome.detail}</span>
+                                <span style={{ color: '#475569', display: isMobile ? 'block' : 'inline' }}>
+                                    {isMobile ? outcome.detail : ` · ${outcome.detail}`}
+                                </span>
                             </span>
                         </div>
                     ))}

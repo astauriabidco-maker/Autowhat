@@ -110,7 +110,7 @@ export default function HeroSection() {
             backgroundPosition: 'center',
             display: 'flex',
             alignItems: 'center',
-            padding: isMobile ? '5rem 4% 2rem' : '6rem 5% 1.5rem',
+            padding: isMobile ? '4.25rem 4.5% 1.25rem' : '6rem 5% 1.5rem',
             borderBottom: '1px solid rgba(148, 163, 184, 0.22)',
             color: '#0f172a',
             overflow: 'hidden'
@@ -118,7 +118,7 @@ export default function HeroSection() {
             <div style={{
                 display: 'grid',
                 gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-                gap: isMobile ? '1.5rem' : '2.25rem',
+                gap: isMobile ? '1rem' : '2.25rem',
                 maxWidth: '1250px',
                 margin: '0 auto',
                 width: '100%',
@@ -129,7 +129,7 @@ export default function HeroSection() {
                     initial={{ opacity: 0, x: -50 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.8 }}
-                    style={{ order: isMobile ? 2 : 1 }}
+                    style={{ order: 1, minWidth: 0 }}
                 >
                     {/* Badge */}
                     <div style={{
@@ -137,23 +137,24 @@ export default function HeroSection() {
                         alignItems: 'center',
                         gap: '0.5rem',
                         background: 'rgba(37, 99, 235, 0.08)',
-                        padding: '0.5rem 1rem',
+                        padding: isMobile ? '0.45rem 0.75rem' : '0.5rem 1rem',
                         borderRadius: '2rem',
-                        marginBottom: '1.1rem',
-                        border: '1px solid rgba(37, 99, 235, 0.16)'
+                        marginBottom: isMobile ? '0.85rem' : '1.1rem',
+                        border: '1px solid rgba(37, 99, 235, 0.16)',
+                        maxWidth: '100%'
                     }}>
-                        <Sparkles size={16} color="#2563eb" />
-                        <span style={{ color: '#1d4ed8', fontSize: '0.85rem', fontWeight: 600 }}>
-                            {t('landing.hero.badge')} • {t(titleKey)}
+                        <Sparkles size={isMobile ? 14 : 16} color="#2563eb" style={{ flexShrink: 0 }} />
+                        <span style={{ color: '#1d4ed8', fontSize: isMobile ? '0.76rem' : '0.85rem', fontWeight: 600, whiteSpace: isMobile ? 'normal' : 'nowrap' }}>
+                            {isMobile ? 'Pointage, planning et demandes terrain' : `${t('landing.hero.badge')} • ${t(titleKey)}`}
                         </span>
                     </div>
 
                     <h1 style={{
                         color: '#0f172a',
-                        fontSize: isMobile ? '2.15rem' : '3.65rem',
+                        fontSize: isMobile ? '1.82rem' : '3.65rem',
                         fontWeight: 800,
-                        lineHeight: 1.03,
-                        marginBottom: '0.85rem',
+                        lineHeight: isMobile ? 1.06 : 1.03,
+                        marginBottom: isMobile ? '0.75rem' : '0.85rem',
                         letterSpacing: 0
                     }}>
                         WhatsApp pour pointer, planifier et remonter
@@ -162,78 +163,109 @@ export default function HeroSection() {
 
                     <p style={{
                         color: '#475569',
-                        fontSize: isMobile ? '1.05rem' : '1.18rem',
-                        lineHeight: 1.55,
+                        fontSize: isMobile ? '0.93rem' : '1.18rem',
+                        lineHeight: isMobile ? 1.5 : 1.55,
                         maxWidth: '610px',
-                        marginBottom: '1.1rem'
+                        marginBottom: isMobile ? '0.95rem' : '1.1rem'
                     }}>
                         Vos équipes utilisent WhatsApp. WhatsPoint transforme leurs messages en présences,
                         plannings, justificatifs et demandes exploitables par vos services métier.
                     </p>
 
-                    {/* Theme Tabs Navbar */}
-                    <div style={{
-                        display: 'flex',
-                        gap: '0.6rem',
-                        flexWrap: 'wrap',
-                        marginBottom: '1.4rem'
-                    }}>
-                        {SLIDES.map((slide, idx) => (
-                            <button
-                                key={slide.id}
-                                onClick={() => setCurrentSlide(idx)}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.4rem',
-                                    padding: '0.5rem 0.8rem',
-                                    borderRadius: '1rem',
-                                    border: currentSlide === idx ? `1px solid ${slide.color}50` : '1px solid rgba(148, 163, 184, 0.26)',
-                                    background: currentSlide === idx ? `${slide.color}12` : 'rgba(255, 255, 255, 0.72)',
-                                    color: currentSlide === idx ? slide.color : '#475569',
-                                    fontWeight: 600,
-                                    fontSize: '0.85rem',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
-                                    boxShadow: currentSlide === idx ? '0 10px 22px rgba(15, 23, 42, 0.08)' : 'none'
-                                }}
-                            >
-                                {slide.icon}
-                                {slide.label}
-                            </button>
-                        ))}
-                    </div>
+                    {isMobile ? (
+                        <div style={{
+                            display: 'flex',
+                            gap: '0.45rem',
+                            overflowX: 'auto',
+                            margin: '0 -0.25rem 0.95rem',
+                            padding: '0 0.25rem 0.2rem',
+                            WebkitOverflowScrolling: 'touch'
+                        }}>
+                            {['Pointage GPS', 'Planning', 'Justificatifs', 'Demandes'].map((label, idx) => (
+                                <span key={label} style={{
+                                    flex: '0 0 auto',
+                                    padding: '0.42rem 0.62rem',
+                                    borderRadius: '999px',
+                                    background: idx === currentSlide ? `${SLIDES[currentSlide].color}12` : 'rgba(255,255,255,0.74)',
+                                    border: idx === currentSlide ? `1px solid ${SLIDES[currentSlide].color}40` : '1px solid rgba(148, 163, 184, 0.3)',
+                                    color: idx === currentSlide ? SLIDES[currentSlide].color : '#475569',
+                                    fontSize: '0.76rem',
+                                    fontWeight: 750,
+                                    whiteSpace: 'nowrap'
+                                }}>
+                                    {label}
+                                </span>
+                            ))}
+                        </div>
+                    ) : (
+                        <>
+                            {/* Theme Tabs Navbar */}
+                            <div style={{
+                                display: 'flex',
+                                gap: '0.6rem',
+                                flexWrap: 'wrap',
+                                margin: '0 0 1.4rem',
+                                padding: 0
+                            }}>
+                                {SLIDES.map((slide, idx) => (
+                                    <button
+                                        key={slide.id}
+                                        onClick={() => setCurrentSlide(idx)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.4rem',
+                                            padding: '0.5rem 0.8rem',
+                                            borderRadius: '1rem',
+                                            border: currentSlide === idx ? `1px solid ${slide.color}50` : '1px solid rgba(148, 163, 184, 0.26)',
+                                            background: currentSlide === idx ? `${slide.color}12` : 'rgba(255, 255, 255, 0.72)',
+                                            color: currentSlide === idx ? slide.color : '#475569',
+                                            fontWeight: 600,
+                                            fontSize: '0.85rem',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            boxShadow: currentSlide === idx ? '0 10px 22px rgba(15, 23, 42, 0.08)' : 'none',
+                                            whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        {slide.icon}
+                                        {slide.label}
+                                    </button>
+                                ))}
+                            </div>
 
-                    {/* Dynamic Slide Content */}
-                    <motion.div
-                        key={currentSlide}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
-                        style={{ minHeight: isMobile ? '92px' : '68px', marginBottom: '1.25rem' }}
-                    >
-                        <h2 style={{
-                            color: '#0f172a',
-                            fontSize: '1.25rem',
-                            fontWeight: 700,
-                            marginBottom: '0.75rem'
-                        }}>
-                            {SLIDES[currentSlide].title}
-                        </h2>
-                        <p style={{
-                            color: '#475569',
-                            fontSize: '1rem',
-                            lineHeight: 1.6,
-                            maxWidth: '550px'
-                        }}>
-                            {SLIDES[currentSlide].desc}
-                        </p>
-                    </motion.div>
+                            {/* Dynamic Slide Content */}
+                            <motion.div
+                                key={currentSlide}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.3 }}
+                                style={{ minHeight: '68px', marginBottom: '1.25rem' }}
+                            >
+                                <h2 style={{
+                                    color: '#0f172a',
+                                    fontSize: '1.25rem',
+                                    fontWeight: 700,
+                                    marginBottom: '0.75rem'
+                                }}>
+                                    {SLIDES[currentSlide].title}
+                                </h2>
+                                <p style={{
+                                    color: '#475569',
+                                    fontSize: '1rem',
+                                    lineHeight: 1.6,
+                                    maxWidth: '550px'
+                                }}>
+                                    {SLIDES[currentSlide].desc}
+                                </p>
+                            </motion.div>
+                        </>
+                    )}
 
                     {/* CTAs */}
                     <div style={{
                         display: 'flex',
-                        gap: '1rem',
+                        gap: isMobile ? '0.65rem' : '1rem',
                         flexWrap: 'wrap',
                         flexDirection: isMobile ? 'column' : 'row'
                     }}>
@@ -246,13 +278,13 @@ export default function HeroSection() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: '0.5rem',
-                                padding: '1rem 2rem',
+                                padding: isMobile ? '0.78rem 1rem' : '1rem 2rem',
                                 background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
                                 borderRadius: '0.75rem',
                                 color: 'white',
                                 textDecoration: 'none',
                                 fontWeight: 700,
-                                fontSize: '1rem',
+                                fontSize: isMobile ? '0.94rem' : '1rem',
                                 boxShadow: '0 10px 30px rgba(34, 197, 94, 0.3)',
                                 width: isMobile ? '100%' : 'auto',
                                 transition: 'transform 0.2s ease'
@@ -261,7 +293,7 @@ export default function HeroSection() {
                             onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                         >
                             <MessageCircle size={20} />
-                            {t('landing.hero.demo')}
+                            Démo WhatsApp
                         </a>
                         <button
                             onClick={() => navigate('/onboarding')}
@@ -270,14 +302,14 @@ export default function HeroSection() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: '0.5rem',
-                                padding: '1rem 2rem',
+                                padding: isMobile ? '0.78rem 1rem' : '1rem 2rem',
                                 background: 'rgba(255, 255, 255, 0.78)',
                                 border: '1px solid rgba(148, 163, 184, 0.45)',
                                 borderRadius: '0.75rem',
                                 color: '#0f172a',
                                 cursor: 'pointer',
                                 fontWeight: 700,
-                                fontSize: '1rem',
+                                fontSize: isMobile ? '0.94rem' : '1rem',
                                 width: isMobile ? '100%' : 'auto',
                                 transition: 'all 0.2s ease'
                             }}
@@ -302,14 +334,14 @@ export default function HeroSection() {
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     gap: '0.5rem',
-                                    padding: '0.95rem 2rem',
+                                    padding: '0.76rem 1rem',
                                     background: 'rgba(255, 255, 255, 0.55)',
                                     border: '1px solid rgba(148, 163, 184, 0.45)',
                                     borderRadius: '0.75rem',
                                     color: '#334155',
                                     cursor: 'pointer',
                                     fontWeight: 700,
-                                    fontSize: '1rem',
+                                    fontSize: '0.94rem',
                                     width: '100%'
                                 }}
                             >
@@ -319,10 +351,10 @@ export default function HeroSection() {
                     </div>
 
                     {/* Reassurance Badges */}
-                    <div style={{
+                    {!isMobile && <div style={{
                         display: 'flex',
                         flexWrap: 'wrap',
-                        gap: isMobile ? '0.75rem' : '1.5rem',
+                        gap: '1.5rem',
                         marginTop: '1rem'
                     }}>
                         {[
@@ -342,7 +374,7 @@ export default function HeroSection() {
                                 <span>{badge.text}</span>
                             </div>
                         ))}
-                    </div>
+                    </div>}
                 </motion.div>
 
                 {/* Right: WhatsApp Mockup */}
@@ -357,25 +389,25 @@ export default function HeroSection() {
                         justifyContent: 'center',
                         alignItems: 'center',
                         flexDirection: isMobile ? 'column' : 'row',
-                        gap: isMobile ? '1rem' : '1rem',
+                        gap: isMobile ? '0.75rem' : '1rem',
                         order: 2,
-                        marginTop: isMobile ? '2rem' : 0,
+                        marginTop: isMobile ? '0.65rem' : 0,
                         width: '100%'
                     }}
                 >
                         <div style={{
                             background: '#0f172a',
-                            borderRadius: '2.5rem',
-                            padding: '0.6rem',
+                            borderRadius: isMobile ? '1.8rem' : '2.5rem',
+                            padding: isMobile ? '0.45rem' : '0.6rem',
                             boxShadow: '0 28px 70px -24px rgba(15, 23, 42, 0.42)',
-                            width: isMobile ? '300px' : '300px',
+                            width: isMobile ? 'min(100%, 260px)' : '300px',
                             border: '1px solid rgba(15, 23, 42, 0.12)',
                             position: 'relative'
                         }}>
                             {/* Phone Notch/Inner Border */}
                             <div style={{
                                 background: '#0b141a',
-                                borderRadius: '2rem',
+                                borderRadius: isMobile ? '1.45rem' : '2rem',
                                 overflow: 'hidden',
                                 height: '100%',
                                 border: '1px solid #334155',
@@ -385,14 +417,14 @@ export default function HeroSection() {
                                 {/* Phone Header */}
                                 <div style={{
                                     background: '#202c33',
-                                    padding: isMobile ? '0.9rem 0.85rem' : '0.9rem 0.85rem',
+                                    padding: isMobile ? '0.75rem' : '0.9rem 0.85rem',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '0.75rem'
                                 }}>
                                     <div style={{
-                                        width: '34px',
-                                        height: '34px',
+                                        width: isMobile ? '30px' : '34px',
+                                        height: isMobile ? '30px' : '34px',
                                         borderRadius: '50%',
                                         background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
                                         display: 'flex',
@@ -416,9 +448,9 @@ export default function HeroSection() {
                                     background: '#ece5dd', // Classic WhatsApp Light background
                                     backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")',
                                     backgroundSize: 'contain',
-                                    padding: isMobile ? '1.1rem 0.85rem' : '1.1rem 0.85rem',
+                                    padding: isMobile ? '0.85rem 0.7rem' : '1.1rem 0.85rem',
                                     flex: 1,
-                                    minHeight: '270px',
+                                    minHeight: isMobile ? '185px' : '270px',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     justifyContent: 'center'
@@ -433,7 +465,7 @@ export default function HeroSection() {
                                         style={{
                                             display: 'flex',
                                             justifyContent: 'center',
-                                            marginBottom: '1rem'
+                                            marginBottom: isMobile ? '0.7rem' : '1rem'
                                         }}
                                     >
                                         <span style={{
@@ -442,9 +474,9 @@ export default function HeroSection() {
                                             gap: '0.4rem',
                                             background: `${SLIDES[currentSlide].color}20`,
                                             color: SLIDES[currentSlide].color,
-                                            padding: '0.3rem 0.8rem',
+                                            padding: isMobile ? '0.25rem 0.65rem' : '0.3rem 0.8rem',
                                             borderRadius: '1rem',
-                                            fontSize: '0.75rem',
+                                            fontSize: isMobile ? '0.7rem' : '0.75rem',
                                             fontWeight: 600,
                                             border: `1px solid ${SLIDES[currentSlide].color}50`
                                         }}>
@@ -466,12 +498,12 @@ export default function HeroSection() {
                                     >
                                         <div style={{
                                             background: '#005c4b',
-                                            padding: '0.75rem 1rem',
+                                            padding: isMobile ? '0.6rem 0.75rem' : '0.75rem 1rem',
                                             borderRadius: '0.75rem 0.75rem 0 0.75rem',
                                             maxWidth: '85%',
                                             boxShadow: '0 1px 1px rgba(0,0,0,0.1)'
                                         }}>
-                                            <span style={{ color: '#e9edef', fontSize: '0.9rem' }}>
+                                            <span style={{ color: '#e9edef', fontSize: isMobile ? '0.82rem' : '0.9rem' }}>
                                                 {SLIDES[currentSlide].userText}
                                             </span>
                                             <div style={{ color: '#8696a0', fontSize: '0.7rem', textAlign: 'right', marginTop: '0.25rem' }}>
@@ -488,7 +520,7 @@ export default function HeroSection() {
                                         style={{ display: 'flex', justifyContent: 'flex-start', overflow: 'hidden', marginBottom: '0.75rem' }}
                                     >
                                         <div style={{
-                                            background: '#202c33', padding: '0.5rem 1rem', 
+                                            background: '#202c33', padding: isMobile ? '0.4rem 0.8rem' : '0.5rem 1rem', 
                                             borderRadius: '0.75rem 0.75rem 0.75rem 0', boxShadow: '0 1px 1px rgba(0,0,0,0.1)',
                                         }}>
                                             <span style={{ color: '#8696a0', fontSize: '0.8rem', fontStyle: 'italic', letterSpacing: '2px' }}>•••</span>
@@ -508,12 +540,12 @@ export default function HeroSection() {
                                     >
                                         <div style={{
                                             background: '#202c33',
-                                            padding: '0.75rem 1rem',
+                                            padding: isMobile ? '0.6rem 0.75rem' : '0.75rem 1rem',
                                             borderRadius: '0.75rem 0.75rem 0.75rem 0',
                                             maxWidth: '90%',
                                             boxShadow: '0 1px 1px rgba(0,0,0,0.1)'
                                         }}>
-                                            <span style={{ color: '#e9edef', fontSize: '0.9rem', whiteSpace: 'pre-line' }}>
+                                            <span style={{ color: '#e9edef', fontSize: isMobile ? '0.82rem' : '0.9rem', whiteSpace: 'pre-line' }}>
                                                 {SLIDES[currentSlide].botText}
                                             </span>
                                             <div style={{ color: '#8696a0', fontSize: '0.7rem', marginTop: '0.4rem' }}>
@@ -526,24 +558,24 @@ export default function HeroSection() {
                         </div>
                     </div>
                     <div style={{
-                        width: isMobile ? '300px' : '285px',
+                        width: isMobile ? 'min(100%, 260px)' : '285px',
                         background: 'rgba(255, 255, 255, 0.88)',
                         border: '1px solid rgba(148, 163, 184, 0.28)',
-                        borderRadius: '1.25rem',
-                        padding: '1rem',
+                        borderRadius: isMobile ? '1rem' : '1.25rem',
+                        padding: isMobile ? '0.85rem' : '1rem',
                         boxShadow: '0 24px 60px -30px rgba(15, 23, 42, 0.38)'
                     }}>
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            marginBottom: '1rem'
+                            marginBottom: isMobile ? '0.7rem' : '1rem'
                         }}>
                             <div>
                                 <p style={{ margin: 0, color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>
                                     Dashboard manager
                                 </p>
-                                <h3 style={{ margin: '0.15rem 0 0', color: '#0f172a', fontSize: '1.05rem', fontWeight: 850 }}>
+                                <h3 style={{ margin: '0.15rem 0 0', color: '#0f172a', fontSize: isMobile ? '0.96rem' : '1.05rem', fontWeight: 850 }}>
                                     Aujourd'hui
                                 </h3>
                             </div>
@@ -564,14 +596,14 @@ export default function HeroSection() {
                             display: 'grid',
                             gridTemplateColumns: '1fr 1fr',
                             gap: '0.6rem',
-                            marginBottom: '0.8rem'
+                            marginBottom: isMobile ? '0.55rem' : '0.8rem'
                         }}>
                             {[
                                 { label: 'Présents', value: '42', color: '#16a34a' },
                                 { label: 'Alertes', value: '3', color: '#ea580c' },
                             ].map((metric) => (
                                 <div key={metric.label} style={{
-                                    padding: '0.75rem',
+                                    padding: isMobile ? '0.55rem' : '0.75rem',
                                     borderRadius: '0.75rem',
                                     background: '#f8fafc',
                                     border: '1px solid #e2e8f0'
@@ -579,7 +611,7 @@ export default function HeroSection() {
                                     <p style={{ margin: 0, color: '#64748b', fontSize: '0.72rem', fontWeight: 700 }}>
                                         {metric.label}
                                     </p>
-                                    <p style={{ margin: '0.15rem 0 0', color: metric.color, fontSize: '1.35rem', fontWeight: 850 }}>
+                                    <p style={{ margin: '0.15rem 0 0', color: metric.color, fontSize: isMobile ? '1.1rem' : '1.35rem', fontWeight: 850 }}>
                                         {metric.value}
                                     </p>
                                 </div>
@@ -590,12 +622,12 @@ export default function HeroSection() {
                             { icon: <MapPin size={15} />, title: 'Pointage GPS', detail: 'Service Urgences validé' },
                             { icon: <CalendarDays size={15} />, title: 'Planning', detail: '2 remplacements à confirmer' },
                             { icon: <UsersRound size={15} />, title: 'Demande client', detail: 'Intervention à qualifier' },
-                        ].map((item) => (
+                        ].filter((_, index) => !isMobile || index < 2).map((item) => (
                             <div key={item.title} style={{
                                 display: 'flex',
                                 gap: '0.65rem',
                                 alignItems: 'center',
-                                padding: '0.65rem 0',
+                                padding: isMobile ? '0.48rem 0' : '0.65rem 0',
                                 borderTop: '1px solid #e2e8f0'
                             }}>
                                 <span style={{
