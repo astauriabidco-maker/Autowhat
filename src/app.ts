@@ -94,6 +94,56 @@ app.use(router);
 // ------------------------------------------------------------------
 if (process.env.NODE_ENV === 'production' || process.env.SERVE_FRONTEND === 'true') {
     console.log('📦 Serving compiled Frontend from client/dist');
+
+    const serviceWorkerHeaders = {
+        'Content-Type': 'application/javascript; charset=utf-8',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Service-Worker-Allowed': '/'
+    };
+    const htmlHeaders = {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+    };
+
+    // PWA has been disabled for production builds. These routes keep old browsers
+    // from being controlled by a stale service worker that can serve outdated assets.
+    app.get('/sw.js', (_req, res) => {
+        res.set(serviceWorkerHeaders);
+        res.send(`
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    if ('caches' in self) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    }
+    await self.registration.unregister();
+    const windows = await self.clients.matchAll({ type: 'window' });
+    for (const client of windows) {
+      client.navigate(client.url);
+    }
+  })());
+});
+`);
+    });
+
+    app.get('/registerSW.js', (_req, res) => {
+        res.set(serviceWorkerHeaders);
+        res.send(`
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations()
+    .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+    .then(() => {
+      if ('caches' in window) {
+        return caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))));
+      }
+    })
+    .catch(() => undefined);
+}
+`);
+    });
+
     app.use(express.static(path.join(process.cwd(), 'client/dist')));
     
     // Fallback for React Router (don't override /api)
@@ -101,6 +151,7 @@ if (process.env.NODE_ENV === 'production' || process.env.SERVE_FRONTEND === 'tru
         if (req.path.startsWith('/api/')) {
             return next();
         }
+        res.set(htmlHeaders);
         res.sendFile(path.join(process.cwd(), 'client/dist/index.html'));
     });
 }
