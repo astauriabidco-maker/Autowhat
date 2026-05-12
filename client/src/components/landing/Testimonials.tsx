@@ -155,7 +155,7 @@ export default function Testimonials() {
 
     return (
         <section id="testimonials" style={{
-            padding: '4.75rem 5%',
+            padding: '3.25rem 5%',
             background: '#f8fafc'
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -165,7 +165,7 @@ export default function Testimonials() {
                     whileInView={{ y: 0 }}
                     transition={{ duration: 0.6 }}
                     viewport={{ once: true }}
-                    style={{ textAlign: 'center', marginBottom: '2.75rem' }}
+                    style={{ textAlign: 'center', marginBottom: '2rem' }}
                 >
                     <h2 style={{
                         color: '#0f172a',
@@ -211,7 +211,7 @@ export default function Testimonials() {
                         display: 'flex',
                         justifyContent: 'center',
                         gap: '3rem',
-                        marginTop: '2.75rem',
+                        marginTop: '2rem',
                         flexWrap: 'wrap'
                     }}
                 >

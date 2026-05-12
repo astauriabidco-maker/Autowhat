@@ -24,7 +24,7 @@ export default function FeaturesGrid() {
 
     return (
         <section id="hr-suite" style={{
-            padding: isMobile ? '3.25rem 4%' : '4.75rem 5%',
+            padding: isMobile ? '2.5rem 4%' : '3.25rem 5%',
             background: '#ffffff'
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -34,7 +34,7 @@ export default function FeaturesGrid() {
                     whileInView={{ y: 0 }}
                     transition={{ duration: 0.6 }}
                     viewport={{ once: true }}
-                    style={{ textAlign: 'center', marginBottom: isMobile ? '2rem' : '2.35rem' }}
+                    style={{ textAlign: 'center', marginBottom: isMobile ? '1.5rem' : '1.75rem' }}
                 >
                     <div style={{
                         display: 'inline-flex',
@@ -43,7 +43,7 @@ export default function FeaturesGrid() {
                         background: 'rgba(59, 130, 246, 0.1)',
                         padding: '0.5rem 1rem',
                         borderRadius: '2rem',
-                        marginBottom: '1rem'
+                        marginBottom: '0.7rem'
                     }}>
                         <Smartphone size={16} color="#3b82f6" />
                         <span style={{ color: '#2563eb', fontSize: '0.85rem', fontWeight: 600 }}>
@@ -54,7 +54,7 @@ export default function FeaturesGrid() {
                         color: '#0f172a',
                         fontSize: isMobile ? '1.75rem' : '2.5rem',
                         fontWeight: 800,
-                        marginBottom: '1rem',
+                        marginBottom: '0.65rem',
                         letterSpacing: 0
                     }}>
                         {t('landing.suite.title', 'Le pointage reste le socle.')}
@@ -73,7 +73,7 @@ export default function FeaturesGrid() {
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: isMobile ? '1fr' : 'repeat(6, 1fr)',
-                    gap: isMobile ? '1rem' : '1.25rem'
+                    gap: isMobile ? '0.85rem' : '1rem'
                 }}>
                     {/* Pointage - primary workflow */}
                     <motion.div
@@ -86,11 +86,11 @@ export default function FeaturesGrid() {
                             background: 'linear-gradient(135deg, #eff6ff 0%, #ffffff 65%)',
                             border: '1px solid #e2e8f0',
                             borderRadius: '1.5rem',
-                            padding: isMobile ? '1.35rem' : '1.75rem',
+                            padding: isMobile ? '1.2rem' : '1.35rem',
                             position: 'relative',
                             overflow: 'hidden',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-                            minHeight: isMobile ? 'auto' : '390px'
+                            minHeight: isMobile ? 'auto' : '330px'
                         }}
                     >
                         <div style={{ position: 'absolute', right: '-24px', bottom: '-24px', opacity: 0.08 }}>
@@ -99,14 +99,14 @@ export default function FeaturesGrid() {
 
                         <div style={{ position: 'relative', zIndex: 1 }}>
                             <div style={{
-                                width: '56px',
-                                height: '56px',
+                                width: '48px',
+                                height: '48px',
                                 borderRadius: '1rem',
                                 background: 'rgba(59, 130, 246, 0.16)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                marginBottom: '1.1rem'
+                                marginBottom: '0.8rem'
                             }}>
                                 <MapPin size={28} color="#2563eb" />
                             </div>
@@ -123,9 +123,9 @@ export default function FeaturesGrid() {
                             <p style={{
                                 color: '#475569',
                                 fontSize: '1rem',
-                                lineHeight: 1.65,
+                                lineHeight: 1.5,
                                 maxWidth: '430px',
-                                marginBottom: '1.1rem'
+                                marginBottom: '0.8rem'
                             }}>
                                 Un message WhatsApp suffit pour enregistrer l’arrivée, la prise de service ou le départ, avec site, heure et contrôle GPS.
                             </p>
@@ -133,13 +133,13 @@ export default function FeaturesGrid() {
                             <div style={{
                                 background: '#0f172a',
                                 borderRadius: '1.25rem',
-                                padding: '1rem',
+                                padding: '0.8rem',
                                 color: 'white',
                                 maxWidth: '430px',
-                                marginBottom: '1.1rem',
+                                marginBottom: '0.8rem',
                                 boxShadow: '0 18px 40px -24px rgba(15, 23, 42, 0.75)'
                             }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.55rem' }}>
                                     <span style={{ fontSize: '0.85rem', fontWeight: 750 }}>WhatsPoint Bot</span>
                                     <span style={{ color: '#86efac', fontSize: '0.75rem', fontWeight: 700 }}>Validé</span>
                                 </div>
@@ -147,7 +147,7 @@ export default function FeaturesGrid() {
                                     background: '#dcfce7',
                                     color: '#14532d',
                                     borderRadius: '0.85rem',
-                                    padding: '0.8rem',
+                                    padding: '0.65rem',
                                     fontSize: '0.88rem',
                                     lineHeight: 1.5
                                 }}>
@@ -157,7 +157,7 @@ export default function FeaturesGrid() {
                                 </div>
                             </div>
 
-                            <div style={{ display: 'grid', gap: '0.7rem' }}>
+                            <div style={{ display: 'grid', gap: '0.45rem' }}>
                                 {[
                                     'Vérification site automatique',
                                     'Historique géolocalisé exploitable',
@@ -190,9 +190,9 @@ export default function FeaturesGrid() {
                             background: 'linear-gradient(135deg, #f5f3ff 0%, #ffffff 64%)',
                             border: '1px solid #e2e8f0',
                             borderRadius: '1.5rem',
-                            padding: isMobile ? '1.35rem' : '1.75rem',
+                            padding: isMobile ? '1.2rem' : '1.35rem',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-                            minHeight: isMobile ? 'auto' : '390px',
+                            minHeight: isMobile ? 'auto' : '330px',
                             position: 'relative',
                             overflow: 'hidden'
                         }}
@@ -203,14 +203,14 @@ export default function FeaturesGrid() {
 
                         <div style={{ position: 'relative', zIndex: 1 }}>
                             <div style={{
-                                width: '56px',
-                                height: '56px',
+                                width: '48px',
+                                height: '48px',
                                 borderRadius: '1rem',
                                 background: 'rgba(139, 92, 246, 0.16)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                marginBottom: '1.1rem'
+                                marginBottom: '0.8rem'
                             }}>
                                 <CalendarDays size={28} color="#7c3aed" />
                             </div>
@@ -227,9 +227,9 @@ export default function FeaturesGrid() {
                             <p style={{
                                 color: '#475569',
                                 fontSize: '1rem',
-                                lineHeight: 1.65,
+                                lineHeight: 1.5,
                                 maxWidth: '430px',
-                                marginBottom: '1.1rem'
+                                marginBottom: '0.8rem'
                             }}>
                                 Les équipes demandent leur prochain horaire, leur service ou un changement sans appeler le standard ni ouvrir un portail.
                             </p>
@@ -238,9 +238,9 @@ export default function FeaturesGrid() {
                                 background: 'white',
                                 border: '1px solid #ddd6fe',
                                 borderRadius: '1.25rem',
-                                padding: '1rem',
+                                padding: '0.8rem',
                                 maxWidth: '430px',
-                                marginBottom: '1.1rem',
+                                marginBottom: '0.8rem',
                                 boxShadow: '0 14px 30px -24px rgba(91, 33, 182, 0.65)'
                             }}>
                                 {[
@@ -252,7 +252,7 @@ export default function FeaturesGrid() {
                                         display: 'grid',
                                         gridTemplateColumns: '88px 1fr',
                                         gap: '0.8rem',
-                                        padding: '0.72rem 0',
+                                        padding: '0.55rem 0',
                                         borderBottom: day === 'Jeudi' ? 'none' : '1px solid #ede9fe'
                                     }}>
                                         <span style={{ color: '#7c3aed', fontWeight: 800, fontSize: '0.86rem' }}>{day}</span>
@@ -264,7 +264,7 @@ export default function FeaturesGrid() {
                                 ))}
                             </div>
 
-                            <div style={{ display: 'grid', gap: '0.7rem' }}>
+                            <div style={{ display: 'grid', gap: '0.45rem' }}>
                                 {[
                                     'Horaires à jour pour chaque collaborateur',
                                     'Réponse immédiate dans la conversation',

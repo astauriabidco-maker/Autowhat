@@ -262,14 +262,14 @@ function LandingContent() {
             <HeroSection />
 
             {/* Social Proof Section - Trust by */}
-            <section style={{ padding: isMobile ? '1.5rem 4%' : '1.75rem 5%', background: '#ffffff', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+            <section style={{ padding: isMobile ? '1.1rem 4%' : '1.1rem 5%', background: '#ffffff', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
-                    <p style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>
+                    <p style={{ color: '#94a3b8', fontSize: '0.82rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.6rem' }}>
                         Une plateforme terrain qui couvre les workflows essentiels
                     </p>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: isMobile ? '1.25rem' : '3rem', flexWrap: 'wrap', opacity: 0.5, filter: 'grayscale(100%)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: isMobile ? '1rem' : '2.25rem', flexWrap: 'wrap', opacity: 0.5, filter: 'grayscale(100%)' }}>
                         {['Pointage', 'Présences', 'Plannings', 'Justificatifs', 'Documents', 'Exports'].map(module => (
-                            <span key={module} style={{ fontSize: isMobile ? '1.05rem' : '1.35rem', fontWeight: 850, color: '#475569', letterSpacing: 0 }}>{module}</span>
+                            <span key={module} style={{ fontSize: isMobile ? '0.95rem' : '1.15rem', fontWeight: 850, color: '#475569', letterSpacing: 0 }}>{module}</span>
                         ))}
                     </div>
                 </div>
@@ -302,7 +302,7 @@ function LandingContent() {
 
             {/* Pricing Section */}
             <section id="pricing" style={{
-                padding: isMobile ? '3.25rem 4%' : '5rem 5%',
+                padding: isMobile ? '2.5rem 4%' : '3.75rem 5%',
                 background: '#f8fafc'
             }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -311,7 +311,7 @@ function LandingContent() {
                         whileInView={{ y: 0 }}
                         transition={{ duration: 0.6 }}
                         viewport={{ once: true }}
-                        style={{ textAlign: 'center', marginBottom: '2.75rem' }}
+                        style={{ textAlign: 'center', marginBottom: '2rem' }}
                     >
                         <h2 style={{ color: '#0f172a', fontSize: isMobile ? '1.75rem' : '2.5rem', fontWeight: 800, marginBottom: '1rem' }}>
                             {t('landing.pricing.title')}
@@ -561,7 +561,7 @@ function LandingContent() {
 
             {/* CTA Section */}
             <section style={{
-                padding: isMobile ? '3.25rem 4%' : '4.5rem 5%',
+                padding: isMobile ? '2.5rem 4%' : '3.25rem 5%',
                 background: '#ffffff',
                 textAlign: 'center'
             }}>
@@ -575,7 +575,7 @@ function LandingContent() {
                         margin: '0 auto',
                         background: 'linear-gradient(135deg, #1e3a8a 0%, #4f46e5 100%)',
                         borderRadius: '1.5rem',
-                        padding: isMobile ? '2.5rem 1.5rem' : '3rem 2rem'
+                        padding: isMobile ? '2rem 1.25rem' : '2.35rem 2rem'
                     }}
                 >
                     <h2 style={{ color: 'white', fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 700, marginBottom: '1rem' }}>

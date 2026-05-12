@@ -58,7 +58,7 @@ export default function OperationsSection() {
 
     return (
         <section id="operations" style={{
-            padding: isMobile ? '3.25rem 4%' : '4.75rem 5%',
+            padding: isMobile ? '2.5rem 4%' : '3.25rem 5%',
             background: '#f8fafc',
             borderBottom: '1px solid #e2e8f0'
         }}>
@@ -73,7 +73,7 @@ export default function OperationsSection() {
                         gridTemplateColumns: isMobile ? '1fr' : '0.9fr 1.1fr',
                         gap: isMobile ? '1.5rem' : '3rem',
                         alignItems: 'center',
-                        marginBottom: isMobile ? '2rem' : '2.5rem'
+                        marginBottom: isMobile ? '1.5rem' : '1.75rem'
                     }}
                 >
                     <div>
@@ -186,7 +186,7 @@ export default function OperationsSection() {
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '1rem',
                                 padding: '1.2rem',
-                                minHeight: isMobile ? 'auto' : '168px',
+                                minHeight: isMobile ? 'auto' : '145px',
                                 boxShadow: '0 4px 6px -1px rgba(15, 23, 42, 0.04)'
                             }}
                         >

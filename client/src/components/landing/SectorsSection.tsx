@@ -76,7 +76,7 @@ export default function SectorsSection() {
 
     return (
         <section id="sectors" style={{
-            padding: isMobile ? '3.25rem 4%' : '4.75rem 5%',
+            padding: isMobile ? '2.5rem 4%' : '3.25rem 5%',
             background: '#ffffff',
             borderBottom: '1px solid #e2e8f0'
         }}>
@@ -86,7 +86,7 @@ export default function SectorsSection() {
                     whileInView={{ y: 0 }}
                     transition={{ duration: 0.6 }}
                     viewport={{ once: true }}
-                    style={{ textAlign: 'center', marginBottom: isMobile ? '2rem' : '2.75rem' }}
+                    style={{ textAlign: 'center', marginBottom: isMobile ? '1.5rem' : '2rem' }}
                 >
                     <h2 style={{
                         color: '#0f172a',

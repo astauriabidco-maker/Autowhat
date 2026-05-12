@@ -92,13 +92,13 @@ export default function HeroSection() {
 
     return (
         <section style={{
-            minHeight: isMobile ? 'auto' : '82vh',
+            minHeight: isMobile ? 'auto' : '72vh',
             background: `linear-gradient(135deg, rgba(248, 250, 252, 0.98) 0%, rgba(239, 246, 255, 0.94) 48%, rgba(240, 253, 244, 0.9) 100%), url(${heroImageSrc})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             display: 'flex',
             alignItems: 'center',
-            padding: isMobile ? '5.5rem 4% 3rem' : '7rem 5% 3rem',
+            padding: isMobile ? '5rem 4% 2rem' : '6rem 5% 1.5rem',
             borderBottom: '1px solid rgba(148, 163, 184, 0.22)',
             color: '#0f172a',
             overflow: 'hidden'
@@ -106,7 +106,7 @@ export default function HeroSection() {
             <div style={{
                 display: 'grid',
                 gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-                gap: isMobile ? '2rem' : '3rem',
+                gap: isMobile ? '1.5rem' : '2.25rem',
                 maxWidth: '1250px',
                 margin: '0 auto',
                 width: '100%',
@@ -138,10 +138,10 @@ export default function HeroSection() {
 
                     <h1 style={{
                         color: '#0f172a',
-                        fontSize: isMobile ? '2.55rem' : '4.15rem',
+                        fontSize: isMobile ? '2.15rem' : '3.65rem',
                         fontWeight: 800,
-                        lineHeight: 1.06,
-                        marginBottom: '1rem',
+                        lineHeight: 1.03,
+                        marginBottom: '0.85rem',
                         letterSpacing: 0
                     }}>
                         Pointage, présence et planning
@@ -151,7 +151,7 @@ export default function HeroSection() {
                     <p style={{
                         color: '#475569',
                         fontSize: isMobile ? '1.05rem' : '1.18rem',
-                        lineHeight: 1.65,
+                        lineHeight: 1.55,
                         maxWidth: '610px',
                         marginBottom: '1.1rem'
                     }}>
@@ -198,7 +198,7 @@ export default function HeroSection() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
-                        style={{ minHeight: isMobile ? '100px' : '84px', marginBottom: '1.75rem' }}
+                        style={{ minHeight: isMobile ? '92px' : '68px', marginBottom: '1.25rem' }}
                     >
                         <h2 style={{
                             color: '#0f172a',
@@ -354,7 +354,7 @@ export default function HeroSection() {
                             borderRadius: '2.5rem',
                             padding: '0.6rem',
                             boxShadow: '0 28px 70px -24px rgba(15, 23, 42, 0.42)',
-                            width: '340px',
+                            width: isMobile ? '300px' : '300px',
                             border: '1px solid rgba(15, 23, 42, 0.12)',
                             position: 'relative'
                         }}>
@@ -371,14 +371,14 @@ export default function HeroSection() {
                                 {/* Phone Header */}
                                 <div style={{
                                     background: '#202c33',
-                                    padding: '1.2rem 1rem 1rem',
+                                    padding: isMobile ? '0.9rem 0.85rem' : '0.9rem 0.85rem',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '0.75rem'
                                 }}>
                                     <div style={{
-                                        width: '40px',
-                                        height: '40px',
+                                        width: '34px',
+                                        height: '34px',
                                         borderRadius: '50%',
                                         background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
                                         display: 'flex',
@@ -402,9 +402,9 @@ export default function HeroSection() {
                                     background: '#ece5dd', // Classic WhatsApp Light background
                                     backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")',
                                     backgroundSize: 'contain',
-                                    padding: '1.5rem 1rem',
+                                    padding: isMobile ? '1.1rem 0.85rem' : '1.1rem 0.85rem',
                                     flex: 1,
-                                    minHeight: '340px',
+                                    minHeight: '270px',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     justifyContent: 'center'

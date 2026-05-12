@@ -44,7 +44,7 @@ export default function EnterpriseSection() {
 
     return (
         <section id="enterprise" style={{
-            padding: isMobile ? '3.25rem 4%' : '4.75rem 5%',
+            padding: isMobile ? '2.5rem 4%' : '3.25rem 5%',
             background: '#f8fafc',
             borderBottom: '1px solid #e2e8f0'
         }}>
@@ -57,7 +57,7 @@ export default function EnterpriseSection() {
                     viewport={{ once: true }}
                     style={{
                         textAlign: 'center',
-                        marginBottom: isMobile ? '2rem' : '2.75rem'
+                        marginBottom: isMobile ? '1.5rem' : '2rem'
                     }}
                 >
                     <div style={{
@@ -100,7 +100,7 @@ export default function EnterpriseSection() {
                     display: 'grid',
                     gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
                     gap: isMobile ? '1rem' : '1.5rem',
-                    marginBottom: isMobile ? '2rem' : '2.75rem'
+                    marginBottom: isMobile ? '1.5rem' : '2rem'
                 }}>
                     {enterpriseFeatures.map((feature, idx) => (
                         <motion.div

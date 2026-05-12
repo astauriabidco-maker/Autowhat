@@ -72,7 +72,7 @@ export default function IntegrationsSection() {
 
     return (
         <section style={{
-            padding: isMobile ? '2.5rem 4%' : '3.25rem 5%',
+            padding: isMobile ? '2rem 4%' : '2.5rem 5%',
             background: '#f8fafc',
             borderBottom: '1px solid #e2e8f0',
             overflow: 'hidden'
@@ -91,7 +91,7 @@ export default function IntegrationsSection() {
                         padding: '0.4rem 1rem',
                         background: 'white',
                         borderRadius: '2rem',
-                        marginBottom: '1rem',
+                        marginBottom: '0.75rem',
                         border: '1px solid #e2e8f0',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
                     }}>
@@ -105,7 +105,7 @@ export default function IntegrationsSection() {
                         color: '#0f172a',
                         fontSize: isMobile ? '1.5rem' : '2.2rem',
                         fontWeight: 800,
-                        marginBottom: '1rem',
+                        marginBottom: '0.75rem',
                         letterSpacing: 0
                     }}>
                         Le pointage ouvre la porte aux demandes terrain.
@@ -114,7 +114,7 @@ export default function IntegrationsSection() {
                         color: '#64748b',
                         fontSize: '1.05rem',
                         maxWidth: '720px',
-                        margin: '0 auto 2rem',
+                        margin: '0 auto 1.5rem',
                         lineHeight: 1.6
                     }}>
                         WhatsPoint collecte l’information dans WhatsApp, la qualifie, puis la transmet
@@ -125,7 +125,7 @@ export default function IntegrationsSection() {
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))',
-                    gap: isMobile ? '0.85rem' : '1.25rem'
+                    gap: isMobile ? '0.75rem' : '1rem'
                 }}>
                     {businessFlows.map((flow, idx) => (
                         <motion.div
@@ -136,7 +136,7 @@ export default function IntegrationsSection() {
                             viewport={{ once: true }}
                             style={{
                                 background: 'white',
-                                padding: '1.15rem',
+                                padding: '1rem',
                                 borderRadius: '1rem',
                                 border: '1px solid #e2e8f0',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
@@ -144,7 +144,7 @@ export default function IntegrationsSection() {
                                 flexDirection: 'column',
                                 alignItems: 'flex-start',
                                 gap: '0.65rem',
-                                minHeight: isMobile ? 'auto' : '168px',
+                                minHeight: isMobile ? 'auto' : '145px',
                                 textAlign: 'left'
                             }}
                         >
@@ -192,7 +192,7 @@ export default function IntegrationsSection() {
                 </div>
 
                 <div style={{
-                    marginTop: '1.5rem',
+                    marginTop: '1.1rem',
                     display: 'flex',
                     flexWrap: 'wrap',
                     justifyContent: 'center',
