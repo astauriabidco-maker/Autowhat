@@ -39,6 +39,9 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
 }
 
 const rootElement = document.getElementById('root')
+const frontendBuildMarker = 'whatspoint-landing-recovery-2026-05-12-1519'
+
+console.info('WhatsPoint frontend boot', frontendBuildMarker)
 
 const renderBootError = () => {
   if (!rootElement) return
