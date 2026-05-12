@@ -10,47 +10,20 @@ export default function SectorsSection() {
 
     const sectors = [
         {
-            id: 'office',
-            icon: <Building size={32} />,
-            title: 'PME & TPE (Bureaux)',
-            description: 'Simplifiez la vie de vos collaborateurs. Ils posent leurs congés et posent des questions RH directement dans WhatsApp.',
-            features: ['Assistant RH 24/7 (RAG)', 'Demandes de congés NLP', 'Transmission notes de frais'],
-            color: '#8b5cf6',
-            bgColor: '#ddd6fe'
-        },
-        {
-            id: 'retail',
-            icon: <ShoppingBag size={32} />,
-            title: 'Commerce & Retail',
-            description: 'Une communication instantanée entre le siège et les boutiques. Les vendeurs remontent les infos produits d\'une simple photo.',
-            features: ['Remontées terrain (Photo)', 'Planning équipe (Bot)', 'Déclaration incidents'],
-            color: '#f97316',
-            bgColor: '#fed7aa'
-        },
-        {
-            id: 'hospitality',
-            icon: <Utensils size={32} />,
-            title: 'Hôtellerie & Restauration',
-            description: 'Fini les plannings WhatsApp chaotiques. Centralisez les pointages des extras et centralisez les demandes d\'absences.',
-            features: ['Pointage des extras', 'Notes vocales urgentes', 'Validation de présence'],
-            color: '#ec4899',
-            bgColor: '#fbcfe8'
-        },
-        {
             id: 'hospital',
             icon: <Stethoscope size={32} />,
             title: 'Hôpital & Santé',
-            description: 'Les équipes consultent leurs horaires, confirment leur prise de service et signalent absences ou retards sans appeler le standard.',
-            features: ['Consultation planning par WhatsApp', 'Pointage prise de service', 'Absences et remplacements'],
+            description: 'Les équipes consultent leurs horaires, confirment leur prise de service et signalent les absences sans appeler le standard.',
+            features: ['Planning consultable', 'Prise de service', 'Absences et remplacements'],
             color: '#0ea5e9',
             bgColor: '#bae6fd'
         },
         {
             id: 'btp',
             icon: <HardHat size={32} />,
-            title: 'Bâtiment & Travaux (BTP)',
-            description: 'Fini les feuilles de pointage papier. Gérez vos équipes itinérantes sur différents chantiers avec le pointage géolocalisé.',
-            features: ['Pointage multi-chantiers', 'Notes de frais (OCR)', 'Suivi du parc matériel'],
+            title: 'BTP & chantiers',
+            description: 'Les équipes itinérantes pointent sur site, remontent les justificatifs et transmettent les incidents terrain.',
+            features: ['Pointage géolocalisé', 'Justificatifs photo', 'Incidents chantier'],
             color: '#eab308',
             bgColor: '#fef08a'
         },
@@ -58,19 +31,37 @@ export default function SectorsSection() {
             id: 'cleaning',
             icon: <Droplets size={32} />,
             title: 'Propreté & Nettoyage',
-            description: 'Assurez-vous que les agents sont sur le bon site à la bonne heure. Preuves de passage instantanées par photo.',
-            features: ['Preuves de passage horodatées', 'Signalement pannes', 'Planning en direct'],
+            description: 'Les agents confirment leur passage, ajoutent une photo et signalent les anomalies depuis le lieu d’intervention.',
+            features: ['Preuves de passage', 'Planning agent', 'Signalement anomalie'],
             color: '#3b82f6',
             bgColor: '#bfdbfe'
         },
         {
             id: 'security',
             icon: <ShieldCheck size={32} />,
-            title: 'Sécurité Privée',
-            description: 'Garantissez la présence de vos agents. Mains courantes dictées vocalement et rapport PDF généré automatiquement.',
-            features: ['Prise de poste sécurisée', 'Bouton SOS', 'Main courante vocale'],
+            title: 'Sécurité privée',
+            description: 'Les agents valident leur prise de poste, déclarent un événement et gardent une trace horodatée.',
+            features: ['Prise de poste', 'Main courante', 'Alerte événement'],
             color: '#10b981',
             bgColor: '#bbf7d0'
+        },
+        {
+            id: 'retail',
+            icon: <ShoppingBag size={32} />,
+            title: 'Commerce & Retail',
+            description: 'Les boutiques remontent les incidents, les demandes siège et les informations terrain sans ouvrir d’outil complexe.',
+            features: ['Remontées magasin', 'Demandes siège', 'Suivi CRM / ERP'],
+            color: '#f97316',
+            bgColor: '#fed7aa'
+        },
+        {
+            id: 'hospitality',
+            icon: <Utensils size={32} />,
+            title: 'Hôtellerie & Restauration',
+            description: 'Les extras et équipes postées consultent leurs horaires, pointent et signalent les changements de dernière minute.',
+            features: ['Pointage extras', 'Planning équipe', 'Absences urgentes'],
+            color: '#ec4899',
+            bgColor: '#fbcfe8'
         }
     ];
 
@@ -95,9 +86,9 @@ export default function SectorsSection() {
                         marginBottom: '1rem',
                         letterSpacing: 0
                     }}>
-                        Pensé pour le terrain.
+                        Présence, planning et demandes terrain
                         <br />
-                        <span style={{ color: '#3b82f6' }}>Adapté à votre industrie.</span>
+                        <span style={{ color: '#3b82f6' }}>par secteur.</span>
                     </h2>
                     <p style={{
                         color: '#64748b',
@@ -106,13 +97,14 @@ export default function SectorsSection() {
                         margin: '0 auto',
                         lineHeight: 1.6
                     }}>
-                        Bureaux, boutiques ou chantiers. Peu importe votre secteur d'activité, WhatsApp est la seule interface que 100% de vos employés maîtrisent déjà.
+                        Les mêmes réflexes WhatsApp s’adaptent à vos contraintes métier :
+                        horaires, sites, justificatifs, incidents et demandes à transmettre.
                     </p>
                 </motion.div>
 
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(350px, 1fr))',
+                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))',
                     gap: isMobile ? '1rem' : '1.5rem'
                 }}>
                     {sectors.map((sector, idx) => (
@@ -127,6 +119,7 @@ export default function SectorsSection() {
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '1.25rem',
                                 padding: isMobile ? '1.5rem' : '1.75rem',
+                                minHeight: isMobile ? 'auto' : '290px',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                 display: 'flex',
                                 flexDirection: 'column',
@@ -196,6 +189,33 @@ export default function SectorsSection() {
                         </motion.div>
                     ))}
                 </div>
+
+                <motion.div
+                    initial={{ y: 18 }}
+                    whileInView={{ y: 0 }}
+                    transition={{ duration: 0.45, delay: 0.2 }}
+                    viewport={{ once: true }}
+                    style={{
+                        margin: isMobile ? '1rem auto 0' : '1.35rem auto 0',
+                        padding: isMobile ? '1rem' : '1rem 1.25rem',
+                        maxWidth: '820px',
+                        border: '1px dashed #cbd5e1',
+                        borderRadius: '1rem',
+                        background: '#f8fafc',
+                        color: '#475569',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.65rem',
+                        textAlign: 'center',
+                        fontSize: '0.92rem',
+                        fontWeight: 600,
+                        lineHeight: 1.5
+                    }}
+                >
+                    <Building size={18} color="#64748b" />
+                    <span>Autres environnements : bureaux, logistique, sites industriels, réseaux d’agences.</span>
+                </motion.div>
             </div>
         </section>
     );
