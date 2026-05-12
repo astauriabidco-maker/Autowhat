@@ -5,9 +5,124 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WhatsPoint</title>
+    <style>
+      body {
+        margin: 0;
+        background: #f8fafc;
+        color: #0f172a;
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .static-fallback {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 32px;
+        background:
+          linear-gradient(90deg, rgba(248, 250, 252, .98), rgba(248, 250, 252, .82)),
+          url("/images/hero-france.png") center / cover no-repeat;
+      }
+
+      .static-fallback__content {
+        width: min(100%, 760px);
+      }
+
+      .static-fallback__brand {
+        margin: 0 0 28px;
+        color: #2563eb;
+        font-size: 18px;
+        font-weight: 800;
+      }
+
+      .static-fallback__title {
+        margin: 0 0 18px;
+        max-width: 720px;
+        font-size: clamp(42px, 8vw, 76px);
+        line-height: .98;
+        letter-spacing: 0;
+      }
+
+      .static-fallback__title span {
+        color: #2563eb;
+      }
+
+      .static-fallback__text {
+        margin: 0 0 28px;
+        max-width: 620px;
+        color: #475569;
+        font-size: 20px;
+        line-height: 1.6;
+      }
+
+      .static-fallback__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .static-fallback__button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0 18px;
+        border-radius: 8px;
+        font-weight: 800;
+        text-decoration: none;
+      }
+
+      .static-fallback__button--primary {
+        background: #2563eb;
+        color: #fff;
+      }
+
+      .static-fallback__button--secondary {
+        border: 1px solid #cbd5e1;
+        background: rgba(255, 255, 255, .78);
+        color: #334155;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main class="static-fallback">
+        <section class="static-fallback__content">
+          <p class="static-fallback__brand">WhatsPoint</p>
+          <h1 class="static-fallback__title">Pointage, presence et planning <span>dans WhatsApp.</span></h1>
+          <p class="static-fallback__text">
+            Vos equipes pointent, consultent leurs horaires et transmettent leurs demandes sans installer une nouvelle application.
+          </p>
+          <div class="static-fallback__actions">
+            <a class="static-fallback__button static-fallback__button--primary" href="/register">Creer mon espace</a>
+            <a class="static-fallback__button static-fallback__button--secondary" href="/login">Connexion</a>
+          </div>
+        </section>
+      </main>
+    </div>
+    <template id="static-fallback-template">
+      <main class="static-fallback">
+        <section class="static-fallback__content">
+          <p class="static-fallback__brand">WhatsPoint</p>
+          <h1 class="static-fallback__title">Pointage, presence et planning <span>dans WhatsApp.</span></h1>
+          <p class="static-fallback__text">
+            Vos equipes pointent, consultent leurs horaires et transmettent leurs demandes sans installer une nouvelle application.
+          </p>
+          <div class="static-fallback__actions">
+            <a class="static-fallback__button static-fallback__button--primary" href="/register">Creer mon espace</a>
+            <a class="static-fallback__button static-fallback__button--secondary" href="/login">Connexion</a>
+          </div>
+        </section>
+      </main>
+    </template>
+    <script>
+      window.setTimeout(function () {
+        var root = document.getElementById('root');
+        var template = document.getElementById('static-fallback-template');
+        if (root && template && root.textContent.trim().length === 0) {
+          root.innerHTML = template.innerHTML;
+        }
+      }, 3500);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
