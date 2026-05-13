@@ -464,32 +464,80 @@ export default function HeroSection() {
                                     display: 'grid',
                                     gap: '0.55rem'
                                 }}>
+                                    <motion.div
+                                        key={`mobile-slide-${currentSlide}`}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.35 }}
+                                        style={{ display: 'grid', gap: '0.55rem' }}
+                                    >
+                                        <div style={{
+                                            justifySelf: 'center',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '0.35rem',
+                                            background: `${SLIDES[currentSlide].color}18`,
+                                            color: SLIDES[currentSlide].color,
+                                            border: `1px solid ${SLIDES[currentSlide].color}44`,
+                                            borderRadius: '999px',
+                                            padding: '0.22rem 0.55rem',
+                                            fontSize: '0.68rem',
+                                            fontWeight: 800
+                                        }}>
+                                            {SLIDES[currentSlide].icon}
+                                            {SLIDES[currentSlide].label}
+                                        </div>
+                                        <div style={{
+                                            justifySelf: 'end',
+                                            maxWidth: '86%',
+                                            background: '#dcf8c6',
+                                            color: '#0f172a',
+                                            borderRadius: '0.75rem 0.75rem 0 0.75rem',
+                                            padding: '0.55rem 0.65rem',
+                                            fontSize: '0.78rem',
+                                            fontWeight: 650,
+                                            lineHeight: 1.35
+                                        }}>
+                                            {SLIDES[currentSlide].userText}
+                                        </div>
+                                        <div style={{
+                                            justifySelf: 'start',
+                                            maxWidth: '90%',
+                                            background: '#ffffff',
+                                            color: '#0f172a',
+                                            borderRadius: '0.75rem 0.75rem 0.75rem 0',
+                                            padding: '0.55rem 0.65rem',
+                                            fontSize: '0.78rem',
+                                            lineHeight: 1.4,
+                                            boxShadow: '0 1px 1px rgba(15, 23, 42, 0.08)',
+                                            whiteSpace: 'pre-line'
+                                        }}>
+                                            {SLIDES[currentSlide].botText}
+                                        </div>
+                                    </motion.div>
                                     <div style={{
-                                        justifySelf: 'end',
-                                        maxWidth: '86%',
-                                        background: '#dcf8c6',
-                                        color: '#0f172a',
-                                        borderRadius: '0.75rem 0.75rem 0 0.75rem',
-                                        padding: '0.55rem 0.65rem',
-                                        fontSize: '0.78rem',
-                                        fontWeight: 650,
-                                        lineHeight: 1.35
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        gap: '0.35rem',
+                                        paddingTop: '0.1rem'
                                     }}>
-                                        Je prends mon service aux urgences.
-                                    </div>
-                                    <div style={{
-                                        justifySelf: 'start',
-                                        maxWidth: '90%',
-                                        background: '#ffffff',
-                                        color: '#0f172a',
-                                        borderRadius: '0.75rem 0.75rem 0.75rem 0',
-                                        padding: '0.55rem 0.65rem',
-                                        fontSize: '0.78rem',
-                                        lineHeight: 1.4,
-                                        boxShadow: '0 1px 1px rgba(15, 23, 42, 0.08)'
-                                    }}>
-                                        <strong style={{ color: '#16a34a' }}>Présence enregistrée</strong><br />
-                                        Site validé · Manager notifié
+                                        {SLIDES.map((slide, idx) => (
+                                            <button
+                                                key={slide.id}
+                                                onClick={() => setCurrentSlide(idx)}
+                                                aria-label={`Voir ${slide.label}`}
+                                                style={{
+                                                    width: currentSlide === idx ? '18px' : '7px',
+                                                    height: '7px',
+                                                    borderRadius: '999px',
+                                                    border: 'none',
+                                                    background: currentSlide === idx ? SLIDES[currentSlide].color : 'rgba(15, 23, 42, 0.18)',
+                                                    cursor: 'pointer',
+                                                    padding: 0,
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                            />
+                                        ))}
                                     </div>
                                 </div>
                             </div>
