@@ -260,66 +260,30 @@ export default function HeroSection() {
                         maxWidth: isNarrowMobile ? '315px' : 'none'
                     }}>
                         {isNarrowMobile ? (
-                            <>
-                                <button
-                                    onClick={() => navigate('/onboarding')}
-                                    style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        padding: '0.78rem 1rem',
-                                        background: 'linear-gradient(135deg, #2563eb, #4f46e5)',
-                                        border: 'none',
-                                        borderRadius: '0.75rem',
-                                        color: 'white',
-                                        cursor: 'pointer',
-                                        fontWeight: 800,
-                                        fontSize: '0.92rem',
-                                        width: '100%',
-                                        boxShadow: '0 12px 26px rgba(37, 99, 235, 0.25)'
-                                    }}
-                                >
-                                    Créer mon espace
-                                </button>
-                                <a
-                                    href="https://wa.me/33612345678?text=Menu"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '0.45rem',
-                                        padding: '0.72rem 1rem',
-                                        background: 'rgba(34, 197, 94, 0.1)',
-                                        border: '1px solid rgba(34, 197, 94, 0.3)',
-                                        borderRadius: '0.75rem',
-                                        color: '#15803d',
-                                        textDecoration: 'none',
-                                        fontWeight: 800,
-                                        fontSize: '0.9rem',
-                                        width: '100%'
-                                    }}
-                                >
-                                    <MessageCircle size={18} style={{ flexShrink: 0 }} />
-                                    Démo WhatsApp
-                                </a>
-                                <button
-                                    onClick={() => navigate('/login')}
-                                    style={{
-                                        alignSelf: 'center',
-                                        padding: '0.3rem 0.5rem',
-                                        background: 'transparent',
-                                        border: 'none',
-                                        color: '#334155',
-                                        cursor: 'pointer',
-                                        fontWeight: 800,
-                                        fontSize: '0.88rem'
-                                    }}
-                                >
-                                    Connexion
-                                </button>
-                            </>
+                            <a
+                                href="https://wa.me/33612345678?text=Menu"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.45rem',
+                                    padding: '0.78rem 1rem',
+                                    background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                                    border: '1px solid rgba(34, 197, 94, 0.35)',
+                                    borderRadius: '0.75rem',
+                                    color: '#ffffff',
+                                    textDecoration: 'none',
+                                    fontWeight: 800,
+                                    fontSize: '0.92rem',
+                                    width: '100%',
+                                    boxShadow: '0 12px 26px rgba(22, 163, 74, 0.22)'
+                                }}
+                            >
+                                <MessageCircle size={18} style={{ flexShrink: 0 }} />
+                                Démo WhatsApp
+                            </a>
                         ) : (
                             <>
                         <a

@@ -8,7 +8,8 @@ import {
     Check,
     Users,
     Globe,
-    ChevronDown
+    ChevronDown,
+    LogIn
 } from 'lucide-react';
 import { VisitorProvider, useVisitor } from '../context/VisitorContext';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -242,18 +243,40 @@ function LandingContent() {
                             {t('common.login')}
                         </button>
                     )}
+                    {isMobile && (
+                        <button
+                            onClick={() => navigate('/login')}
+                            aria-label="Connexion"
+                            title="Connexion"
+                            style={{
+                                width: '38px',
+                                height: '38px',
+                                display: 'grid',
+                                placeItems: 'center',
+                                background: '#ffffff',
+                                border: '1px solid rgba(148, 163, 184, 0.45)',
+                                borderRadius: '0.7rem',
+                                color: '#334155',
+                                cursor: 'pointer',
+                                boxShadow: '0 8px 20px rgba(15, 23, 42, 0.08)'
+                            }}
+                        >
+                            <LogIn size={17} />
+                        </button>
+                    )}
                     <button
                         onClick={() => navigate('/onboarding')}
                         style={{
-                            padding: isMobile ? '0.58rem 0.8rem' : '0.6rem 1.5rem',
+                            padding: isMobile ? '0.62rem 0.88rem' : '0.6rem 1.5rem',
                             background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
                             border: 'none',
-                            borderRadius: '0.5rem',
+                            borderRadius: isMobile ? '0.75rem' : '0.5rem',
                             color: 'white',
                             cursor: 'pointer',
-                            fontWeight: 600,
+                            fontWeight: 800,
                             fontSize: isMobile ? '0.84rem' : '0.9rem',
-                            whiteSpace: 'nowrap'
+                            whiteSpace: 'nowrap',
+                            boxShadow: isMobile ? '0 10px 24px rgba(79, 70, 229, 0.25)' : 'none'
                         }}
                     >
                         {isMobile ? 'Créer' : 'Créer mon espace'}
