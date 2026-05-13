@@ -9,42 +9,41 @@ import {
     CheckCircle2
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { useVisitor } from '../../context/VisitorContext';
+import { salesContactUrl } from '../../config/landingCtas';
 
 export default function EnterpriseSection() {
     const { t } = useTranslation();
-    const navigate = useNavigate();
     const { deviceType } = useVisitor();
     const isMobile = deviceType === 'mobile';
 
     const enterpriseFeatures = [
         {
             icon: <Smartphone size={32} />,
-            title: t('landing.enterprise.byon.title', 'BYON - Bring Your Own Number'),
-            description: t('landing.enterprise.byon.desc', 'Connectez votre propre ligne WhatsApp Business officielle. Gardez votre numéro historique.'),
-            highlight: t('landing.enterprise.byon.highlight', 'Numéro vérifié ✓'),
+            title: t('landing.enterprise.byon.title', 'Ligne WhatsApp maîtrisée'),
+            description: t('landing.enterprise.byon.desc', 'Connectez votre ligne WhatsApp Business officielle quand votre configuration Meta est prête.'),
+            highlight: t('landing.enterprise.byon.highlight', 'Parcours guidé'),
             color: '#22c55e'
         },
         {
             icon: <Globe size={32} />,
-            title: t('landing.enterprise.global.title', 'Infrastructure Globale'),
-            description: t('landing.enterprise.global.desc', 'Numéros locaux disponibles dans plus de 150 pays. Déployez à l\'international en 24h.'),
-            highlight: t('landing.enterprise.global.highlight', '150+ pays'),
+            title: t('landing.enterprise.global.title', 'Déploiement multi-sites'),
+            description: t('landing.enterprise.global.desc', 'Organisez plusieurs sites, services ou équipes avec des règles adaptées à votre terrain.'),
+            highlight: t('landing.enterprise.global.highlight', 'Sites et rôles'),
             color: '#3b82f6'
         },
         {
             icon: <Shield size={32} />,
-            title: t('landing.enterprise.antiban.title', 'Protection Anti-Ban'),
-            description: t('landing.enterprise.antiban.desc', 'Algorithmes de lissage de trafic et rotation intelligente pour une délivrabilité de 99.9%.'),
-            highlight: t('landing.enterprise.antiban.highlight', '99.9% uptime'),
+            title: t('landing.enterprise.antiban.title', 'Gouvernance des flux'),
+            description: t('landing.enterprise.antiban.desc', 'Contrôlez les rôles, les accès, les exports et les intégrations vers vos outils existants.'),
+            highlight: t('landing.enterprise.antiban.highlight', 'Contrôles configurables'),
             color: '#8b5cf6'
         }
     ];
 
     return (
         <section id="enterprise" style={{
-            padding: isMobile ? '2.5rem 4%' : '3.25rem 5%',
+            padding: isMobile ? '2.25rem 4%' : '2.75rem 5%',
             background: '#f8fafc',
             borderBottom: '1px solid #e2e8f0'
         }}>
@@ -91,7 +90,7 @@ export default function EnterpriseSection() {
                         maxWidth: '600px',
                         margin: '0 auto'
                     }}>
-                        {t('landing.enterprise.subtitle', 'Les mêmes fonctionnalités que les leaders du marché, à une fraction du prix.')}
+                        {t('landing.enterprise.subtitle', 'Un déploiement progressif, connecté à vos outils et adapté à vos équipes terrain.')}
                     </p>
                 </motion.div>
 
@@ -100,7 +99,7 @@ export default function EnterpriseSection() {
                     display: 'grid',
                     gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
                     gap: isMobile ? '1rem' : '1.5rem',
-                    marginBottom: isMobile ? '1.5rem' : '2rem'
+                    marginBottom: isMobile ? '1.2rem' : '1.5rem'
                 }}>
                     {enterpriseFeatures.map((feature, idx) => (
                         <motion.div
@@ -113,7 +112,7 @@ export default function EnterpriseSection() {
                                 background: 'white',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '1.5rem',
-                                padding: isMobile ? '1.5rem' : '1.75rem',
+                                padding: isMobile ? '1.25rem' : '1.35rem',
                                 position: 'relative',
                                 overflow: 'hidden',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
@@ -132,8 +131,8 @@ export default function EnterpriseSection() {
                             }} />
 
                             <div style={{
-                                width: '64px',
-                                height: '64px',
+                                width: '52px',
+                                height: '52px',
                                 borderRadius: '1rem',
                                 background: `${feature.color}15`,
                                 border: `1px solid ${feature.color}30`,
@@ -156,8 +155,9 @@ export default function EnterpriseSection() {
                             </h3>
                             <p style={{
                                 color: '#475569',
-                                lineHeight: 1.6,
-                                marginBottom: '1rem'
+                                lineHeight: 1.55,
+                                marginBottom: '0.85rem',
+                                fontSize: '0.95rem'
                             }}>
                                 {feature.description}
                             </p>
@@ -191,7 +191,7 @@ export default function EnterpriseSection() {
                         background: 'white',
                         border: '1px solid #e2e8f0',
                         borderRadius: '1.5rem',
-                        padding: isMobile ? '1.75rem' : '2.25rem',
+                        padding: isMobile ? '1.5rem' : '1.75rem',
                         display: 'flex',
                         flexDirection: isMobile ? 'column' : 'row',
                         alignItems: 'center',
@@ -213,7 +213,7 @@ export default function EnterpriseSection() {
                             color: '#475569',
                             fontSize: '1rem'
                         }}>
-                            {t('landing.enterprise.cta.desc', 'Notre équipe configure votre instance en moins de 48h.')}
+                            {t('landing.enterprise.cta.desc', 'On valide votre contexte, vos flux et vos contraintes Meta avant le lancement.')}
                         </p>
 
                         {/* Trust badges */}
@@ -224,9 +224,9 @@ export default function EnterpriseSection() {
                             flexWrap: 'wrap'
                         }}>
                             {[
-                                t('landing.enterprise.cta.b1', 'SLA Garanti'),
-                                t('landing.enterprise.cta.b2', 'Account Manager Dédié'),
-                                t('landing.enterprise.cta.b3', 'Formation Incluse')
+                                t('landing.enterprise.cta.b1', 'Cadrage WhatsApp Business'),
+                                t('landing.enterprise.cta.b2', 'Connecteurs métier'),
+                                t('landing.enterprise.cta.b3', 'Accompagnement lancement')
                             ].map((badge, idx) => (
                                 <div key={idx} style={{
                                     display: 'flex',
@@ -243,8 +243,8 @@ export default function EnterpriseSection() {
                         </div>
                     </div>
 
-                    <button
-                        onClick={() => navigate('/contact')}
+                    <a
+                        href={salesContactUrl}
                         style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -258,12 +258,13 @@ export default function EnterpriseSection() {
                             fontWeight: 600,
                             fontSize: '1rem',
                             whiteSpace: 'nowrap',
-                            transition: 'transform 0.2s ease'
+                            transition: 'transform 0.2s ease',
+                            textDecoration: 'none'
                         }}
                     >
                         {t('landing.enterprise.cta.button', 'Contacter les ventes')}
                         <ArrowRight size={18} />
-                    </button>
+                    </a>
                 </motion.div>
             </div>
         </section>

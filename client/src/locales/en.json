@@ -34,21 +34,21 @@
             "cta.cleaning": "🧹 Try for Cleaning",
             "demo": "Try the WhatsApp Demo",
             "badges": {
-                "gdpr": "GDPR Compliant",
-                "encrypted": "Encrypted",
+                "gdpr": "Configurable GDPR rules",
+                "encrypted": "Secured access",
                 "noApp": "No app to install"
             }
         },
         "trust": {
             "title": "WhatsApp is the channel, not your business system.",
-            "subtitle": "WhatsPoint captures field conversations, keeps data under control, and only sends what needs to be processed.",
+            "subtitle": "WhatsPoint structures field conversations, limits transmitted data, and helps you keep control of your flows.",
             "stealth": {
                 "title": "Minimized data",
-                "desc": "WhatsPoint only sends the information needed for business processing, with sensitive details masked when required."
+                "desc": "WhatsPoint can limit transmitted information to what is needed for business processing, with sensitive details masked when required."
             },
             "retention": {
                 "title": "Controlled retention",
-                "desc": "Attendance, supporting documents and requests follow your retention periods, with deletion or archiving based on your rules."
+                "desc": "Attendance, supporting documents and requests can follow your retention periods, with deletion or archiving based on your rules."
             },
             "isolation": {
                 "title": "Client separation",
@@ -94,28 +94,28 @@
         "enterprise": {
             "badge": "ENTERPRISE & SCALE",
             "title": "Ready for large accounts.",
-            "subtitle": "The same features as market leaders, at a fraction of the price.",
+            "subtitle": "A progressive deployment, connected to your tools and adapted to your field teams.",
             "byon": {
-                "title": "BYON - Bring Your Own Number",
-                "desc": "Connect your own official WhatsApp Business line. Keep your historical number.",
-                "highlight": "Verified number ✓"
+                "title": "Controlled WhatsApp line",
+                "desc": "Connect your official WhatsApp Business line when your Meta configuration is ready.",
+                "highlight": "Guided setup"
             },
             "global": {
-                "title": "Global Infrastructure",
-                "desc": "Local numbers available in 150+ countries. Deploy internationally in 24h.",
-                "highlight": "150+ countries"
+                "title": "Multi-site deployment",
+                "desc": "Organize several sites, services or teams with rules adapted to field operations.",
+                "highlight": "Sites and roles"
             },
             "antiban": {
-                "title": "Anti-Ban Protection",
-                "desc": "Traffic smoothing algorithms and smart rotation for 99.9% deliverability.",
-                "highlight": "99.9% uptime"
+                "title": "Flow governance",
+                "desc": "Control roles, access, exports and integrations with your existing tools.",
+                "highlight": "Configurable controls"
             },
             "cta": {
                 "title": "Need a custom deployment?",
-                "desc": "Our team configures your instance in less than 48h.",
-                "b1": "Guaranteed SLA",
-                "b2": "Dedicated Account Manager",
-                "b3": "Training Included",
+                "desc": "We validate your context, flows and Meta constraints before launch.",
+                "b1": "WhatsApp Business framing",
+                "b2": "Business connectors",
+                "b3": "Launch support",
                 "button": "Contact sales"
             }
         },

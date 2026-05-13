@@ -11,6 +11,7 @@ import {
     getHeroImage,
     getHeroTitleKey
 } from '../../config/landingVariants';
+import { isWhatsappDemoExternal, whatsappDemoUrl } from '../../config/landingCtas';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useState, useEffect } from 'react';
 import {
@@ -261,9 +262,9 @@ export default function HeroSection() {
                     }}>
                         {isNarrowMobile ? (
                             <a
-                                href="https://wa.me/33612345678?text=Menu"
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                href={whatsappDemoUrl}
+                                target={isWhatsappDemoExternal ? '_blank' : undefined}
+                                rel={isWhatsappDemoExternal ? 'noopener noreferrer' : undefined}
                                 style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
@@ -287,9 +288,9 @@ export default function HeroSection() {
                         ) : (
                             <>
                         <a
-                            href="https://wa.me/33612345678?text=Menu"
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href={whatsappDemoUrl}
+                            target={isWhatsappDemoExternal ? '_blank' : undefined}
+                            rel={isWhatsappDemoExternal ? 'noopener noreferrer' : undefined}
                             style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -377,8 +378,8 @@ export default function HeroSection() {
                         marginTop: '1rem'
                     }}>
                         {[
-                            { icon: <ShieldCheck size={17} />, text: t('landing.hero.badges.gdpr', 'Conforme RGPD') },
-                            { icon: <LockKeyhole size={17} />, text: t('landing.hero.badges.encrypted', 'Chiffré') },
+                            { icon: <ShieldCheck size={17} />, text: t('landing.hero.badges.gdpr', 'Règles RGPD configurables') },
+                            { icon: <LockKeyhole size={17} />, text: t('landing.hero.badges.encrypted', 'Accès sécurisés') },
                             { icon: <Smartphone size={17} />, text: t('landing.hero.badges.noApp', 'Pas d\'app à installer') }
                         ].map((badge, idx) => (
                             <div key={idx} style={{
@@ -411,7 +412,13 @@ export default function HeroSection() {
                         gap: isMobile ? '0.75rem' : '1rem',
                         order: 2,
                         marginTop: isMobile ? '0.65rem' : 0,
-                        width: '100%'
+                        width: '100%',
+                        padding: isMobile ? 0 : '1rem',
+                        borderRadius: isMobile ? 0 : '2rem',
+                        background: isMobile ? 'transparent' : 'linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(239, 246, 255, 0.54))',
+                        border: isMobile ? 'none' : '1px solid rgba(148, 163, 184, 0.24)',
+                        boxShadow: isMobile ? 'none' : '0 28px 80px -44px rgba(15, 23, 42, 0.42)',
+                        backdropFilter: isMobile ? 'none' : 'blur(14px)'
                     }}
                 >
                     {isNarrowMobile ? (
@@ -762,14 +769,24 @@ export default function HeroSection() {
                             </div>
                         </div>
                     </div>
-                    <div style={{
-                        width: isMobile ? (isTabletPortrait ? '320px' : 'min(100%, 260px)') : '285px',
-                        background: 'rgba(255, 255, 255, 0.88)',
-                        border: '1px solid rgba(148, 163, 184, 0.28)',
-                        borderRadius: isMobile ? '1rem' : '1.25rem',
-                        padding: isMobile ? '0.85rem' : '1rem',
-                        boxShadow: '0 24px 60px -30px rgba(15, 23, 42, 0.38)'
-                    }}>
+                        <div style={{
+                            width: isMobile ? (isTabletPortrait ? '320px' : 'min(100%, 260px)') : '335px',
+                            background: 'rgba(255, 255, 255, 0.94)',
+                            border: '1px solid rgba(148, 163, 184, 0.28)',
+                            borderRadius: isMobile ? '1rem' : '1.5rem',
+                            padding: isMobile ? '0.85rem' : '1.05rem',
+                            boxShadow: '0 24px 60px -30px rgba(15, 23, 42, 0.38)',
+                            position: 'relative',
+                            overflow: 'hidden'
+                        }}>
+                        {!isMobile && (
+                            <div style={{
+                                position: 'absolute',
+                                inset: '0 0 auto 0',
+                                height: '4px',
+                                background: 'linear-gradient(90deg, #22c55e, #2563eb, #8b5cf6)'
+                            }} />
+                        )}
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -778,10 +795,10 @@ export default function HeroSection() {
                         }}>
                             <div>
                                 <p style={{ margin: 0, color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>
-                                    Dashboard manager
+                                    WhatsPoint Console
                                 </p>
                                 <h3 style={{ margin: '0.15rem 0 0', color: '#0f172a', fontSize: isMobile ? '0.96rem' : '1.05rem', fontWeight: 850 }}>
-                                    Aujourd'hui
+                                    Pilotage du jour
                                 </h3>
                             </div>
                             <span style={{
@@ -799,14 +816,15 @@ export default function HeroSection() {
 
                         <div style={{
                             display: 'grid',
-                            gridTemplateColumns: '1fr 1fr',
+                            gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)',
                             gap: '0.6rem',
                             marginBottom: isMobile ? '0.55rem' : '0.8rem'
                         }}>
                             {[
                                 { label: 'Présents', value: '42', color: '#16a34a' },
                                 { label: 'Alertes', value: '3', color: '#ea580c' },
-                            ].map((metric) => (
+                                { label: 'Demandes', value: '7', color: '#2563eb' },
+                            ].filter((_, index) => !isMobile || index < 2).map((metric) => (
                                 <div key={metric.label} style={{
                                     padding: isMobile ? '0.55rem' : '0.75rem',
                                     borderRadius: '0.75rem',
@@ -823,11 +841,12 @@ export default function HeroSection() {
                             ))}
                         </div>
 
-                        {[
-                            { icon: <MapPin size={15} />, title: 'Pointage GPS', detail: 'Service Urgences validé' },
-                            { icon: <CalendarDays size={15} />, title: 'Planning', detail: '2 remplacements à confirmer' },
-                            { icon: <UsersRound size={15} />, title: 'Demande client', detail: 'Intervention à qualifier' },
-                        ].filter((_, index) => !isMobile || index < 2).map((item) => (
+                            {[
+                                { icon: <MapPin size={15} />, title: 'Pointage GPS', detail: 'Service Urgences validé' },
+                                { icon: <CalendarDays size={15} />, title: 'Planning', detail: '2 remplacements à confirmer' },
+                                { icon: <UsersRound size={15} />, title: 'Demande client', detail: 'Intervention à qualifier' },
+                                { icon: <ArrowRightLeft size={15} />, title: 'Transmission', detail: 'Flux prêt pour outil métier' },
+                            ].filter((_, index) => !isMobile || index < 2).map((item) => (
                             <div key={item.title} style={{
                                 display: 'flex',
                                 gap: '0.65rem',

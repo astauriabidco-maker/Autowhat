@@ -106,10 +106,10 @@ export default function SectorsSection() {
 
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: isMobile ? '1fr' : (isTablet ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))'),
-                    gap: isMobile ? '1rem' : '1.5rem'
+                    gridTemplateColumns: isMobile ? '1fr' : (isTablet ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))'),
+                    gap: isMobile ? '0.85rem' : '1rem'
                 }}>
-                    {sectors.map((sector, idx) => (
+                    {sectors.slice(0, 4).map((sector, idx) => (
                         <motion.div
                             key={sector.id}
                             initial={{ y: 22 }}
@@ -120,8 +120,8 @@ export default function SectorsSection() {
                                 background: 'white',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '1.25rem',
-                                padding: isMobile ? '1.5rem' : '1.75rem',
-                                minHeight: isMobile ? 'auto' : '290px',
+                                padding: isMobile ? '1.35rem' : '1.35rem',
+                                minHeight: isMobile ? 'auto' : '255px',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                 display: 'flex',
                                 flexDirection: 'column',
@@ -140,8 +140,8 @@ export default function SectorsSection() {
                             }}
                         >
                             <div style={{
-                                width: '56px',
-                                height: '56px',
+                                width: '48px',
+                                height: '48px',
                                 borderRadius: '1rem',
                                 background: sector.bgColor,
                                 color: sector.color,
@@ -155,7 +155,7 @@ export default function SectorsSection() {
                             
                             <h3 style={{
                                 color: '#0f172a',
-                                fontSize: '1.35rem',
+                                fontSize: '1.18rem',
                                 fontWeight: 800,
                                 marginBottom: '0.75rem'
                             }}>
@@ -164,8 +164,8 @@ export default function SectorsSection() {
                             
                             <p style={{
                                 color: '#475569',
-                                fontSize: '1rem',
-                                lineHeight: 1.6,
+                                fontSize: '0.93rem',
+                                lineHeight: 1.5,
                                 flex: 1,
                                 marginBottom: '1.1rem'
                             }}>
@@ -179,7 +179,7 @@ export default function SectorsSection() {
                                         alignItems: 'center',
                                         gap: '0.5rem',
                                         color: '#334155',
-                                        fontSize: '0.9rem',
+                                        fontSize: '0.84rem',
                                         fontWeight: 500,
                                         marginBottom: '0.5rem'
                                     }}>
@@ -216,7 +216,7 @@ export default function SectorsSection() {
                     }}
                 >
                     <Building size={18} color="#64748b" />
-                    <span>Autres environnements : bureaux, logistique, sites industriels, réseaux d’agences.</span>
+                    <span>Autres environnements : commerce, restauration, bureaux, logistique, sites industriels et réseaux d’agences.</span>
                 </motion.div>
             </div>
         </section>

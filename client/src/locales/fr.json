@@ -34,21 +34,21 @@
             "cta.cleaning": "🧹 Essayer pour le Nettoyage",
             "demo": "Essayer la Démo WhatsApp",
             "badges": {
-                "gdpr": "Conforme RGPD",
-                "encrypted": "Chiffré",
+                "gdpr": "Règles RGPD configurables",
+                "encrypted": "Accès sécurisés",
                 "noApp": "Pas d'app à installer"
             }
         },
         "trust": {
             "title": "WhatsApp est le canal, pas votre système métier.",
-            "subtitle": "WhatsPoint capte les échanges terrain, garde la maîtrise des données et transmet uniquement ce qui doit être traité.",
+            "subtitle": "WhatsPoint structure les échanges terrain, limite les données transmises et vous aide à garder la maîtrise des flux.",
             "stealth": {
                 "title": "Données minimisées",
-                "desc": "WhatsPoint ne transmet que l'information utile au traitement métier, avec masquage des détails sensibles quand c'est nécessaire."
+                "desc": "WhatsPoint peut limiter les informations transmises au traitement métier, avec masquage des détails sensibles quand c'est nécessaire."
             },
             "retention": {
                 "title": "Conservation maîtrisée",
-                "desc": "Présences, justificatifs et demandes suivent vos durées de conservation, avec suppression ou archivage selon vos règles."
+                "desc": "Présences, justificatifs et demandes peuvent suivre vos durées de conservation, avec suppression ou archivage selon vos règles."
             },
             "isolation": {
                 "title": "Cloisonnement client",
@@ -94,28 +94,28 @@
         "enterprise": {
             "badge": "ENTERPRISE & SCALE",
             "title": "Prêt pour les grands comptes.",
-            "subtitle": "Les mêmes fonctionnalités que les leaders du marché, à une fraction du prix.",
+            "subtitle": "Un déploiement progressif, connecté à vos outils et adapté à vos équipes terrain.",
             "byon": {
-                "title": "BYON - Bring Your Own Number",
-                "desc": "Connectez votre propre ligne WhatsApp Business officielle. Gardez votre numéro historique.",
-                "highlight": "Numéro vérifié ✓"
+                "title": "Ligne WhatsApp maîtrisée",
+                "desc": "Connectez votre ligne WhatsApp Business officielle quand votre configuration Meta est prête.",
+                "highlight": "Parcours guidé"
             },
             "global": {
-                "title": "Infrastructure Globale",
-                "desc": "Numéros locaux disponibles dans plus de 150 pays. Déployez à l'international en 24h.",
-                "highlight": "150+ pays"
+                "title": "Déploiement multi-sites",
+                "desc": "Organisez plusieurs sites, services ou équipes avec des règles adaptées à votre terrain.",
+                "highlight": "Sites et rôles"
             },
             "antiban": {
-                "title": "Protection Anti-Ban",
-                "desc": "Algorithmes de lissage de trafic et rotation intelligente pour une délivrabilité de 99.9%.",
-                "highlight": "99.9% uptime"
+                "title": "Gouvernance des flux",
+                "desc": "Contrôlez les rôles, les accès, les exports et les intégrations vers vos outils existants.",
+                "highlight": "Contrôles configurables"
             },
             "cta": {
                 "title": "Besoin d'un déploiement sur-mesure ?",
-                "desc": "Notre équipe configure votre instance en moins de 48h.",
-                "b1": "SLA Garanti",
-                "b2": "Account Manager Dédié",
-                "b3": "Formation Incluse",
+                "desc": "On valide votre contexte, vos flux et vos contraintes Meta avant le lancement.",
+                "b1": "Cadrage WhatsApp Business",
+                "b2": "Connecteurs métier",
+                "b3": "Accompagnement lancement",
                 "button": "Contacter les ventes"
             }
         },

@@ -22,6 +22,7 @@ import SectorsSection from '../components/landing/SectorsSection';
 import IntegrationsSection from '../components/landing/IntegrationsSection';
 import OperationsSection from '../components/landing/OperationsSection';
 import WorkflowSection from '../components/landing/WorkflowSection';
+import { isWhatsappDemoExternal, whatsappDemoUrl } from '../config/landingCtas';
 
 interface Plan {
     id: string;
@@ -88,7 +89,7 @@ function LandingContent() {
                         {
                             id: 'plan_3', stripePriceId: '', name: 'Enterprise', description: 'Pour les grands volumes.',
                             price: 199, currency: res.data.currency || 'EUR', maxEmployees: 200,
-                            features: ['Toutes les fonctions Pro', 'Multi-Managers', 'Accès API', 'SLA Garanti'],
+                            features: ['Toutes les fonctions Pro', 'Multi-Managers', 'Accès API', 'Support prioritaire'],
                             isPopular: false, sortOrder: 3
                         }
                     ]);
@@ -519,70 +520,45 @@ function LandingContent() {
                         whileInView={{ y: 0 }}
                         transition={{ duration: 0.6, delay: 0.3 }}
                         viewport={{ once: true }}
-                        style={{ marginTop: isMobile ? '3rem' : '3.5rem' }}
+                        style={{
+                            margin: isMobile ? '2rem auto 0' : '2.25rem auto 0',
+                            maxWidth: '860px',
+                            padding: isMobile ? '1rem' : '1rem 1.25rem',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '1rem',
+                            background: '#ffffff',
+                            display: 'flex',
+                            alignItems: isMobile ? 'flex-start' : 'center',
+                            justifyContent: 'space-between',
+                            gap: '1rem',
+                            flexDirection: isMobile ? 'column' : 'row'
+                        }}
                     >
-                        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                            <h3 style={{ color: '#0f172a', fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+                        <div>
+                            <h3 style={{ color: '#0f172a', fontSize: isMobile ? '1.15rem' : '1.25rem', fontWeight: 800, marginBottom: '0.25rem' }}>
                                 Un socle simple, des extensions utiles
                             </h3>
-                            <p style={{ color: '#64748b', fontSize: '1.1rem' }}>
-                                Commencez par présence + planning. Ajoutez ensuite les demandes et documents qui comptent pour votre organisation.
+                            <p style={{ color: '#64748b', fontSize: '0.95rem', margin: 0, lineHeight: 1.5 }}>
+                                Commencez par présence + planning, puis ajoutez les demandes, justificatifs et connecteurs qui comptent.
                             </p>
                         </div>
-
                         <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-                            gap: isMobile ? '1.25rem' : '1.5rem',
-                            maxWidth: '900px',
-                            margin: '0 auto'
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '0.5rem'
                         }}>
-                            <div style={{
-                                background: 'white',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: '1.5rem',
-                                padding: isMobile ? '1.75rem' : '2rem',
-                                borderTop: '4px solid #ea580c',
-                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-                                    <div style={{ padding: '0.75rem', background: '#ffedd5', borderRadius: '1rem' }}>
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                                    </div>
-                                    <h4 style={{ color: '#0f172a', fontSize: '1.35rem', fontWeight: 800 }}>Socle présence</h4>
-                                </div>
-                                <p style={{ color: '#475569', fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.6 }}>
-                                    Pointage arrivée/départ, prise de service, site, GPS, historique et consultation du planning par WhatsApp.
-                                </p>
-                                <div style={{ color: '#0f172a', fontSize: '2rem', fontWeight: 800 }}>
-                                    Présence <span style={{ color: '#64748b', fontSize: '1.1rem', fontWeight: 500 }}>et horaires</span>
-                                </div>
-                            </div>
-
-                            <div style={{
-                                background: 'white',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: '1.5rem',
-                                padding: isMobile ? '1.75rem' : '2rem',
-                                borderTop: '4px solid #9333ea',
-                                position: 'relative',
-                                overflow: 'hidden',
-                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
-                            }}>
-                                <div style={{ position: 'absolute', top: 0, right: 0, padding: '3rem', background: 'rgba(147, 51, 234, 0.1)', filter: 'blur(40px)', borderRadius: '50%' }} />
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', position: 'relative', zIndex: 1 }}>
-                                    <div style={{ padding: '0.75rem', background: '#f3e8ff', borderRadius: '1rem' }}>
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9333ea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg>
-                                    </div>
-                                    <h4 style={{ color: '#0f172a', fontSize: '1.35rem', fontWeight: 800 }}>Demandes & documents</h4>
-                                </div>
-                                <p style={{ color: '#475569', fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.6, position: 'relative', zIndex: 1 }}>
-                                    Justificatifs, absences, retards, incidents, demandes client ou documents: WhatsPoint collecte et oriente sans portail supplémentaire.
-                                </p>
-                                <div style={{ color: '#0f172a', fontSize: '2rem', fontWeight: 800, position: 'relative', zIndex: 1 }}>
-                                    Collecte <span style={{ color: '#64748b', fontSize: '1.1rem', fontWeight: 500 }}>et transmission</span>
-                                </div>
-                            </div>
+                            {['Présence', 'Planning', 'Justificatifs', 'Connecteurs'].map((item) => (
+                                <span key={item} style={{
+                                    padding: '0.45rem 0.65rem',
+                                    borderRadius: '999px',
+                                    background: '#eff6ff',
+                                    color: '#2563eb',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 750
+                                }}>
+                                    {item}
+                                </span>
+                            ))}
                         </div>
                     </motion.div>
                 </div>
@@ -640,9 +616,9 @@ function LandingContent() {
                             Configurer mon environnement
                         </button>
                         <a
-                            href="https://wa.me/33612345678?text=Menu"
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href={whatsappDemoUrl}
+                            target={isWhatsappDemoExternal ? '_blank' : undefined}
+                            rel={isWhatsappDemoExternal ? 'noopener noreferrer' : undefined}
                             style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
