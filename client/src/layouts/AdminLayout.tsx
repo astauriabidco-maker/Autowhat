@@ -99,6 +99,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     // Support Mode - SuperAdmin Impersonation
     const [isImpersonating, setIsImpersonating] = useState(false);
     const [impersonatedTenant, setImpersonatedTenant] = useState<string | null>(null);
+    const [impersonatedManager, setImpersonatedManager] = useState<string | null>(null);
 
     useEffect(() => {
         const userData = localStorage.getItem('user');
@@ -159,13 +160,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         const checkImpersonation = () => {
             const originalToken = sessionStorage.getItem('superadmin_original_token');
             const tenantName = sessionStorage.getItem('impersonated_tenant_name');
-            console.log('🔍 Checking impersonation:', { originalToken: !!originalToken, tenantName });
+            const managerName = sessionStorage.getItem('impersonated_manager_name');
             if (originalToken && tenantName) {
                 setIsImpersonating(true);
                 setImpersonatedTenant(tenantName);
+                setImpersonatedManager(managerName);
             } else {
                 setIsImpersonating(false);
                 setImpersonatedTenant(null);
+                setImpersonatedManager(null);
             }
         };
 
@@ -194,6 +197,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             localStorage.removeItem('token');
             sessionStorage.removeItem('superadmin_original_token');
             sessionStorage.removeItem('impersonated_tenant_name');
+            sessionStorage.removeItem('impersonated_manager_name');
 
             // Redirect to SuperAdmin dashboard
             navigate('/superadmin/tenants');
@@ -211,6 +215,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         // Also clear impersonation data
         sessionStorage.removeItem('superadmin_original_token');
         sessionStorage.removeItem('impersonated_tenant_name');
+        sessionStorage.removeItem('impersonated_manager_name');
         navigate('/');
     };
 
@@ -222,6 +227,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     <AlertTriangle size={18} />
                     <span className="font-medium">
                         ⚠️ MODE SUPPORT : Vous agissez au nom de <strong>{impersonatedTenant}</strong>
+                        {impersonatedManager && <span> comme <strong>{impersonatedManager}</strong></span>}
                     </span>
                     <button
                         onClick={handleExitSupportMode}

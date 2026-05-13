@@ -545,6 +545,7 @@ export const extendTrial = async (req: Request, res: Response): Promise<void> =>
 export const impersonateTenant = async (req: Request, res: Response): Promise<void> => {
     try {
         const id = req.params.id as string;
+        const { managerId } = req.body || {};
         const superAdmin = req.superAdmin;
 
         if (!superAdmin) {
@@ -557,7 +558,9 @@ export const impersonateTenant = async (req: Request, res: Response): Promise<vo
             where: { id },
             include: {
                 employees: {
-                    where: { role: 'MANAGER' },
+                    where: managerId
+                        ? { id: managerId, role: 'MANAGER' }
+                        : { role: 'MANAGER' },
                     take: 1
                 }
             }
@@ -570,7 +573,11 @@ export const impersonateTenant = async (req: Request, res: Response): Promise<vo
 
         const admin = tenant.employees[0];
         if (!admin) {
-            res.status(404).json({ error: 'Aucun admin trouvé pour ce tenant' });
+            res.status(404).json({
+                error: managerId
+                    ? 'Manager introuvable ou non autorisé pour ce client'
+                    : 'Aucun manager trouvé pour ce client'
+            });
             return;
         }
 

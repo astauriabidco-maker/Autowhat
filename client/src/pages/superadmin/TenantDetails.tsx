@@ -174,22 +174,35 @@ export default function TenantDetails() {
         }
     };
 
-    const handleImpersonate = async () => {
+    const handleImpersonate = async (managerId?: string, managerName?: string) => {
+        const target = managerName ? `${managerName} (${tenant?.name})` : tenant?.name;
+        if (!confirm(`Passer en mode support pour ${target} ?\n\nVous serez connecté comme manager de ce client.`)) {
+            return;
+        }
+
         try {
             const res = await fetch(`/admin/tenants/${id}/impersonate`, {
                 method: 'POST',
                 credentials: 'include',
-                headers: { Authorization: `Bearer ${token}` }
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(managerId ? { managerId } : {})
             });
+            const data = await res.json();
             if (res.ok) {
-                await res.json();
                 sessionStorage.setItem('superadmin_original_token', 'cookie');
                 sessionStorage.setItem('impersonated_tenant_name', tenant?.name || 'Tenant');
+                sessionStorage.setItem('impersonated_manager_name', data.admin?.name || managerName || 'Manager');
                 localStorage.setItem('token', 'cookie');
-                window.open('/dashboard', '_blank');
+                navigate('/dashboard');
+            } else {
+                alert(`Erreur: ${data.error || 'Impersonation impossible'}`);
             }
         } catch (error) {
             console.error('Error impersonating:', error);
+            alert('Erreur lors du passage en mode support');
         }
     };
 
@@ -266,6 +279,13 @@ export default function TenantDetails() {
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    <button
+                        onClick={() => handleImpersonate()}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
+                    >
+                        <UserCheck size={16} />
+                        Mode support
+                    </button>
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${tenant.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
                         tenant.status === 'SUSPENDED' ? 'bg-red-100 text-red-700' :
                             'bg-yellow-100 text-yellow-700'
@@ -354,11 +374,11 @@ export default function TenantDetails() {
                         </h3>
                         <div className="flex flex-wrap gap-3">
                             <button
-                                onClick={handleImpersonate}
+                                onClick={() => handleImpersonate()}
                                 className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
                             >
                                 <UserCheck size={16} />
-                                Se connecter en tant que
+                                Se connecter comme manager
                             </button>
                             <button
                                 onClick={handleSuspend}
@@ -568,6 +588,7 @@ export default function TenantDetails() {
                                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Téléphone/Email</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Rôle</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Inscrit le</th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
@@ -587,6 +608,19 @@ export default function TenantDetails() {
                                         </td>
                                         <td className="px-4 py-4 text-sm text-slate-500">
                                             {new Date(emp.createdAt).toLocaleDateString('fr-FR')}
+                                        </td>
+                                        <td className="px-4 py-4 text-right">
+                                            {emp.role === 'MANAGER' ? (
+                                                <button
+                                                    onClick={() => handleImpersonate(emp.id, emp.name)}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-100 transition"
+                                                >
+                                                    <UserCheck size={14} />
+                                                    Entrer
+                                                </button>
+                                            ) : (
+                                                <span className="text-xs text-slate-400">-</span>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

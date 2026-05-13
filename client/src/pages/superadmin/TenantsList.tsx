@@ -4,6 +4,7 @@ import {
     Search,
     Gift,
     Eye,
+    UserCheck,
     Ban,
     Trash2,
     AlertCircle,
@@ -126,7 +127,10 @@ export default function TenantsList() {
             const response = await fetch(`/admin/tenants/${tenantId}/impersonate`, {
                 method: 'POST',
                 credentials: 'include',
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
             });
 
             if (response.ok) {
@@ -290,7 +294,12 @@ export default function TenantsList() {
                                                 {tenant.name.charAt(0)}
                                             </div>
                                             <div>
-                                                <p className="font-medium text-gray-900">{tenant.name}</p>
+                                                <button
+                                                    onClick={() => navigate(`/superadmin/tenants/${tenant.id}`)}
+                                                    className="font-medium text-gray-900 hover:text-indigo-600 transition"
+                                                >
+                                                    {tenant.name}
+                                                </button>
                                                 <p className="text-xs text-gray-500">ID: {tenant.id.slice(0, 8)}...</p>
                                             </div>
                                         </div>
@@ -344,11 +353,21 @@ export default function TenantsList() {
                                             {/* Impersonate Button */}
                                             <button
                                                 onClick={() => handleImpersonate(tenant.id, tenant.name)}
-                                                className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition flex items-center gap-1"
-                                                title="Prendre le contrôle"
+                                                disabled={!tenant.admin}
+                                                className="px-2 py-1 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                title={tenant.admin ? 'Se connecter comme manager' : 'Aucun manager disponible'}
+                                            >
+                                                <UserCheck size={12} />
+                                                Mode support
+                                            </button>
+
+                                            <button
+                                                onClick={() => navigate(`/superadmin/tenants/${tenant.id}`)}
+                                                className="px-2 py-1 text-xs bg-slate-100 text-slate-700 rounded hover:bg-slate-200 transition flex items-center gap-1"
+                                                title="Voir la fiche client"
                                             >
                                                 <Eye size={12} />
-                                                Support
+                                                Détails
                                             </button>
 
                                             {/* Suspend Button */}
