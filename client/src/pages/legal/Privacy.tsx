@@ -2,11 +2,22 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import LegalLayout from '../../layouts/LegalLayout';
 import { Loader2 } from 'lucide-react';
+import { companyLegalInfo } from '../../config/company';
 
 // Default fallback content
-const DEFAULT_CONTENT = `Contenu en cours de rédaction...
+const DEFAULT_CONTENT = `Responsable du traitement
+${companyLegalInfo.editorName}
+${companyLegalInfo.address}
+Contact : ${companyLegalInfo.contactEmail}
 
-Veuillez nous contacter pour plus d'informations.`;
+Finalités
+WhatsPoint traite les données nécessaires au pointage, à la présence, aux plannings, aux justificatifs, aux demandes terrain et à la transmission vers les outils métier des organisations clientes.
+
+Hébergement
+Les services sont hébergés chez ${companyLegalInfo.hostingProvider}, en ${companyLegalInfo.hostingCountry}.
+
+Contact
+Pour toute demande relative à vos données personnelles, vous pouvez nous écrire à ${companyLegalInfo.contactEmail}.`;
 
 export default function Privacy() {
     const [content, setContent] = useState<string | null>(null);

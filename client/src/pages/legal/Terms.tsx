@@ -2,11 +2,23 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import LegalLayout from '../../layouts/LegalLayout';
 import { Loader2 } from 'lucide-react';
+import { companyLegalInfo, productEditorStatement } from '../../config/company';
 
 // Default fallback content
-const DEFAULT_CONTENT = `Contenu en cours de rédaction...
+const DEFAULT_CONTENT = `${productEditorStatement}
 
-Veuillez nous contacter pour plus d'informations.`;
+Objet
+Les présentes conditions encadrent l'accès et l'utilisation de WhatsPoint, service de pointage, présence, planning et transmission de demandes métier via WhatsApp.
+
+Éditeur
+${companyLegalInfo.editorName}
+${companyLegalInfo.address}
+SIREN : ${companyLegalInfo.siren}
+
+Contact
+${companyLegalInfo.contactEmail}
+
+Une version détaillée des conditions d'utilisation peut être communiquée sur demande.`;
 
 export default function Terms() {
     const [content, setContent] = useState<string | null>(null);

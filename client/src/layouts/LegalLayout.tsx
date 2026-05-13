@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { companyLegalInfo, productEditorStatement } from '../config/company';
 
 interface LegalLayoutProps {
     children: React.ReactNode;
@@ -42,6 +43,12 @@ export default function LegalLayout({ children }: LegalLayoutProps) {
                     </div>
                     <p className="text-center text-gray-500 text-sm mt-4">
                         © {new Date().getFullYear()} WhatsPoint. Tous droits réservés.
+                    </p>
+                    <p className="text-center text-gray-500 text-sm mt-2">
+                        {productEditorStatement}
+                    </p>
+                    <p className="text-center text-gray-400 text-xs mt-2">
+                        {companyLegalInfo.editorName} · SIREN {companyLegalInfo.siren} · {companyLegalInfo.address} · Hébergement {companyLegalInfo.hostingProvider}, {companyLegalInfo.hostingCountry}
                     </p>
                 </div>
             </footer>

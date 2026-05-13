@@ -23,6 +23,7 @@ import IntegrationsSection from '../components/landing/IntegrationsSection';
 import OperationsSection from '../components/landing/OperationsSection';
 import WorkflowSection from '../components/landing/WorkflowSection';
 import { isWhatsappDemoExternal, whatsappDemoUrl } from '../config/landingCtas';
+import { companyLegalInfo, productEditorStatement } from '../config/company';
 
 interface Plan {
     id: string;
@@ -653,27 +654,43 @@ function LandingContent() {
                     display: 'flex',
                     flexDirection: isMobile ? 'column' : 'row',
                     justifyContent: 'space-between',
-                    alignItems: 'center',
+                    alignItems: isMobile ? 'flex-start' : 'center',
                     gap: '1rem'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <MessageCircle size={20} color="#3b82f6" />
-                        <span style={{ color: '#64748b', fontSize: '0.9rem' }}>
-                            {t('landing.footer.copyright')}
-                        </span>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', maxWidth: '520px' }}>
+                        <MessageCircle size={22} color="#3b82f6" style={{ flexShrink: 0, marginTop: '0.1rem' }} />
+                        <div>
+                            <p style={{ color: '#0f172a', fontSize: '0.95rem', fontWeight: 800, margin: 0 }}>
+                                {productEditorStatement}
+                            </p>
+                            <p style={{ color: '#64748b', fontSize: '0.84rem', lineHeight: 1.6, margin: '0.35rem 0 0' }}>
+                                {companyLegalInfo.editorName} · SIREN {companyLegalInfo.siren} · {companyLegalInfo.address}
+                            </p>
+                            <p style={{ color: '#94a3b8', fontSize: '0.8rem', lineHeight: 1.6, margin: '0.25rem 0 0' }}>
+                                Hébergement : {companyLegalInfo.hostingProvider}, {companyLegalInfo.hostingCountry}.
+                            </p>
+                        </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', gap: isMobile ? '1rem' : '2rem', flexWrap: 'wrap', justifyContent: isMobile ? 'flex-start' : 'center' }}>
                         <a href="/legal/notices" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
                             {t('landing.footer.legal')}
                         </a>
                         <a href="/legal/privacy" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
                             {t('landing.footer.privacy')}
                         </a>
-                        <a href="mailto:contact@whatspoint.app" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
+                        <a href={`mailto:${companyLegalInfo.contactEmail}`} style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
                             {t('landing.footer.contact')}
                         </a>
                     </div>
                 </div>
+                <p style={{
+                    maxWidth: '1200px',
+                    margin: isMobile ? '1rem auto 0' : '1.25rem auto 0',
+                    color: '#94a3b8',
+                    fontSize: '0.78rem'
+                }}>
+                    © {new Date().getFullYear()} WhatsPoint. Tous droits réservés.
+                </p>
             </footer>
         </div>
     );

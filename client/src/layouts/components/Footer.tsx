@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { companyLegalInfo, productEditorStatement } from '../../config/company';
 
 export default function Footer() {
     return (
@@ -16,6 +17,9 @@ export default function Footer() {
                         <p className="text-gray-400 max-w-md">
                             Simplifiez la gestion de vos équipes avec notre solution de pointage
                             par WhatsApp. Moderne, simple, efficace.
+                        </p>
+                        <p className="text-gray-500 text-sm max-w-md mt-3">
+                            {productEditorStatement}
                         </p>
                     </div>
 
@@ -44,6 +48,9 @@ export default function Footer() {
                 <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
                     <p className="text-gray-500 text-sm">
                         © {new Date().getFullYear()} WhatsPoint. Tous droits réservés.
+                    </p>
+                    <p className="text-gray-500 text-xs text-center sm:text-left">
+                        {companyLegalInfo.editorName} · SIREN {companyLegalInfo.siren}
                     </p>
                     <div className="flex gap-6 text-sm text-gray-500">
                         <Link to="/legal/terms" className="hover:text-white transition">CGU</Link>
