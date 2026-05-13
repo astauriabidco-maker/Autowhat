@@ -644,53 +644,129 @@ function LandingContent() {
 
             {/* Footer */}
             <footer style={{
-                padding: isMobile ? '1.5rem 4%' : '2.25rem 5%',
+                padding: isMobile ? '2rem 4% 1.4rem' : '3.5rem 5% 2rem',
                 background: '#f8fafc',
                 borderTop: '1px solid #e2e8f0'
             }}>
                 <div style={{
                     maxWidth: '1200px',
                     margin: '0 auto',
-                    display: 'flex',
-                    flexDirection: isMobile ? 'column' : 'row',
-                    justifyContent: 'space-between',
-                    alignItems: isMobile ? 'flex-start' : 'center',
-                    gap: '1rem'
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? '1fr' : 'minmax(260px, 1.5fr) repeat(3, minmax(160px, 1fr))',
+                    gap: isMobile ? '1.6rem' : '2.5rem',
+                    alignItems: 'start'
                 }}>
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', maxWidth: '520px' }}>
-                        <MessageCircle size={22} color="#3b82f6" style={{ flexShrink: 0, marginTop: '0.1rem' }} />
+                    <div>
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                            <MessageCircle size={30} color="#2563eb" />
+                            <div>
+                                <p style={{ color: '#0f172a', fontSize: '1.12rem', fontWeight: 900, margin: 0 }}>
+                                    WhatsPoint
+                                </p>
+                                <p style={{ color: '#2563eb', fontSize: '0.78rem', fontWeight: 800, margin: '0.12rem 0 0', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    Un service Astauria
+                                </p>
+                            </div>
+                        </div>
+                        <p style={{ color: '#475569', fontSize: '0.92rem', lineHeight: 1.65, margin: '1rem 0 0', maxWidth: '360px' }}>
+                            Pointage, présence, planning et demandes terrain via WhatsApp, transmis aux bons services métier.
+                        </p>
+                        <p style={{ color: '#64748b', fontSize: '0.84rem', lineHeight: 1.6, margin: '0.8rem 0 0', maxWidth: '380px' }}>
+                            {productEditorStatement}
+                        </p>
+                    </div>
+
+                    <div>
+                        <h3 style={{ color: '#0f172a', fontSize: '0.88rem', fontWeight: 900, margin: '0 0 0.85rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Plateforme
+                        </h3>
+                        <nav style={{ display: 'grid', gap: '0.65rem' }}>
+                            {[
+                                ['Suite terrain', '#features'],
+                                ['Flux métier', '#operations'],
+                                ['Secteurs', '#sectors'],
+                                ['Tarifs', '#pricing']
+                            ].map(([label, href]) => (
+                                <a key={href} href={href} style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>
+                                    {label}
+                                </a>
+                            ))}
+                        </nav>
+                    </div>
+
+                    <div>
+                        <h3 style={{ color: '#0f172a', fontSize: '0.88rem', fontWeight: 900, margin: '0 0 0.85rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Accès
+                        </h3>
+                        <nav style={{ display: 'grid', gap: '0.65rem' }}>
+                            <a href="/onboarding" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>
+                                Créer mon espace
+                            </a>
+                            <a href="/login" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>
+                                Connexion
+                            </a>
+                            <a
+                                href={whatsappDemoUrl}
+                                target={isWhatsappDemoExternal ? '_blank' : undefined}
+                                rel={isWhatsappDemoExternal ? 'noopener noreferrer' : undefined}
+                                style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}
+                            >
+                                Démo WhatsApp
+                            </a>
+                            <a href={`mailto:${companyLegalInfo.contactEmail}`} style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>
+                                Contact
+                            </a>
+                        </nav>
+                    </div>
+
+                    <div>
+                        <h3 style={{ color: '#0f172a', fontSize: '0.88rem', fontWeight: 900, margin: '0 0 0.85rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Éditeur
+                        </h3>
                         <div>
-                            <p style={{ color: '#0f172a', fontSize: '0.95rem', fontWeight: 800, margin: 0 }}>
-                                {productEditorStatement}
+                            <p style={{ color: '#334155', fontSize: '0.9rem', fontWeight: 800, margin: 0 }}>
+                                {companyLegalInfo.editorName}
                             </p>
-                            <p style={{ color: '#64748b', fontSize: '0.84rem', lineHeight: 1.6, margin: '0.35rem 0 0' }}>
-                                {companyLegalInfo.editorName} · SIREN {companyLegalInfo.siren} · {companyLegalInfo.address}
+                            <p style={{ color: '#64748b', fontSize: '0.84rem', lineHeight: 1.55, margin: '0.45rem 0 0' }}>
+                                {companyLegalInfo.address}
                             </p>
-                            <p style={{ color: '#94a3b8', fontSize: '0.8rem', lineHeight: 1.6, margin: '0.25rem 0 0' }}>
-                                Hébergement : {companyLegalInfo.hostingProvider}, {companyLegalInfo.hostingCountry}.
+                            <p style={{ color: '#64748b', fontSize: '0.84rem', lineHeight: 1.55, margin: '0.45rem 0 0' }}>
+                                SIREN {companyLegalInfo.siren}<br />
+                                SIRET {companyLegalInfo.siret}
+                            </p>
+                            <p style={{ color: '#64748b', fontSize: '0.84rem', lineHeight: 1.55, margin: '0.45rem 0 0' }}>
+                                Hébergement : {companyLegalInfo.hostingProvider}, {companyLegalInfo.hostingCountry}
                             </p>
                         </div>
                     </div>
-                    <div style={{ display: 'flex', gap: isMobile ? '1rem' : '2rem', flexWrap: 'wrap', justifyContent: isMobile ? 'flex-start' : 'center' }}>
-                        <a href="/legal/notices" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
+                </div>
+
+                <div style={{
+                    maxWidth: '1200px',
+                    margin: isMobile ? '1.6rem auto 0' : '2.4rem auto 0',
+                    paddingTop: isMobile ? '1.2rem' : '1.5rem',
+                    borderTop: '1px solid #e2e8f0',
+                    display: 'flex',
+                    flexDirection: isMobile ? 'column' : 'row',
+                    alignItems: isMobile ? 'flex-start' : 'center',
+                    justifyContent: 'space-between',
+                    gap: '1rem'
+                }}>
+                    <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: 0 }}>
+                        © {new Date().getFullYear()} WhatsPoint. Tous droits réservés.
+                    </p>
+                    <div style={{ display: 'flex', gap: isMobile ? '1rem' : '1.5rem', flexWrap: 'wrap', justifyContent: isMobile ? 'flex-start' : 'center' }}>
+                        <a href="/legal/terms" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.82rem', fontWeight: 600 }}>
+                            CGU
+                        </a>
+                        <a href="/legal/notices" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.82rem', fontWeight: 600 }}>
                             {t('landing.footer.legal')}
                         </a>
-                        <a href="/legal/privacy" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
+                        <a href="/legal/privacy" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.82rem', fontWeight: 600 }}>
                             {t('landing.footer.privacy')}
-                        </a>
-                        <a href={`mailto:${companyLegalInfo.contactEmail}`} style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.85rem' }}>
-                            {t('landing.footer.contact')}
                         </a>
                     </div>
                 </div>
-                <p style={{
-                    maxWidth: '1200px',
-                    margin: isMobile ? '1rem auto 0' : '1.25rem auto 0',
-                    color: '#94a3b8',
-                    fontSize: '0.78rem'
-                }}>
-                    © {new Date().getFullYear()} WhatsPoint. Tous droits réservés.
-                </p>
             </footer>
         </div>
     );
