@@ -126,7 +126,7 @@ function LandingContent() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: isMobile ? '1rem 4%' : '1.5rem 5%',
+                padding: isMobile ? '0.65rem 4%' : '1.5rem 5%',
                 position: 'fixed',
                 top: 0,
                 left: 0,
@@ -136,9 +136,9 @@ function LandingContent() {
                 zIndex: 100,
                 borderBottom: '1px solid rgba(0,0,0,0.05)'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <MessageCircle size={28} color="#3b82f6" />
-                    <span style={{ color: '#0f172a', fontWeight: 800, fontSize: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.35rem' : '0.5rem' }}>
+                    <MessageCircle size={isMobile ? 24 : 28} color="#3b82f6" />
+                    <span style={{ color: '#0f172a', fontWeight: 800, fontSize: isMobile ? '1.05rem' : '1.25rem' }}>
                         WhatsPoint
                     </span>
                 </div>
@@ -164,7 +164,7 @@ function LandingContent() {
                     </div>
                 )}
 
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: isMobile ? '0.45rem' : '0.75rem', alignItems: 'center' }}>
                     {/* Language Selector */}
                     <div style={{ position: 'relative' }}>
                         <button
@@ -172,19 +172,19 @@ function LandingContent() {
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.5rem',
-                                padding: '0.5rem 0.75rem',
+                                gap: isMobile ? '0.3rem' : '0.5rem',
+                                padding: isMobile ? '0.45rem 0.55rem' : '0.5rem 0.75rem',
                                 background: 'rgba(0,0,0,0.05)',
                                 border: '1px solid rgba(0,0,0,0.05)',
                                 borderRadius: '0.5rem',
                                 color: '#334155',
                                 cursor: 'pointer',
-                                fontSize: '0.9rem'
+                                fontSize: isMobile ? '0.82rem' : '0.9rem'
                             }}
                         >
-                            <Globe size={16} />
+                            <Globe size={isMobile ? 15 : 16} />
                             <span>{LANG_FLAGS[i18n.language] || '🌐'}</span>
-                            <ChevronDown size={14} />
+                            <ChevronDown size={isMobile ? 13 : 14} />
                         </button>
                         {showLangMenu && (
                             <div style={{
@@ -245,14 +245,14 @@ function LandingContent() {
                     <button
                         onClick={() => navigate('/onboarding')}
                         style={{
-                            padding: isMobile ? '0.75rem 1rem' : '0.6rem 1.5rem',
+                            padding: isMobile ? '0.58rem 0.8rem' : '0.6rem 1.5rem',
                             background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
                             border: 'none',
                             borderRadius: '0.5rem',
                             color: 'white',
                             cursor: 'pointer',
                             fontWeight: 600,
-                            fontSize: '0.9rem',
+                            fontSize: isMobile ? '0.84rem' : '0.9rem',
                             whiteSpace: 'nowrap'
                         }}
                     >

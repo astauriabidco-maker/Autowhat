@@ -26,13 +26,13 @@ export default function CookieBanner() {
     if (!visible) return null;
 
     return (
-        <div className="fixed inset-x-2 bottom-2 z-50 rounded-2xl bg-slate-950/95 p-2.5 text-white shadow-2xl ring-1 ring-white/10 sm:inset-x-0 sm:bottom-0 sm:rounded-none sm:bg-slate-900 sm:p-4">
-            <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <div className="flex items-center gap-2 pr-8 sm:gap-3 sm:pr-0">
-                    <Cookie className="flex-shrink-0 text-amber-400" size={18} />
-                    <p className="text-xs leading-4 text-slate-100 sm:text-base sm:leading-6">
+        <div className="fixed inset-x-2 bottom-2 z-50 rounded-xl bg-slate-950/95 p-1.5 text-white shadow-2xl ring-1 ring-white/10 sm:inset-x-0 sm:bottom-0 sm:rounded-none sm:bg-slate-900 sm:p-4">
+            <div className="mx-auto flex max-w-6xl items-center gap-1.5 sm:justify-between sm:gap-4">
+                <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-3">
+                    <Cookie className="hidden flex-shrink-0 text-amber-400 min-[370px]:block" size={16} />
+                    <p className="min-w-0 truncate text-[11px] leading-4 text-slate-100 sm:text-base sm:leading-6">
                         <span className="sm:hidden">
-                            Cookies d'audience.
+                            Cookies.
                         </span>
                         <span className="hidden sm:inline">
                             Nous utilisons des cookies pour améliorer votre expérience et analyser l'utilisation du site.
@@ -48,22 +48,22 @@ export default function CookieBanner() {
                         </a>
                     </p>
                 </div>
-                <div className="flex w-full items-center gap-2 sm:w-auto sm:flex-shrink-0 sm:gap-3">
+                <div className="flex flex-shrink-0 items-center gap-1.5 sm:w-auto sm:gap-3">
                     <button
                         onClick={handleRefuse}
-                        className="min-h-9 flex-1 rounded-lg border border-slate-600 bg-transparent px-3 py-1.5 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white sm:min-h-10 sm:flex-none sm:px-4 sm:py-2"
+                        className="min-h-8 rounded-lg border border-slate-600 bg-transparent px-2 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white sm:min-h-10 sm:px-4 sm:py-2 sm:text-sm"
                     >
                         Refuser
                     </button>
                     <button
                         onClick={handleAccept}
-                        className="min-h-9 flex-1 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-green-700 sm:min-h-10 sm:flex-none sm:px-4 sm:py-2"
+                        className="min-h-8 rounded-lg bg-green-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-green-700 sm:min-h-10 sm:px-4 sm:py-2 sm:text-sm"
                     >
                         Accepter
                     </button>
                     <button
                         onClick={handleRefuse}
-                        className="absolute right-2.5 top-2.5 p-1 text-slate-400 hover:text-white sm:hidden"
+                        className="hidden p-1 text-slate-400 hover:text-white sm:hidden"
                         aria-label="Fermer"
                     >
                         <X size={18} />

@@ -40,6 +40,7 @@ export default function HeroSection() {
     const isCompactViewport = useMediaQuery('(max-width: 900px)');
     const isTabletPortrait = useMediaQuery('(min-width: 768px) and (max-width: 900px)');
     const isMobile = deviceType === 'mobile' || isCompactViewport;
+    const isNarrowMobile = isMobile && !isTabletPortrait;
     const stackActions = isMobile && !isTabletPortrait;
 
     // WhatsApp Slides state
@@ -114,7 +115,7 @@ export default function HeroSection() {
             backgroundPosition: 'center',
             display: 'flex',
             alignItems: 'center',
-            padding: isMobile ? (isTabletPortrait ? '5.5rem 5% 2rem' : '4.25rem 4.5% 1.25rem') : '6rem 5% 1.5rem',
+            padding: isMobile ? (isTabletPortrait ? '5.25rem 5% 2rem' : '3.45rem 4.5% 1rem') : '6rem 5% 1.5rem',
             borderBottom: '1px solid rgba(148, 163, 184, 0.22)',
             color: '#0f172a',
             overflow: 'hidden'
@@ -122,7 +123,7 @@ export default function HeroSection() {
             <div style={{
                 display: 'grid',
                 gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-                gap: isMobile ? '1rem' : '2.25rem',
+                gap: isNarrowMobile ? '0.75rem' : (isMobile ? '1rem' : '2.25rem'),
                 maxWidth: '1250px',
                 margin: '0 auto',
                 width: '100%',
@@ -137,7 +138,7 @@ export default function HeroSection() {
                 >
                     {/* Badge */}
                     <div style={{
-                        display: 'inline-flex',
+                        display: isNarrowMobile ? 'none' : 'inline-flex',
                         alignItems: 'center',
                         gap: '0.5rem',
                         background: 'rgba(37, 99, 235, 0.08)',
@@ -155,15 +156,15 @@ export default function HeroSection() {
 
                     <h1 style={{
                         color: '#0f172a',
-                        fontSize: isMobile ? (isTabletPortrait ? '2.55rem' : '1.78rem') : '3.65rem',
-                        fontWeight: 800,
-                        lineHeight: isMobile ? 1.06 : 1.03,
-                        marginBottom: isMobile ? '0.75rem' : '0.85rem',
+                        fontSize: isMobile ? (isTabletPortrait ? '2.45rem' : '1.54rem') : '3.65rem',
+                        fontWeight: 850,
+                        lineHeight: isMobile ? (isTabletPortrait ? 1.06 : 1.08) : 1.03,
+                        marginBottom: isMobile ? '0.55rem' : '0.85rem',
                         letterSpacing: 0
                     }}>
                         {isMobile ? (
                             <>
-                                Pointage et planning
+                                Pointer et voir son planning
                                 <span style={{ color: '#2563eb' }}> dans WhatsApp.</span>
                             </>
                         ) : (
@@ -176,13 +177,13 @@ export default function HeroSection() {
 
                     <p style={{
                         color: '#475569',
-                        fontSize: isMobile ? (isTabletPortrait ? '1.08rem' : '0.9rem') : '1.18rem',
-                        lineHeight: isMobile ? (isTabletPortrait ? 1.55 : 1.45) : 1.55,
-                        maxWidth: isMobile ? (isTabletPortrait ? '620px' : '340px') : '610px',
-                        marginBottom: isMobile ? '0.85rem' : '1.1rem'
+                        fontSize: isMobile ? (isTabletPortrait ? '1.04rem' : '0.88rem') : '1.18rem',
+                        lineHeight: isMobile ? (isTabletPortrait ? 1.52 : 1.42) : 1.55,
+                        maxWidth: isMobile ? (isTabletPortrait ? '620px' : '315px') : '610px',
+                        marginBottom: isMobile ? '0.65rem' : '1.1rem'
                     }}>
                         {isMobile
-                            ? 'Vos équipes pointent, consultent leurs horaires et remontent leurs demandes. WhatsPoint transmet aux bons outils.'
+                            ? 'Présences, horaires et demandes arrivent au bon service, sans nouvelle application.'
                             : 'Vos équipes utilisent WhatsApp. WhatsPoint transforme leurs messages en présences, plannings, justificatifs et demandes exploitables par vos services métier.'}
                     </p>
 
@@ -252,11 +253,75 @@ export default function HeroSection() {
                     {/* CTAs */}
                     <div style={{
                         display: 'flex',
-                        gap: isMobile ? '0.65rem' : '1rem',
+                        gap: isNarrowMobile ? '0.5rem' : (isMobile ? '0.65rem' : '1rem'),
                         flexWrap: 'wrap',
                         flexDirection: stackActions ? 'column' : 'row',
-                        alignItems: isMobile ? 'stretch' : 'center'
+                        alignItems: isMobile ? 'stretch' : 'center',
+                        maxWidth: isNarrowMobile ? '315px' : 'none'
                     }}>
+                        {isNarrowMobile ? (
+                            <>
+                                <button
+                                    onClick={() => navigate('/onboarding')}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: '0.78rem 1rem',
+                                        background: 'linear-gradient(135deg, #2563eb, #4f46e5)',
+                                        border: 'none',
+                                        borderRadius: '0.75rem',
+                                        color: 'white',
+                                        cursor: 'pointer',
+                                        fontWeight: 800,
+                                        fontSize: '0.92rem',
+                                        width: '100%',
+                                        boxShadow: '0 12px 26px rgba(37, 99, 235, 0.25)'
+                                    }}
+                                >
+                                    Créer mon espace
+                                </button>
+                                <a
+                                    href="https://wa.me/33612345678?text=Menu"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.45rem',
+                                        padding: '0.72rem 1rem',
+                                        background: 'rgba(34, 197, 94, 0.1)',
+                                        border: '1px solid rgba(34, 197, 94, 0.3)',
+                                        borderRadius: '0.75rem',
+                                        color: '#15803d',
+                                        textDecoration: 'none',
+                                        fontWeight: 800,
+                                        fontSize: '0.9rem',
+                                        width: '100%'
+                                    }}
+                                >
+                                    <MessageCircle size={18} style={{ flexShrink: 0 }} />
+                                    Démo WhatsApp
+                                </a>
+                                <button
+                                    onClick={() => navigate('/login')}
+                                    style={{
+                                        alignSelf: 'center',
+                                        padding: '0.3rem 0.5rem',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#334155',
+                                        cursor: 'pointer',
+                                        fontWeight: 800,
+                                        fontSize: '0.88rem'
+                                    }}
+                                >
+                                    Connexion
+                                </button>
+                            </>
+                        ) : (
+                            <>
                         <a
                             href="https://wa.me/33612345678?text=Menu"
                             target="_blank"
@@ -336,6 +401,8 @@ export default function HeroSection() {
                                 Connexion
                             </button>
                         )}
+                            </>
+                        )}
                     </div>
 
                     {/* Reassurance Badges */}
@@ -383,6 +450,144 @@ export default function HeroSection() {
                         width: '100%'
                     }}
                 >
+                    {isNarrowMobile ? (
+                        <div style={{
+                            width: '100%',
+                            maxWidth: '315px',
+                            display: 'grid',
+                            gap: '0.55rem'
+                        }}>
+                            <div style={{
+                                background: '#0f172a',
+                                border: '1px solid rgba(15, 23, 42, 0.14)',
+                                borderRadius: '1rem',
+                                overflow: 'hidden',
+                                boxShadow: '0 20px 44px -24px rgba(15, 23, 42, 0.45)'
+                            }}>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '0.7rem 0.8rem',
+                                    background: '#202c33'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                                        <span style={{
+                                            width: '30px',
+                                            height: '30px',
+                                            borderRadius: '50%',
+                                            background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                                            display: 'grid',
+                                            placeItems: 'center',
+                                            color: '#ffffff'
+                                        }}>
+                                            <Bot size={17} />
+                                        </span>
+                                        <span>
+                                            <strong style={{ display: 'block', color: '#ffffff', fontSize: '0.83rem' }}>
+                                                WhatsPoint Bot
+                                            </strong>
+                                            <span style={{ color: '#22c55e', fontSize: '0.72rem', fontWeight: 700 }}>
+                                                en ligne
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <span style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700 }}>07:02</span>
+                                </div>
+                                <div style={{
+                                    padding: '0.75rem',
+                                    background: '#ece5dd',
+                                    display: 'grid',
+                                    gap: '0.55rem'
+                                }}>
+                                    <div style={{
+                                        justifySelf: 'end',
+                                        maxWidth: '86%',
+                                        background: '#dcf8c6',
+                                        color: '#0f172a',
+                                        borderRadius: '0.75rem 0.75rem 0 0.75rem',
+                                        padding: '0.55rem 0.65rem',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 650,
+                                        lineHeight: 1.35
+                                    }}>
+                                        Je prends mon service aux urgences.
+                                    </div>
+                                    <div style={{
+                                        justifySelf: 'start',
+                                        maxWidth: '90%',
+                                        background: '#ffffff',
+                                        color: '#0f172a',
+                                        borderRadius: '0.75rem 0.75rem 0.75rem 0',
+                                        padding: '0.55rem 0.65rem',
+                                        fontSize: '0.78rem',
+                                        lineHeight: 1.4,
+                                        boxShadow: '0 1px 1px rgba(15, 23, 42, 0.08)'
+                                    }}>
+                                        <strong style={{ color: '#16a34a' }}>Présence enregistrée</strong><br />
+                                        Site validé · Manager notifié
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{
+                                background: 'rgba(255, 255, 255, 0.9)',
+                                border: '1px solid rgba(148, 163, 184, 0.28)',
+                                borderRadius: '1rem',
+                                padding: '0.75rem',
+                                boxShadow: '0 16px 38px -26px rgba(15, 23, 42, 0.38)'
+                            }}>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    marginBottom: '0.55rem'
+                                }}>
+                                    <span style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 800 }}>
+                                        Vue manager
+                                    </span>
+                                    <span style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.25rem',
+                                        color: '#2563eb',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 800
+                                    }}>
+                                        <BarChart3 size={14} />
+                                        temps réel
+                                    </span>
+                                </div>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(3, 1fr)',
+                                    gap: '0.45rem'
+                                }}>
+                                    {[
+                                        { label: 'Présents', value: '42', color: '#16a34a' },
+                                        { label: 'Alertes', value: '3', color: '#ea580c' },
+                                        { label: 'Planning', value: '2', color: '#2563eb' }
+                                    ].map((metric) => (
+                                        <div key={metric.label} style={{
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '0.75rem',
+                                            background: '#f8fafc',
+                                            padding: '0.48rem 0.4rem',
+                                            minWidth: 0
+                                        }}>
+                                            <strong style={{ display: 'block', color: metric.color, fontSize: '1rem', lineHeight: 1 }}>
+                                                {metric.value}
+                                            </strong>
+                                            <span style={{ display: 'block', color: '#64748b', fontSize: '0.65rem', fontWeight: 750, marginTop: '0.25rem' }}>
+                                                {metric.label}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                    <>
                         <div style={{
                             background: '#0f172a',
                             borderRadius: isMobile ? '1.8rem' : '2.5rem',
@@ -637,6 +842,8 @@ export default function HeroSection() {
                             </div>
                         ))}
                     </div>
+                    </>
+                    )}
                 </motion.div>
             </div>
         </section>
