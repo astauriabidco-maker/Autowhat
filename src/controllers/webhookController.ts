@@ -88,6 +88,12 @@ const INTERACTIVE_ID_TO_COMMAND: Record<string, string> = {
     'cmd_sos': 'sos'
 };
 
+const DEFAULT_UNKNOWN_CONTACT_WELCOME =
+    "WhatsPoint transforme WhatsApp en pointage, planning et demandes terrain pour vos équipes.\n\n" +
+    "Vous pouvez créer votre espace, voir une démo ou simplement répondre à ce message pour parler à Astauria.";
+const DEFAULT_UNKNOWN_CONTACT_BTN_1 = 'Créer un espace';
+const DEFAULT_UNKNOWN_CONTACT_BTN_2 = 'Voir une démo';
+
 /**
  * Check if the message should trigger the main menu
  */
@@ -694,11 +700,13 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 if (buttonId === 'btn_info') {
                                     await sendMessage(
                                         from,
-                                        `📱 *WhatsPoint* permet de gérer vos équipes terrain via WhatsApp :\n\n` +
-                                        `✅ Pointage par message\n` +
-                                        `✅ Planning automatique\n` +
-                                        `✅ Rapports en temps réel\n\n` +
-                                        `🌐 En savoir plus : www.whatspoint.app`,
+                                        `📱 *Démo WhatsPoint*\n\n` +
+                                        `WhatsPoint permet à vos équipes de pointer, consulter leurs plannings et envoyer leurs demandes depuis WhatsApp.\n\n` +
+                                        `✅ Pointage et présence\n` +
+                                        `✅ Planning consultable\n` +
+                                        `✅ Justificatifs et demandes terrain\n` +
+                                        `✅ Transmission vers vos outils métier\n\n` +
+                                        `Répondez à ce message si vous souhaitez parler à l'équipe Astauria.`,
                                         phoneNumberId
                                     );
                                     console.log(`ℹ️ Info message sent to ${from} after btn_info click`);
@@ -719,9 +727,9 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                             // Fetch dynamic bot config from database
                             const platformConfig = await prisma.platformConfig.findFirst();
-                            const welcomeText = platformConfig?.botWelcomeText || 'Je ne reconnais pas ce numéro. Que voulez-vous faire ?';
-                            const btn1Label = (platformConfig?.botBtn1Label || 'Créer un compte').slice(0, 20); // Max 20 chars
-                            const btn2Label = (platformConfig?.botBtn2Label || 'En savoir plus').slice(0, 20);
+                            const welcomeText = platformConfig?.botWelcomeText || DEFAULT_UNKNOWN_CONTACT_WELCOME;
+                            const btn1Label = (platformConfig?.botBtn1Label || DEFAULT_UNKNOWN_CONTACT_BTN_1).slice(0, 20); // Max 20 chars
+                            const btn2Label = (platformConfig?.botBtn2Label || DEFAULT_UNKNOWN_CONTACT_BTN_2).slice(0, 20);
 
                             // Send interactive buttons with dynamic config
                             await sendInteractiveButtons(

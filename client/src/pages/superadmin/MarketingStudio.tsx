@@ -9,6 +9,13 @@ interface PlatformConfig {
     whatsappPhoneNumber: string | null;
 }
 
+const RECOMMENDED_BOT_CONFIG = {
+    botWelcomeText:
+        "WhatsPoint transforme WhatsApp en pointage, planning et demandes terrain pour vos équipes.\n\nVous pouvez créer votre espace, voir une démo ou simplement répondre à ce message pour parler à Astauria.",
+    botBtn1Label: 'Créer un espace',
+    botBtn2Label: 'Voir une démo'
+};
+
 export default function MarketingStudio() {
     const [activeTab, setActiveTab] = useState<'bot' | 'qr'>('bot');
     const [loading, setLoading] = useState(true);
@@ -17,9 +24,7 @@ export default function MarketingStudio() {
 
     // Bot Config
     const [config, setConfig] = useState<PlatformConfig>({
-        botWelcomeText: 'Je ne reconnais pas ce numéro. Que voulez-vous faire ?',
-        botBtn1Label: 'Créer un compte',
-        botBtn2Label: 'En savoir plus',
+        ...RECOMMENDED_BOT_CONFIG,
         whatsappPhoneNumber: null
     });
 
@@ -40,9 +45,9 @@ export default function MarketingStudio() {
             if (response.ok) {
                 const data = await response.json();
                 setConfig({
-                    botWelcomeText: data.botWelcomeText || 'Je ne reconnais pas ce numéro. Que voulez-vous faire ?',
-                    botBtn1Label: data.botBtn1Label || 'Créer un compte',
-                    botBtn2Label: data.botBtn2Label || 'En savoir plus',
+                    botWelcomeText: data.botWelcomeText || RECOMMENDED_BOT_CONFIG.botWelcomeText,
+                    botBtn1Label: data.botBtn1Label || RECOMMENDED_BOT_CONFIG.botBtn1Label,
+                    botBtn2Label: data.botBtn2Label || RECOMMENDED_BOT_CONFIG.botBtn2Label,
                     whatsappPhoneNumber: data.whatsappPhoneNumber || null
                 });
             }
@@ -51,6 +56,13 @@ export default function MarketingStudio() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const applyRecommendedConfig = () => {
+        setConfig((current) => ({
+            ...current,
+            ...RECOMMENDED_BOT_CONFIG
+        }));
     };
 
     const saveConfig = async () => {
@@ -138,7 +150,21 @@ export default function MarketingStudio() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Form */}
                     <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
-                        <h2 className="font-semibold text-slate-900">Messages du Bot</h2>
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                            <div>
+                                <h2 className="font-semibold text-slate-900">Messages du Bot</h2>
+                                <p className="text-sm text-slate-500 mt-1">
+                                    Message envoyé aux numéros inconnus après un premier contact WhatsApp.
+                                </p>
+                            </div>
+                            <button
+                                onClick={applyRecommendedConfig}
+                                type="button"
+                                className="shrink-0 px-3 py-2 text-sm font-semibold rounded-xl border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                            >
+                                Appliquer le message recommandé
+                            </button>
+                        </div>
 
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -147,10 +173,13 @@ export default function MarketingStudio() {
                             <textarea
                                 value={config.botWelcomeText}
                                 onChange={(e) => setConfig({ ...config, botWelcomeText: e.target.value })}
-                                rows={3}
+                                rows={5}
                                 className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 placeholder="Message affiché aux numéros inconnus..."
                             />
+                            <p className="text-xs text-slate-400 mt-1">
+                                Astuce : gardez le texte court, concret, et évitez les promesses trop larges.
+                            </p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">

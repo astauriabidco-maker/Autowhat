@@ -945,6 +945,12 @@ export const getActiveSessions = async (req: Request, res: Response): Promise<vo
 
 // GET /admin/config
 // Returns the platform configuration
+const DEFAULT_BOT_WELCOME_TEXT =
+    "WhatsPoint transforme WhatsApp en pointage, planning et demandes terrain pour vos équipes.\n\n" +
+    "Vous pouvez créer votre espace, voir une démo ou simplement répondre à ce message pour parler à Astauria.";
+const DEFAULT_BOT_BTN_1_LABEL = 'Créer un espace';
+const DEFAULT_BOT_BTN_2_LABEL = 'Voir une démo';
+
 export const getConfig = async (req: Request, res: Response): Promise<void> => {
     try {
         let config = await prisma.platformConfig.findUnique({
@@ -954,7 +960,12 @@ export const getConfig = async (req: Request, res: Response): Promise<void> => {
         // Create default config if not exists
         if (!config) {
             config = await prisma.platformConfig.create({
-                data: { id: 1 }
+                data: {
+                    id: 1,
+                    botWelcomeText: DEFAULT_BOT_WELCOME_TEXT,
+                    botBtn1Label: DEFAULT_BOT_BTN_1_LABEL,
+                    botBtn2Label: DEFAULT_BOT_BTN_2_LABEL
+                }
             });
         }
 

@@ -15,7 +15,12 @@ async function main() {
             supportEmail: 'support@whatspoint.app',
             defaultTrialDays: 14,
             maintenanceMode: false,
-            allowRegistrations: true
+            allowRegistrations: true,
+            botWelcomeText:
+                "WhatsPoint transforme WhatsApp en pointage, planning et demandes terrain pour vos équipes.\n\n" +
+                "Vous pouvez créer votre espace, voir une démo ou simplement répondre à ce message pour parler à Astauria.",
+            botBtn1Label: 'Créer un espace',
+            botBtn2Label: 'Voir une démo'
         }
     });
 
