@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { Phone, Loader2, MessageCircle, Quote, CheckCircle, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { getErrorMessage, isMaintenanceModeError } from '../utils/errors';
 
 export default function Login() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const prefillPhone = searchParams.get('phone') || '';
+    const source = searchParams.get('source');
     const [step, setStep] = useState<1 | 2>(1);
-    const [phoneNumber, setPhoneNumber] = useState('');
+    const [phoneNumber, setPhoneNumber] = useState(prefillPhone);
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -162,6 +165,16 @@ export default function Login() {
                                 <p className="text-slate-500">
                                     Recevez un code de connexion directement sur votre WhatsApp.
                                 </p>
+                                {source === 'whatsapp' && (
+                                    <div className="mt-5 bg-green-50 border border-green-200 rounded-2xl p-4">
+                                        <p className="text-green-900 font-semibold text-sm">
+                                            Votre espace WhatsPoint est prêt.
+                                        </p>
+                                        <p className="text-green-700 text-sm mt-1">
+                                            Demandez votre code WhatsApp pour ouvrir le dashboard manager.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
 
                             <form onSubmit={handleRequestOtp} className="space-y-5">

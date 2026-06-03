@@ -14,9 +14,16 @@ export const identifyUser = async (phoneNumber: string) => {
     // But the prompt asked to handle spaces or dashes.
     const cleanedPhoneNumber = phoneNumber.replace(/[\s-]/g, '');
 
+    const withoutPlus = cleanedPhoneNumber.replace(/^\+/, '');
+
     const employee = await prisma.employee.findFirst({
         where: {
-            phoneNumber: cleanedPhoneNumber,
+            OR: [
+                { phoneNumber: cleanedPhoneNumber },
+                { phoneNumber: withoutPlus },
+                { phoneNumber: `+${withoutPlus}` },
+                { phoneNumber: { endsWith: withoutPlus.slice(-9) } }
+            ]
         },
         include: {
             tenant: true,
@@ -25,4 +32,3 @@ export const identifyUser = async (phoneNumber: string) => {
 
     return employee;
 };
-

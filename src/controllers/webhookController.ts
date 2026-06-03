@@ -11,12 +11,26 @@ import { getWeeklySummary, getHistory, formatWeeklySummaryMessage, formatHistory
 import { getDocumentsForEmployee, getDocumentById, formatDocumentListMessage } from '../services/documentService';
 import { notifyAllManagers } from '../services/notificationService';
 import { getBotMessage, getEmployeeLanguage } from '../config/i18nBot';
+import { getTemplate } from '../config/industryTemplates';
 import { dispatchWebhook, WEBHOOK_EVENTS } from '../services/webhookService';
 import { absoluteSignedUploadUrl, absoluteSignedUploadUrlIfNeeded } from '../utils/signedFileUrl';
+import { assignNumberToTenant } from '../services/numberAllocationService';
 
 // Anti-spam cooldown for Magic Link messages (in-memory cache)
 // In production, consider using Redis for persistence across restarts
 const magicLinkCooldowns = new Map<string, number>();
+
+type SignupSessionStep = 'WAITING_COMPANY' | 'WAITING_TEAM_SIZE' | 'WAITING_EMAIL' | 'WAITING_CONFIRMATION';
+interface SignupSession {
+    step: SignupSessionStep;
+    companyName?: string;
+    teamSize?: number;
+    email?: string;
+    createdAt: number;
+}
+
+const whatsappSignupSessions = new Map<string, SignupSession>();
+const SIGNUP_SESSION_TTL_MS = 30 * 60 * 1000;
 
 // Expense category buttons (WhatsApp allows max 3 per message, so we use list)
 const EXPENSE_CATEGORY_BUTTONS = [
@@ -390,6 +404,249 @@ function isLandingDemoRequest(message: string): boolean {
     return normalized.includes('demo whatspoint') || normalized.includes('voir la demo');
 }
 
+function normalizeText(message: string): string {
+    return message
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+}
+
+function isAffirmative(message: string): boolean {
+    return ['oui', 'ok', 'confirmer', 'confirme', 'go', 'yes', 'valider', 'valide'].includes(normalizeText(message));
+}
+
+function isCancellation(message: string): boolean {
+    return ['annuler', 'stop', 'cancel', 'non'].includes(normalizeText(message));
+}
+
+function inferCountryFromPhone(phone: string): string {
+    if (phone.startsWith('237')) return 'CM';
+    if (phone.startsWith('33')) return 'FR';
+    if (phone.startsWith('32')) return 'BE';
+    if (phone.startsWith('41')) return 'CH';
+    if (phone.startsWith('1')) return 'CA';
+    return 'FR';
+}
+
+function firstNameFromEmail(email: string): string {
+    const localPart = email.split('@')[0] || 'Manager';
+    const cleaned = localPart.replace(/[._-]+/g, ' ').trim();
+    return cleaned
+        ? cleaned.split(' ').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
+        : 'Manager';
+}
+
+function startWhatsAppSignupSession(from: string) {
+    whatsappSignupSessions.set(from, {
+        step: 'WAITING_COMPANY',
+        createdAt: Date.now()
+    });
+}
+
+function getActiveSignupSession(from: string): SignupSession | null {
+    const session = whatsappSignupSessions.get(from);
+    if (!session) return null;
+
+    if (Date.now() - session.createdAt > SIGNUP_SESSION_TTL_MS) {
+        whatsappSignupSessions.delete(from);
+        return null;
+    }
+
+    return session;
+}
+
+async function createWhatsAppTrialSpace(from: string, session: SignupSession, phoneNumberId?: string) {
+    if (!session.companyName || !session.teamSize || !session.email) {
+        await sendMessage(
+            from,
+            `⚠️ Il manque une information pour créer votre espace. Répondez *Créer un espace* pour recommencer.`,
+            phoneNumberId
+        );
+        return;
+    }
+
+    const cleanPhone = from.replace(/\D/g, '');
+    const existingManager = await prisma.employee.findFirst({
+        where: {
+            OR: [
+                { phoneNumber: cleanPhone },
+                { phoneNumber: `+${cleanPhone}` },
+                { phoneNumber: { endsWith: cleanPhone.slice(-9) } }
+            ]
+        },
+        include: { tenant: true }
+    });
+
+    if (existingManager) {
+        const loginUrl = `${process.env.FRONTEND_URL || 'https://app.whatspoint.com'}/login?phone=%2B${cleanPhone}&source=whatsapp`;
+        await sendMessage(
+            from,
+            `✅ Votre numéro est déjà rattaché à *${existingManager.tenant.name}*.\n\n` +
+            `Connectez-vous ici avec le code WhatsApp :\n${loginUrl}`,
+            phoneNumberId
+        );
+        return;
+    }
+
+    const country = inferCountryFromPhone(cleanPhone);
+    const industryKey = 'GENERIC';
+    const template = getTemplate(industryKey);
+    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    const maxEmployees = Math.max(5, session.teamSize);
+
+    const result = await prisma.$transaction(async (tx) => {
+        const tenant = await tx.tenant.create({
+            data: {
+                name: session.companyName!,
+                country,
+                industry: industryKey,
+                config: JSON.parse(JSON.stringify(template.config)),
+                vocabulary: JSON.parse(JSON.stringify(template.vocabulary)),
+                plan: 'TRIAL',
+                trialEndsAt,
+                maxEmployees
+            }
+        });
+
+        await tx.site.create({
+            data: {
+                name: 'Site principal',
+                tenantId: tenant.id
+            }
+        });
+
+        const manager = await tx.employee.create({
+            data: {
+                name: firstNameFromEmail(session.email!),
+                phoneNumber: cleanPhone,
+                role: 'MANAGER',
+                tenantId: tenant.id,
+                hasCompletedOnboarding: false
+            }
+        });
+
+        const lead = await tx.externalLead.create({
+            data: {
+                companyName: session.companyName!,
+                contactName: manager.name || 'Manager WhatsApp',
+                email: session.email!,
+                phone: `+${cleanPhone}`,
+                source: 'WHATSAPP',
+                status: 'WON',
+                temperature: 'HOT',
+                convertedToTenantId: tenant.id,
+                convertedAt: new Date()
+            }
+        });
+
+        await tx.leadNote.create({
+            data: {
+                externalLeadId: lead.id,
+                content: `✅ Espace d'essai créé depuis WhatsApp (${session.teamSize} personnes déclarées).`,
+                createdBy: 'whatsapp-bot'
+            }
+        });
+
+        return { tenant, manager };
+    });
+
+    assignNumberToTenant(result.tenant.id, country)
+        .catch(err => console.error('Number allocation failed after WhatsApp signup:', err));
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://app.whatspoint.com';
+    const loginUrl = `${frontendUrl}/login?phone=%2B${cleanPhone}&source=whatsapp`;
+
+    await sendMessage(
+        from,
+        `✅ *Votre espace WhatsPoint est prêt !*\n\n` +
+        `Entreprise : *${result.tenant.name}*\n` +
+        `Équipe test : *${maxEmployees} personnes*\n\n` +
+        `1. Ouvrez votre dashboard :\n${loginUrl}\n\n` +
+        `2. Connectez-vous avec le code reçu sur WhatsApp.\n\n` +
+        `3. Revenez ici et répondez *Admin Start* pour activer votre manager WhatsApp.`,
+        phoneNumberId
+    );
+}
+
+async function handleWhatsAppSignupSession(from: string, messageBody: string, phoneNumberId?: string): Promise<boolean> {
+    const session = getActiveSignupSession(from);
+    if (!session) return false;
+
+    const trimmed = messageBody.trim();
+    if (!trimmed) return true;
+
+    if (isCancellation(trimmed)) {
+        whatsappSignupSessions.delete(from);
+        await sendMessage(from, `C'est noté, création annulée. Répondez *Demo WhatsPoint* pour recommencer.`, phoneNumberId);
+        return true;
+    }
+
+    if (session.step === 'WAITING_COMPANY') {
+        session.companyName = trimmed.slice(0, 80);
+        session.step = 'WAITING_TEAM_SIZE';
+        await sendMessage(
+            from,
+            `Parfait. Combien de personnes doivent pointer pendant le test ?\n\nExemple : *12*`,
+            phoneNumberId
+        );
+        return true;
+    }
+
+    if (session.step === 'WAITING_TEAM_SIZE') {
+        const match = trimmed.match(/\d+/);
+        const teamSize = match ? parseInt(match[0], 10) : 0;
+
+        if (!teamSize || teamSize < 1 || teamSize > 5000) {
+            await sendMessage(from, `Répondez avec un nombre de personnes, par exemple *12*.`, phoneNumberId);
+            return true;
+        }
+
+        session.teamSize = teamSize;
+        session.step = 'WAITING_EMAIL';
+        await sendMessage(
+            from,
+            `Merci. Quel email professionnel utiliser pour votre accès manager ?`,
+            phoneNumberId
+        );
+        return true;
+    }
+
+    if (session.step === 'WAITING_EMAIL') {
+        const email = trimmed.toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            await sendMessage(from, `L'email ne semble pas valide. Exemple : *vous@entreprise.com*`, phoneNumberId);
+            return true;
+        }
+
+        session.email = email;
+        session.step = 'WAITING_CONFIRMATION';
+        await sendMessage(
+            from,
+            `Je vais créer votre espace WhatsPoint :\n\n` +
+            `🏢 Entreprise : *${session.companyName}*\n` +
+            `👥 Équipe : *${session.teamSize} personnes*\n` +
+            `✉️ Email admin : *${session.email}*\n\n` +
+            `Répondez *Oui* pour confirmer ou *Annuler*.`,
+            phoneNumberId
+        );
+        return true;
+    }
+
+    if (session.step === 'WAITING_CONFIRMATION') {
+        if (!isAffirmative(trimmed)) {
+            await sendMessage(from, `Répondez *Oui* pour confirmer, ou *Annuler* pour arrêter.`, phoneNumberId);
+            return true;
+        }
+
+        await createWhatsAppTrialSpace(from, session, phoneNumberId);
+        whatsappSignupSessions.delete(from);
+        return true;
+    }
+
+    return false;
+}
+
 /**
  * Handles incoming events from WhatsApp.
  */
@@ -426,6 +683,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                         // 1. Identify User
                         const employee = await identifyUser(`+${from}`);
+
+                        if (!employee && messageType === 'text' && await handleWhatsAppSignupSession(from, messageBody, phoneNumberId)) {
+                            continue;
+                        }
 
                         // Handle "Admin Start" command for manager activation
                         if (!employee && messageType === 'text' && messageBody.toLowerCase().trim() === 'admin start') {
@@ -691,19 +952,15 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 const buttonId = message.interactive?.button_reply?.id;
 
                                 if (buttonId === 'btn_signup') {
-                                    // Generate Magic Link
-                                    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-                                    const magicLinkUrl = `${frontendUrl}/register?phone=%2B${from}&source=whatsapp`;
-
+                                    startWhatsAppSignupSession(from);
                                     await sendMessage(
                                         from,
-                                        `🚀 C'est parti !\n\n` +
-                                        `Cliquez sur ce lien pour créer votre espace Manager :\n\n` +
-                                        `👉 ${magicLinkUrl}\n\n` +
-                                        `✨ Essai gratuit 14 jours !`,
+                                        `🚀 C'est parti.\n\n` +
+                                        `On peut préparer votre espace directement ici, dans WhatsApp.\n\n` +
+                                        `Quel est le nom de votre entreprise ?`,
                                         phoneNumberId
                                     );
-                                    console.log(`📧 Magic Link sent to ${from} after btn_signup click`);
+                                    console.log(`🧭 WhatsApp signup started for ${from}`);
                                     continue;
                                 }
 
