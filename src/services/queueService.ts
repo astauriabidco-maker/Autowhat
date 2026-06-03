@@ -14,7 +14,7 @@ import { getRedisConnection, isRedisEnabled } from './redisConnection';
 
 // Types for queue jobs
 export interface WhatsAppJob {
-    type: 'text' | 'interactive_list' | 'interactive_buttons' | 'document';
+    type: 'text' | 'interactive_list' | 'interactive_buttons' | 'document' | 'template';
     to: string;
     payload: any;
     config?: any; // WhatsApp credentials for BYON

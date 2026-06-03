@@ -380,6 +380,16 @@ function isManagerResponse(message: string): boolean {
     return regex.test(message.trim());
 }
 
+function isLandingDemoRequest(message: string): boolean {
+    const normalized = message
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+
+    return normalized.includes('demo whatspoint') || normalized.includes('voir la demo');
+}
+
 /**
  * Handles incoming events from WhatsApp.
  */
@@ -712,6 +722,27 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     console.log(`ℹ️ Info message sent to ${from} after btn_info click`);
                                     continue;
                                 }
+                            }
+
+                            if (messageType === 'text' && isLandingDemoRequest(messageBody)) {
+                                console.log(`🎯 Landing demo request received from unknown number: ${from}`);
+                                const platformConfig = await prisma.platformConfig.findFirst();
+                                const welcomeText = platformConfig?.botWelcomeText || DEFAULT_UNKNOWN_CONTACT_WELCOME;
+                                const btn1Label = (platformConfig?.botBtn1Label || DEFAULT_UNKNOWN_CONTACT_BTN_1).slice(0, 20);
+                                const btn2Label = (platformConfig?.botBtn2Label || DEFAULT_UNKNOWN_CONTACT_BTN_2).slice(0, 20);
+
+                                await sendInteractiveButtons(
+                                    from,
+                                    `👋 Bienvenue sur WhatsPoint.\n\n${welcomeText}`,
+                                    [
+                                        { id: 'btn_signup', title: btn1Label },
+                                        { id: 'btn_info', title: btn2Label }
+                                    ],
+                                    phoneNumberId
+                                );
+
+                                magicLinkCooldowns.set(`magic_link_sent_${from}`, Date.now());
+                                continue;
                             }
 
                             // Unknown user - Send interactive buttons (anti-spam: 1x per 24h)

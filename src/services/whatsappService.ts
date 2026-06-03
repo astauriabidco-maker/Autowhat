@@ -21,6 +21,17 @@ import prisma from '../lib/prisma';
 // Type for backward compatibility: accepts either config object or legacy phoneNumberId string
 export type ConfigOrPhoneId = WhatsAppCredentials | string | undefined;
 
+export interface WhatsAppTemplateComponent {
+    type: 'header' | 'body' | 'button';
+    parameters?: Array<{
+        type: 'text' | 'currency' | 'date_time' | 'image' | 'document' | 'video';
+        text?: string;
+        [key: string]: any;
+    }>;
+    sub_type?: string;
+    index?: string;
+}
+
 // Helper to get credentials (handles both new config object and legacy string phoneNumberId)
 function resolveCredentials(configOrPhoneId?: ConfigOrPhoneId): WhatsAppCredentials {
     // If it's a WhatsAppCredentials object
@@ -289,6 +300,57 @@ export const sendRawDocument = async (
     }
 };
 
+/**
+ * INTERNAL: Sends a WhatsApp template message directly via Meta Graph API.
+ * Templates must be created and approved in Meta before use.
+ */
+export const sendRawTemplateMessage = async (
+    to: string,
+    templateName: string,
+    languageCode = 'fr',
+    components: WhatsAppTemplateComponent[] = [],
+    config?: ConfigOrPhoneId
+): Promise<{ success: boolean; error?: string; statusCode?: number }> => {
+    const { phoneNumberId, accessToken } = resolveCredentials(config);
+
+    if (!accessToken || !phoneNumberId) {
+        console.error('❌ Missing WhatsApp credentials');
+        return { success: false, error: 'Missing credentials' };
+    }
+
+    const url = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
+
+    try {
+        await axios.post(
+            url,
+            {
+                messaging_product: 'whatsapp',
+                recipient_type: 'individual',
+                to,
+                type: 'template',
+                template: {
+                    name: templateName,
+                    language: { code: languageCode },
+                    ...(components.length > 0 && { components })
+                }
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                }
+            }
+        );
+        console.log(`✅ Template "${templateName}" sent to ${to}`);
+        return { success: true };
+    } catch (error: any) {
+        const statusCode = error.response?.status;
+        const errorMessage = error.response?.data?.error?.message || error.message;
+        console.error(`❌ Error sending WhatsApp template "${templateName}":`, errorMessage);
+        return { success: false, error: errorMessage, statusCode };
+    }
+};
+
 // ============================================================================
 // PUBLIC SEND FUNCTIONS (App-facing - Uses Queue)
 // ============================================================================
@@ -410,6 +472,36 @@ export const sendDocument = async (
         type: 'document',
         to,
         payload: { documentUrl, filename, caption },
+        config: resolveCredentials(config)
+    };
+
+    await addToQueue(job);
+};
+
+/**
+ * Sends a WhatsApp template message via the queue.
+ * Use this for proactive messages outside the 24h customer service window.
+ */
+export const sendTemplateMessage = async (
+    to: string,
+    templateName: string,
+    languageCode = 'fr',
+    components: WhatsAppTemplateComponent[] = [],
+    config?: ConfigOrPhoneId
+) => {
+    if (await isBlacklisted(to)) {
+        return;
+    }
+
+    if (!isRedisEnabled()) {
+        await sendRawTemplateMessage(to, templateName, languageCode, components, config);
+        return;
+    }
+
+    const job: WhatsAppJob = {
+        type: 'template',
+        to,
+        payload: { templateName, languageCode, components },
         config: resolveCredentials(config)
     };
 

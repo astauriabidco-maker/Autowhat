@@ -187,7 +187,8 @@ import {
     sendRawMessage,
     sendRawInteractiveList,
     sendRawInteractiveButtons,
-    sendRawDocument
+    sendRawDocument,
+    sendRawTemplateMessage
 } from './services/whatsappService';
 import { Job } from 'bullmq';
 import { WhatsAppJob } from './services/queueService';
@@ -344,6 +345,15 @@ if (isRedisEnabled()) {
                     payload.documentUrl,
                     payload.filename,
                     payload.caption,
+                    config
+                );
+                break;
+            case 'template':
+                result = await sendRawTemplateMessage(
+                    to,
+                    payload.templateName,
+                    payload.languageCode,
+                    payload.components,
                     config
                 );
                 break;

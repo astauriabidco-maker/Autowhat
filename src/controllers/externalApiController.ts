@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { sendMessage } from '../services/whatsappService';
+import { sendMessage, sendTemplateMessage, WhatsAppTemplateComponent } from '../services/whatsappService';
 import prisma from '../lib/prisma';
 
 
@@ -42,7 +42,14 @@ async function authenticateExternalApi(req: Request): Promise<string | null> {
 
 /**
  * POST /api/external/notify
- * Payload: { phoneNumber: string, message: string, templateName?: string, templateVars?: string[] }
+ * Payload: {
+ *   phoneNumber: string,
+ *   message?: string,
+ *   templateName?: string,
+ *   templateLanguage?: string,
+ *   templateVars?: string[],
+ *   templateComponents?: WhatsAppTemplateComponent[]
+ * }
  */
 export const sendNotification = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -55,7 +62,7 @@ export const sendNotification = async (req: Request, res: Response): Promise<voi
             return;
         }
 
-        const { phoneNumber, message, templateName, templateVars } = req.body;
+        const { phoneNumber, message, templateName, templateLanguage, templateVars, templateComponents } = req.body;
 
         if (!phoneNumber) {
             res.status(400).json({ success: false, error: 'phoneNumber is required' });
@@ -110,16 +117,25 @@ export const sendNotification = async (req: Request, res: Response): Promise<voi
 
         // 3. Send the message
         if (templateName) {
-            // Note: Sending template requires specific Meta API structure.
-            // Assuming whatsappService has a sendTemplate function (or we implement it here).
-            // For now, if template logic isn't fully implemented in whatsappService, we fallback to text
-            // or mock the template send.
             console.log(`✉️ Sending Template [${templateName}] to ${formattedPhone}`);
-            
-            // To be replaced by actual sendTemplate(formattedPhone, templateName, templateVars, senderPhoneNumberId)
-            await sendMessage(
-                formattedPhone, 
-                `[Template: ${templateName}]\n${message || 'Nouvelle notification'}`, 
+
+            const components: WhatsAppTemplateComponent[] = Array.isArray(templateComponents)
+                ? templateComponents
+                : Array.isArray(templateVars) && templateVars.length > 0
+                    ? [{
+                        type: 'body',
+                        parameters: templateVars.map((value: unknown) => ({
+                            type: 'text',
+                            text: String(value)
+                        }))
+                    }]
+                    : [];
+
+            await sendTemplateMessage(
+                formattedPhone,
+                templateName,
+                templateLanguage || 'fr',
+                components,
                 senderPhoneNumberId
             );
         } else {
