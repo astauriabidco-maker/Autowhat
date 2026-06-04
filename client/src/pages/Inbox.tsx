@@ -311,7 +311,7 @@ export default function Inbox() {
     }
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -323,7 +323,7 @@ export default function Inbox() {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full lg:w-auto">
                     <div className="inline-flex rounded-xl border border-gray-200 bg-white p-1">
                         {(['open', 'all'] as const).map(mode => (
                             <button
@@ -343,7 +343,7 @@ export default function Inbox() {
                     <button
                         onClick={() => fetchInbox()}
                         disabled={refreshing}
-                        className="h-10 w-10 inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                        className="h-10 w-10 flex-shrink-0 inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-60"
                         title="Actualiser"
                     >
                         <RefreshCw size={18} className={clsx(refreshing && 'animate-spin')} />
@@ -351,7 +351,7 @@ export default function Inbox() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3">
                 {FILTERS.map(filter => {
                     const isActive = activeKind === filter.key;
                     const count = counts[filter.key] || 0;
@@ -361,7 +361,7 @@ export default function Inbox() {
                             key={filter.key}
                             onClick={() => handleKindChange(filter.key)}
                             className={clsx(
-                                'bg-white rounded-xl border p-4 text-left transition hover:shadow-sm',
+                                'bg-white rounded-xl border p-3 sm:p-4 text-left transition hover:shadow-sm',
                                 isActive ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100 hover:border-gray-200'
                             )}
                         >
@@ -391,7 +391,7 @@ export default function Inbox() {
                             className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                         />
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <div className="flex items-center gap-2 text-sm text-gray-500 px-1">
                         <SlidersHorizontal size={16} />
                         {filteredItems.length} élément{filteredItems.length > 1 ? 's' : ''}
                     </div>
@@ -451,7 +451,7 @@ export default function Inbox() {
                                             </div>
                                         </div>
 
-                                        <div className="flex flex-wrap gap-2 lg:justify-end">
+                                        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 lg:justify-end">
                                             {item.availableActions.slice(0, 3).map(action => {
                                                 const actionKey = getActionKey(item, action);
                                                 const isActionLoading = actionLoadingKey === actionKey;
@@ -461,7 +461,7 @@ export default function Inbox() {
                                                         onClick={() => runItemAction(item, action)}
                                                         disabled={isActionLoading}
                                                         className={clsx(
-                                                            'px-3 py-2 rounded-lg text-sm font-medium transition inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed',
+                                                            'justify-center px-3 py-2 rounded-lg text-sm font-medium transition inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed',
                                                             action === 'approve' || action === 'plan' || action === 'mark_read'
                                                                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                                                                 : action === 'reject'

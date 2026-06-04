@@ -84,6 +84,13 @@ const allNavItems = navSections.flatMap(s => s.items).concat([
     { icon: <Network size={20} />, label: 'Connexions', path: '/settings/integrations' },
 ]);
 
+const mobileNavItems: NavItem[] = [
+    { icon: <LayoutDashboard size={20} />, label: 'Accueil', path: '/dashboard' },
+    { icon: <Users size={20} />, label: 'Équipe', path: '/employees' },
+    { icon: <Clock size={20} />, label: 'Présence', path: '/attendance' },
+    { icon: <Inbox size={20} />, label: 'Demandes', path: '/inbox' },
+];
+
 interface AdminLayoutProps {
     children: React.ReactNode;
 }
@@ -243,7 +250,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 {/* Sidebar */}
                 <aside
                     className={clsx(
-                        'fixed left-0 top-0 h-full bg-white border-r border-gray-200 flex flex-col transition-all duration-300 z-50',
+                        'hidden lg:flex fixed left-0 top-0 h-full bg-white border-r border-gray-200 flex-col transition-all duration-300 z-50',
                         collapsed ? 'w-16' : 'w-64'
                     )}
                 >
@@ -414,7 +421,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 {/* Main Content */}
                 <main className={clsx(
                     'flex-1 transition-all duration-300 flex flex-col',
-                    collapsed ? 'ml-16' : 'ml-64'
+                    'lg:pb-0 pb-20',
+                    collapsed ? 'lg:ml-16' : 'lg:ml-64'
                 )}>
                     {/* Trial Banner - Above TopBar */}
                     {tenantInfo && (
@@ -425,13 +433,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     )}
 
                     {/* Top Bar */}
-                    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-40">
-                        <div>
-                            <h1 className="text-lg font-semibold text-gray-900">
+                    <header className="min-h-16 bg-white border-b border-gray-200 flex items-center justify-between gap-3 px-4 sm:px-6 sticky top-0 z-40">
+                        <div className="min-w-0">
+                            <p className="lg:hidden text-xs font-semibold text-blue-600">WhatsPoint</p>
+                            <h1 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
                                 {allNavItems.find(item => item.path === location.pathname)?.label || 'Vue d\'ensemble'}
                             </h1>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
                             {/* Notification Bell */}
                             <NotificationBell />
 
@@ -439,8 +448,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                             <LanguageSwitcher />
 
                             {/* Site Selector - Multi-sites */}
-                            <SiteSelector />
-                            <span className="text-sm text-gray-500">{new Date().toLocaleDateString('fr-FR', {
+                            <div className="hidden sm:block">
+                                <SiteSelector />
+                            </div>
+                            <span className="hidden xl:inline text-sm text-gray-500">{new Date().toLocaleDateString('fr-FR', {
                                 weekday: 'long',
                                 year: 'numeric',
                                 month: 'long',
@@ -450,11 +461,38 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     </header>
 
                     {/* Page Content */}
-                    <div className="p-6">
+                    <div className="p-4 sm:p-6">
                         {children}
                     </div>
                 </main>
             </div>
+
+            <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-2 pb-[env(safe-area-inset-bottom)]">
+                <div className="grid grid-cols-4 gap-1 py-2">
+                    {mobileNavItems.map((item) => {
+                        const isActive = location.pathname === item.path ||
+                            (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+                        return (
+                            <Link
+                                key={item.path}
+                                to={item.path}
+                                className={clsx(
+                                    'relative min-h-[56px] rounded-xl flex flex-col items-center justify-center gap-1 text-[11px] font-semibold transition',
+                                    isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50'
+                                )}
+                            >
+                                {item.icon}
+                                <span>{item.label}</span>
+                                {item.path === '/inbox' && pendingRequests > 0 && (
+                                    <span className="absolute top-1 right-5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
+                                        {pendingRequests}
+                                    </span>
+                                )}
+                            </Link>
+                        );
+                    })}
+                </div>
+            </nav>
         </div>
     );
 }

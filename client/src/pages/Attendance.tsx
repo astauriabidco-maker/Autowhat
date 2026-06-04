@@ -254,7 +254,7 @@ export default function Attendance() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -264,13 +264,13 @@ export default function Attendance() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-3 sm:gap-4">
                 <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                    <div className="text-sm text-gray-500">Total pointages</div>
+                    <div className="text-xs sm:text-sm text-gray-500">Total</div>
                     <div className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</div>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                    <div className="text-sm text-gray-500">Journées complètes</div>
+                    <div className="text-xs sm:text-sm text-gray-500">Complets</div>
                     <div className="text-2xl font-bold text-green-600 mt-1">{stats.complete}</div>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
@@ -281,14 +281,14 @@ export default function Attendance() {
 
             {/* Filters Bar */}
             <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                <div className="flex flex-wrap items-center gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:flex xl:items-center gap-3 sm:gap-4">
                     {/* Period Selector */}
                     <div className="flex items-center gap-2">
                         <Filter size={18} className="text-gray-400" />
                         <select
                             value={period}
                             onChange={(e) => setPeriod(e.target.value as AttendancePeriod)}
-                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
                         >
                             <option value="today">Aujourd'hui</option>
                             <option value="week">Cette semaine</option>
@@ -303,7 +303,7 @@ export default function Attendance() {
                             type="date"
                             value={selectedDate}
                             onChange={(e) => setSelectedDate(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                     </div>
 
@@ -313,7 +313,7 @@ export default function Attendance() {
                         <select
                             value={selectedEmployee}
                             onChange={(e) => setSelectedEmployee(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white min-w-[150px]"
+                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white min-w-[150px]"
                         >
                             <option value="all">Tous les employés</option>
                             {employees.map(emp => (
@@ -325,7 +325,7 @@ export default function Attendance() {
                     {/* Export Button */}
                     <button
                         onClick={() => setShowExportModal(true)}
-                        className="ml-auto flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition font-medium shadow-md"
+                        className="sm:col-span-2 xl:col-span-1 xl:ml-auto flex items-center justify-center gap-2 px-4 py-3 xl:py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition font-medium shadow-md"
                     >
                         <FileDown size={18} />
                         📤 Exporter
@@ -345,7 +345,37 @@ export default function Attendance() {
                         <p>Aucun pointage pour cette période</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <>
+                    <div className="md:hidden divide-y divide-gray-100">
+                        {filteredRecords.map((record) => (
+                            <button
+                                key={record.id}
+                                onClick={() => setSelectedRecord(record)}
+                                className="w-full p-4 text-left hover:bg-gray-50 transition"
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${getAvatarColor(record.employee.name)} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
+                                            {getInitials(record.employee.name)}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-semibold text-gray-900 truncate">{record.employee.name || 'Sans nom'}</p>
+                                            <p className="text-sm text-gray-500">{record.date} · {record.checkIn} → {record.checkOut || '...'}</p>
+                                        </div>
+                                    </div>
+                                    <StatusBadge status={record.checkOut ? 'COMPLETE' : 'IN_PROGRESS'} />
+                                </div>
+                                <div className="mt-3 flex items-center justify-between gap-2 text-sm">
+                                    <span className="font-medium text-gray-900">Durée : {record.duration}</span>
+                                    <span className="text-indigo-600 flex items-center gap-1">
+                                        {record.latitude && record.longitude ? <MapPin size={15} /> : <Camera size={15} />}
+                                        Détails
+                                    </span>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
@@ -467,6 +497,7 @@ export default function Attendance() {
                             </tbody>
                         </table>
                     </div>
+                    </>
                 )}
             </div>
 

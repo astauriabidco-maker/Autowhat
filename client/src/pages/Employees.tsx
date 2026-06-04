@@ -191,17 +191,17 @@ export default function Employees() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Mon Équipe</h1>
                     <p className="text-gray-500 mt-1">{employees.length} employé{employees.length > 1 ? 's' : ''} enregistré{employees.length > 1 ? 's' : ''}</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="grid grid-cols-2 sm:flex sm:items-center gap-3">
                     {/* Quota Counter */}
                     {quotaInfo && (
-                        <span className={`text-sm font-medium px-3 py-1.5 rounded-lg ${quotaInfo.currentEmployees >= quotaInfo.maxEmployees
+                        <span className={`col-span-2 sm:col-span-1 text-center text-sm font-medium px-3 py-2 sm:py-1.5 rounded-lg ${quotaInfo.currentEmployees >= quotaInfo.maxEmployees
                             ? 'bg-red-100 text-red-700'
                             : quotaInfo.currentEmployees >= quotaInfo.maxEmployees - 1
                                 ? 'bg-amber-100 text-amber-700'
@@ -214,7 +214,7 @@ export default function Employees() {
                     {/* Import Button */}
                     <button
                         onClick={() => navigate('/import-employees')}
-                        className="flex items-center gap-2 px-4 py-2.5 font-medium rounded-lg transition shadow-sm bg-white border border-gray-200 hover:bg-gray-50 text-gray-700"
+                        className="flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 font-medium rounded-lg transition shadow-sm bg-white border border-gray-200 hover:bg-gray-50 text-gray-700"
                     >
                         <FileSpreadsheet size={18} />
                         Import Excel
@@ -225,7 +225,7 @@ export default function Employees() {
                         <button
                             onClick={() => quotaInfo && quotaInfo.currentEmployees < quotaInfo.maxEmployees && setShowModal(true)}
                             disabled={quotaInfo !== null && quotaInfo.currentEmployees >= quotaInfo.maxEmployees}
-                            className={`flex items-center gap-2 px-4 py-2.5 font-medium rounded-lg transition shadow-sm ${quotaInfo && quotaInfo.currentEmployees >= quotaInfo.maxEmployees
+                            className={`flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 font-medium rounded-lg transition shadow-sm ${quotaInfo && quotaInfo.currentEmployees >= quotaInfo.maxEmployees
                                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                 : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                                 }`}
@@ -250,7 +250,7 @@ export default function Employees() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
                     <div className="p-3 bg-blue-50 rounded-lg">
                         <Users size={24} className="text-blue-600" />
@@ -302,7 +302,53 @@ export default function Employees() {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="grid grid-cols-1 gap-3 md:hidden">
+                {filteredEmployees.length === 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 text-center text-gray-500">
+                        {searchQuery ? 'Aucun employé trouvé' : 'Aucun employé enregistré'}
+                    </div>
+                ) : (
+                    filteredEmployees.map((employee) => (
+                        <div key={employee.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className={`w-11 h-11 ${getAvatarColor(employee.name)} rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0`}>
+                                        {getInitials(employee.name)}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="font-semibold text-gray-900 truncate">{employee.name}</p>
+                                        <p className="text-sm text-gray-500 truncate">{employee.position}</p>
+                                    </div>
+                                </div>
+                                {getStatusBadge(employee.status)}
+                            </div>
+
+                            <div className="mt-4 flex items-center justify-between gap-3">
+                                <a
+                                    href={`https://wa.me/${employee.phoneNumber}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 text-sm text-green-700 font-medium"
+                                >
+                                    <Phone size={15} />
+                                    {formatPhoneNumber(employee.phoneNumber)}
+                                </a>
+                                {employee.status !== 'ARCHIVED' && (
+                                    <button
+                                        onClick={() => handleArchive(employee.id)}
+                                        className="text-sm text-red-600 font-medium px-3 py-2 rounded-lg bg-red-50"
+                                    >
+                                        Archiver
+                                    </button>
+                                )}
+                            </div>
+                            <p className="mt-3 text-xs text-gray-500">Dernière activité : {employee.lastActivityFormatted}</p>
+                        </div>
+                    ))
+                )}
+            </div>
+
+            <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <table className="w-full">
                     <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>

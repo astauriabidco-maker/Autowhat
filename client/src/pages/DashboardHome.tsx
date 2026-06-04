@@ -290,12 +290,12 @@ export default function DashboardHome() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
             {/* WhatsApp Activation Widget */}
-            <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border border-indigo-200 p-6 rounded-xl shadow-sm">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="text-5xl">🚀</div>
+            <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border border-indigo-200 p-4 sm:p-6 rounded-xl shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
+                        <div className="text-3xl sm:text-5xl">🚀</div>
                         <div>
                             <h3 className="font-bold text-indigo-900 text-lg">
                                 Activez votre Assistant WhatsApp
@@ -309,7 +309,7 @@ export default function DashboardHome() {
                         href={`https://wa.me/${import.meta.env.VITE_BOT_PHONE_NUMBER || '33612345678'}?text=${encodeURIComponent("Admin Start")}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all flex items-center gap-2 whitespace-nowrap shadow-lg hover:shadow-xl transform hover:scale-105"
+                        className="w-full sm:w-auto bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all flex items-center justify-center gap-2 whitespace-nowrap shadow-lg"
                     >
                         <span className="text-xl">💬</span>
                         Activer sur WhatsApp
@@ -319,7 +319,7 @@ export default function DashboardHome() {
 
             {/* First Steps Widget */}
             {onboarding && (
-                <div className="bg-white border border-emerald-200 rounded-xl shadow-sm p-6">
+                <div className="bg-white border border-emerald-200 rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
                         <div>
                             <div className="flex items-center gap-2">
@@ -343,7 +343,7 @@ export default function DashboardHome() {
                                 }
                                 navigate(onboardingAction.route);
                             }}
-                            className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition"
+                            className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition"
                         >
                             {onboardingAction.cta}
                         </button>
@@ -354,7 +354,7 @@ export default function DashboardHome() {
                         <p className="text-sm text-emerald-800 mt-1">{onboardingAction.description}</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-5">
                         {onboarding.steps.map((step) => (
                             <div
                                 key={step.key}
@@ -394,21 +394,21 @@ export default function DashboardHome() {
             )}
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {kpiCards.map((card, idx) => (
                     <div
                         key={idx}
                         className={clsx(
-                            'bg-white rounded-lg border p-5 transition-all hover:shadow-md',
+                            'bg-white rounded-lg border p-4 sm:p-5 transition-all hover:shadow-md',
                             card.borderColor
                         )}
                     >
                         <div className="flex items-start justify-between">
                             <div>
-                                <p className="text-sm text-gray-500 font-medium">{card.title}</p>
-                                <p className="text-3xl font-bold text-gray-900 mt-1">{card.value}</p>
+                                <p className="text-xs sm:text-sm text-gray-500 font-medium">{card.title}</p>
+                                <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">{card.value}</p>
                             </div>
-                            <div className={clsx('p-3 rounded-lg', card.bgColor)}>
+                            <div className={clsx('hidden sm:block p-3 rounded-lg', card.bgColor)}>
                                 <span className={card.textColor}>{card.icon}</span>
                             </div>
                         </div>
