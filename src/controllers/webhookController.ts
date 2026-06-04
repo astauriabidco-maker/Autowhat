@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { identifyUser } from '../services/authService';
-import { sendMessage, sendInteractiveList, sendInteractiveButtons, sendDocument } from '../services/whatsappService';
+import { sendMessage, sendInteractiveList, sendInteractiveButtons, sendDocument, sendTemplateMessage, WhatsAppTemplateComponent } from '../services/whatsappService';
 import { checkIn, checkOut } from '../services/attendanceService';
 import { createRequest, handleManagerResponse, formatDateForMessage } from '../services/leaveService';
 import { downloadAndSaveMetaImage } from '../services/storageService';
@@ -103,7 +104,7 @@ const INTERACTIVE_ID_TO_COMMAND: Record<string, string> = {
 };
 
 const MANAGER_AHA_BUTTONS = [
-    { id: 'btn_manager_demo_employee', title: 'Employé test' },
+    { id: 'btn_manager_invite_employee', title: 'Inviter employé' },
     { id: 'btn_manager_demo_pointage', title: 'Simulation' },
     { id: 'btn_manager_menu', title: 'Menu' }
 ];
@@ -469,7 +470,7 @@ async function sendManagerActivationAha(to: string, manager: any, phoneNumberId?
         `👋 Bonjour *${firstName}* !\n\n` +
         `Vous êtes bien l'administrateur de *${manager.tenant.name}*.\n\n` +
         `✅ Votre manager WhatsApp est activé.\n\n` +
-        `Pour voir la valeur tout de suite, je peux créer un employé test et enregistrer un premier pointage dans votre espace.`,
+        `Pour voir la valeur tout de suite, invitez un premier collaborateur. Il pourra pointer depuis WhatsApp sans installer d'application.`,
         MANAGER_AHA_BUTTONS,
         phoneNumberId
     );
@@ -509,65 +510,105 @@ async function activateManagerWhatsApp(from: string, existingEmployee: any, phon
     return true;
 }
 
-async function createDemoEmployeeAndAttendance(manager: any) {
+function normalizeInvitePhone(rawPhone: string): string | null {
+    const digits = rawPhone.trim().replace(/\D/g, '');
+
+    if (digits.length < 8 || digits.length > 15) {
+        return null;
+    }
+
+    return `+${digits}`;
+}
+
+async function findEmployeeInTenantByPhone(tenantId: string, phoneNumber: string) {
+    const withoutPlus = phoneNumber.replace(/^\+/, '');
+    return prisma.employee.findFirst({
+        where: {
+            tenantId,
+            OR: [
+                { phoneNumber },
+                { phoneNumber: withoutPlus },
+                { phoneNumber: `+${withoutPlus}` },
+                { phoneNumber: { endsWith: withoutPlus.slice(-9) } }
+            ]
+        }
+    });
+}
+
+async function sendEmployeeInvitation(employeePhone: string, employeeName: string, manager: any, phoneNumberId?: string) {
+    const to = employeePhone.replace(/^\+/, '');
+    const templateName = process.env.WHATSAPP_EMPLOYEE_INVITE_TEMPLATE;
+
+    if (templateName) {
+        const components: WhatsAppTemplateComponent[] = [
+            {
+                type: 'body',
+                parameters: [
+                    { type: 'text', text: employeeName },
+                    { type: 'text', text: manager.tenant.name }
+                ]
+            }
+        ];
+
+        await sendTemplateMessage(
+            to,
+            templateName,
+            process.env.WHATSAPP_EMPLOYEE_INVITE_TEMPLATE_LANG || 'fr',
+            components,
+            phoneNumberId
+        );
+        return 'template';
+    }
+
+    await sendMessage(
+        to,
+        `Bonjour ${employeeName},\n\n` +
+        `Vous avez été invité sur WhatsPoint par *${manager.tenant.name}*.\n\n` +
+        `Pour pointer votre arrivée, répondez simplement *Hi*.\n` +
+        `Pour voir les options disponibles, répondez *Menu*.\n\n` +
+        `WhatsPoint est un service édité par Astauria.`,
+        phoneNumberId
+    );
+    return 'session_message';
+}
+
+async function createInvitedEmployee(manager: any, name: string, phoneNumber: string) {
     const site = await prisma.site.findFirst({
         where: { tenantId: manager.tenantId },
         orderBy: { name: 'asc' }
     });
 
-    const demoPhone = `demo-${manager.tenantId.slice(0, 8)}`;
-    const demoEmployee = await prisma.employee.upsert({
-        where: {
-            phoneNumber_tenantId: {
-                phoneNumber: demoPhone,
-                tenantId: manager.tenantId
+    const existingEmployee = await findEmployeeInTenantByPhone(manager.tenantId, phoneNumber);
+    if (existingEmployee) {
+        if (existingEmployee.role === 'MANAGER') {
+            throw new Error('PHONE_ALREADY_MANAGER');
+        }
+
+        return prisma.employee.update({
+            where: { id: existingEmployee.id },
+            data: {
+                name,
+                phoneNumber,
+                siteId: existingEmployee.siteId || site?.id || null,
+                workProfile: existingEmployee.workProfile || 'MOBILE'
             }
-        },
-        update: {
-            name: 'Employé Démo',
-            role: 'EMPLOYEE',
-            siteId: site?.id || null,
-            workProfile: 'MOBILE'
-        },
-        create: {
-            name: 'Employé Démo',
-            phoneNumber: demoPhone,
-            role: 'EMPLOYEE',
-            tenantId: manager.tenantId,
-            siteId: site?.id || null,
-            workProfile: 'MOBILE'
-        }
-    });
+        });
+    }
 
-    const now = new Date();
-    const startOfDay = new Date(now);
-    startOfDay.setUTCHours(0, 0, 0, 0);
-    const endOfDay = new Date(now);
-    endOfDay.setUTCHours(23, 59, 59, 999);
-
-    const existingAttendance = await prisma.attendance.findFirst({
-        where: {
-            employeeId: demoEmployee.id,
-            tenantId: manager.tenantId,
-            checkIn: { gte: startOfDay, lte: endOfDay }
-        }
-    });
-
-    const attendance = existingAttendance || await prisma.attendance.create({
+    return prisma.employee.create({
         data: {
-            checkIn: now,
-            employeeId: demoEmployee.id,
+            name,
+            phoneNumber,
+            role: 'EMPLOYEE',
             tenantId: manager.tenantId,
             siteId: site?.id || null,
-            status: 'PRESENT'
+            workProfile: 'MOBILE'
         }
     });
-
-    return { demoEmployee, attendance, site };
 }
 
 async function handleManagerAhaAction(selectedId: string, employee: any, from: string, phoneNumberId?: string): Promise<boolean> {
-    if (!['btn_manager_demo_employee', 'btn_manager_demo_pointage', 'btn_manager_menu'].includes(selectedId)) {
+    if (!['btn_manager_invite_employee', 'btn_manager_demo_employee', 'btn_manager_demo_pointage', 'btn_manager_menu'].includes(selectedId)) {
         return false;
     }
 
@@ -581,34 +622,134 @@ async function handleManagerAhaAction(selectedId: string, employee: any, from: s
         return true;
     }
 
+    if (selectedId === 'btn_manager_invite_employee' || selectedId === 'btn_manager_demo_employee') {
+        await prisma.employee.update({
+            where: { id: employee.id },
+            data: {
+                conversationState: 'WAITING_EMPLOYEE_INVITE_NAME',
+                tempExpenseData: Prisma.DbNull
+            }
+        });
+
+        await sendMessage(
+            from,
+            `👤 *Inviter un collaborateur*\n\n` +
+            `Quel est son nom complet ?\n\n` +
+            `Exemple : *Marie Dupont*`,
+            phoneNumberId
+        );
+        return true;
+    }
+
     if (selectedId === 'btn_manager_demo_pointage') {
         await sendMessage(
             from,
             `🎬 *Simulation de pointage*\n\n` +
             `Dans WhatsPoint, un collaborateur écrit simplement *Hi* dans WhatsApp.\n\n` +
             `WhatsPoint enregistre la présence, rattache le pointage au site et rend l'information disponible dans le dashboard manager et vos outils métier.\n\n` +
-            `Cliquez sur *Employé test* pour créer une vraie ligne de démonstration dans votre espace.`,
+            `Cliquez sur *Inviter employé* pour ajouter un vrai collaborateur et lui envoyer l'invitation.`,
             phoneNumberId
         );
         return true;
     }
 
-    const { demoEmployee, attendance, site } = await createDemoEmployeeAndAttendance(employee);
-    const time = attendance.checkIn.toLocaleTimeString('fr-FR', {
-        timeZone: 'Europe/Paris',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    const frontendUrl = process.env.FRONTEND_URL || 'https://app.whatspoint.com';
+    return false;
+}
 
-    await sendMessage(
-        from,
-        `✅ *Premier pointage visible !*\n\n` +
-        `J'ai créé *${demoEmployee.name}* et enregistré une présence à *${time}*${site ? ` sur *${site.name}*` : ''}.\n\n` +
-        `Vous pouvez maintenant ouvrir le dashboard pour voir le résultat :\n${frontendUrl}/manager\n\n` +
-        `Prochaine étape : ajoutez un vrai collaborateur ou tapez *Menu* pour explorer les demandes terrain.`,
-        phoneNumberId
-    );
+async function handleManagerInviteConversation(employee: any, messageBody: string, from: string, phoneNumberId?: string): Promise<boolean> {
+    if (!['WAITING_EMPLOYEE_INVITE_NAME', 'WAITING_EMPLOYEE_INVITE_PHONE'].includes(employee.conversationState || '')) {
+        return false;
+    }
+
+    if (employee.role !== 'MANAGER') {
+        await prisma.employee.update({
+            where: { id: employee.id },
+            data: { conversationState: null, tempExpenseData: Prisma.DbNull }
+        });
+        return false;
+    }
+
+    const trimmed = messageBody.trim();
+    if (!trimmed) return true;
+
+    if (isCancellation(trimmed)) {
+        await prisma.employee.update({
+            where: { id: employee.id },
+            data: { conversationState: null, tempExpenseData: Prisma.DbNull }
+        });
+        await sendMessage(from, `Invitation annulée.`, phoneNumberId);
+        return true;
+    }
+
+    if (employee.conversationState === 'WAITING_EMPLOYEE_INVITE_NAME') {
+        if (trimmed.length < 2 || trimmed.length > 80) {
+            await sendMessage(from, `Répondez avec un nom complet, par exemple *Marie Dupont*.`, phoneNumberId);
+            return true;
+        }
+
+        await prisma.employee.update({
+            where: { id: employee.id },
+            data: {
+                conversationState: 'WAITING_EMPLOYEE_INVITE_PHONE',
+                tempExpenseData: { inviteName: trimmed.slice(0, 80) }
+            }
+        });
+
+        await sendMessage(
+            from,
+            `Merci. Quel est son numéro WhatsApp avec indicatif pays ?\n\n` +
+            `Exemple : *+237690000000* ou *+33600000000*`,
+            phoneNumberId
+        );
+        return true;
+    }
+
+    const tempData = employee.tempExpenseData as Record<string, any> | null;
+    const inviteName = tempData?.inviteName;
+    if (!inviteName) {
+        await prisma.employee.update({
+            where: { id: employee.id },
+            data: { conversationState: 'WAITING_EMPLOYEE_INVITE_NAME', tempExpenseData: Prisma.DbNull }
+        });
+        await sendMessage(from, `Je n'ai plus le nom. Répondez avec le nom complet du collaborateur.`, phoneNumberId);
+        return true;
+    }
+
+    const phoneNumber = normalizeInvitePhone(trimmed);
+    if (!phoneNumber) {
+        await sendMessage(from, `Le numéro ne semble pas valide. Utilisez le format international, par exemple *+237690000000*.`, phoneNumberId);
+        return true;
+    }
+
+    try {
+        const invitedEmployee = await createInvitedEmployee(employee, inviteName, phoneNumber);
+        const deliveryMode = await sendEmployeeInvitation(phoneNumber, invitedEmployee.name || inviteName, employee, phoneNumberId);
+
+        await prisma.employee.update({
+            where: { id: employee.id },
+            data: { conversationState: null, tempExpenseData: Prisma.DbNull }
+        });
+
+        await sendMessage(
+            from,
+            `✅ *Collaborateur ajouté !*\n\n` +
+            `👤 ${invitedEmployee.name}\n` +
+            `📱 ${phoneNumber}\n\n` +
+            (deliveryMode === 'template'
+                ? `L'invitation WhatsApp a été envoyée via template Meta.`
+                : `J'ai tenté l'envoi WhatsApp direct. Si Meta bloque l'envoi proactif, il faudra valider le template d'invitation collaborateur.`) +
+            `\n\nDès qu'il répond *Hi*, son premier pointage apparaîtra dans votre dashboard.`,
+            phoneNumberId
+        );
+    } catch (error: any) {
+        if (error.message === 'PHONE_ALREADY_MANAGER') {
+            await sendMessage(from, `Ce numéro est déjà utilisé par un manager de votre espace.`, phoneNumberId);
+        } else {
+            console.error('Error inviting employee from WhatsApp:', error);
+            await sendMessage(from, `❌ Impossible d'ajouter ce collaborateur pour le moment. Réessayez ou tapez *Annuler*.`, phoneNumberId);
+        }
+    }
+
     return true;
 }
 
@@ -867,6 +1008,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                         if (messageType === 'text' && isAdminStart(messageBody)) {
                             console.log(`🔑 Processing ADMIN START activation from ${from}`);
                             await activateManagerWhatsApp(from, employee, phoneNumberId);
+                            continue;
+                        }
+
+                        if (employee && messageType === 'text' && await handleManagerInviteConversation(employee, messageBody, from, phoneNumberId)) {
                             continue;
                         }
 
