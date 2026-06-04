@@ -177,6 +177,7 @@ app.get('/api/frontend-reset', (_req, res) => {
 import router from './routes/index';
 import { initLateArrivalJob } from './jobs/lateArrivalJob';
 import { initReminderJobs } from './jobs/reminderJobs';
+import { initOnboardingConversionJobs } from './jobs/onboardingConversionJobs';
 import { initRetentionJob } from './modules/privacy/retentionJob';
 import { initRecurringInterventionsJob } from './cron/recurringInterventions';
 import { startNightlyWorker } from './cron/nightlyWorker';
@@ -305,6 +306,7 @@ if ('serviceWorker' in navigator) {
 // Initialisation des Jobs (Cron)
 initLateArrivalJob();
 initReminderJobs();
+initOnboardingConversionJobs();
 initRetentionJob(); // Privacy Suite - purge automatique RGPD
 initRecurringInterventionsJob(); // Opérations - auto-génération des interventions récurrentes
 startNightlyWorker(); // 🌙 AI Agent Proactive Alerts & Hub RGPD Purge

@@ -475,6 +475,18 @@ export const getOnboardingFunnel = async (req: Request, res: Response): Promise<
                     timestamp: eventTime(tenant.onboardingEvents, 'SPACE_CREATED') || tenant.createdAt
                 },
                 {
+                    key: 'magic_link_sent',
+                    label: 'Lien dashboard envoyé',
+                    done: Boolean(eventTime(tenant.onboardingEvents, 'MANAGER_MAGIC_LINK_SENT', manager?.id)),
+                    timestamp: eventTime(tenant.onboardingEvents, 'MANAGER_MAGIC_LINK_SENT', manager?.id)
+                },
+                {
+                    key: 'dashboard_reached',
+                    label: 'Dashboard ouvert',
+                    done: Boolean(eventTime(tenant.onboardingEvents, 'MANAGER_DASHBOARD_REACHED', manager?.id) || tenant.lastLoginAt),
+                    timestamp: eventTime(tenant.onboardingEvents, 'MANAGER_DASHBOARD_REACHED', manager?.id) || tenant.lastLoginAt || null
+                },
+                {
                     key: 'manager_activated',
                     label: 'Manager activé',
                     done: Boolean(eventTime(tenant.onboardingEvents, 'MANAGER_ACTIVATED', manager?.id) || manager?.hasCompletedOnboarding || tenant.lastLoginAt),
@@ -517,6 +529,8 @@ export const getOnboardingFunnel = async (req: Request, res: Response): Promise<
 
         const summary = {
             spacesCreated: tenants.length,
+            magicLinkSent: items.filter(i => i.steps.find(s => s.key === 'magic_link_sent')?.done).length,
+            dashboardReached: items.filter(i => i.steps.find(s => s.key === 'dashboard_reached')?.done).length,
             managerActivated: items.filter(i => i.steps.find(s => s.key === 'manager_activated')?.done).length,
             employeeInvited: items.filter(i => i.steps.find(s => s.key === 'employee_invited')?.done).length,
             employeeActivated: items.filter(i => i.steps.find(s => s.key === 'employee_activated')?.done).length,
@@ -529,6 +543,8 @@ export const getOnboardingFunnel = async (req: Request, res: Response): Promise<
             periodDays: days,
             summary: {
                 ...summary,
+                magicLinkSentRate: rate(summary.magicLinkSent),
+                dashboardReachedRate: rate(summary.dashboardReached),
                 managerActivationRate: rate(summary.managerActivated),
                 employeeInviteRate: rate(summary.employeeInvited),
                 employeeActivationRate: rate(summary.employeeActivated),

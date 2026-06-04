@@ -44,10 +44,14 @@ interface OnboardingFunnel {
     periodDays: number;
     summary: {
         spacesCreated: number;
+        magicLinkSent: number;
+        dashboardReached: number;
         managerActivated: number;
         employeeInvited: number;
         employeeActivated: number;
         firstCheckin: number;
+        magicLinkSentRate: number;
+        dashboardReachedRate: number;
         managerActivationRate: number;
         employeeInviteRate: number;
         employeeActivationRate: number;
@@ -231,7 +235,7 @@ export default function Overview() {
                             </div>
                             <div>
                                 <h2 className="text-lg font-semibold text-gray-900">Tunnel onboarding WhatsApp</h2>
-                                <p className="text-sm text-gray-500">Création espace → invitation → activation → premier pointage, sur {onboarding.periodDays} jours.</p>
+                                <p className="text-sm text-gray-500">Création espace → dashboard → invitation → premier pointage, sur {onboarding.periodDays} jours.</p>
                             </div>
                         </div>
                         <button
@@ -242,10 +246,11 @@ export default function Overview() {
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
                         {[
                             ['Espaces', onboarding.summary.spacesCreated, 100],
-                            ['Managers actifs', onboarding.summary.managerActivated, onboarding.summary.managerActivationRate],
+                            ['Liens envoyés', onboarding.summary.magicLinkSent, onboarding.summary.magicLinkSentRate],
+                            ['Dashboards ouverts', onboarding.summary.dashboardReached, onboarding.summary.dashboardReachedRate],
                             ['Collaborateur invité', onboarding.summary.employeeInvited, onboarding.summary.employeeInviteRate],
                             ['Collaborateur actif', onboarding.summary.employeeActivated, onboarding.summary.employeeActivationRate],
                             ['Premier pointage', onboarding.summary.firstCheckin, onboarding.summary.firstCheckinRate]
@@ -270,7 +275,7 @@ export default function Overview() {
                                     </button>
                                     <span className="text-xs text-gray-500">{item.completed}/{item.total}</span>
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-3">
+                                <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2 mt-3">
                                     {item.steps.map((step) => (
                                         <div key={step.key} className="flex items-center gap-1 text-xs">
                                             {step.done ? (

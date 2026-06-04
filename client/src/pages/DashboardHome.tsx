@@ -172,6 +172,66 @@ export default function DashboardHome() {
     // Calculate absent (total - active)
     const absentToday = kpis.totalEmployees - kpis.activeNow;
     const completedOnboardingSteps = onboarding?.steps.filter(step => step.done).length || 0;
+    const adminStartUrl = `https://wa.me/${import.meta.env.VITE_BOT_PHONE_NUMBER || '33612345678'}?text=${encodeURIComponent("Admin Start")}`;
+    const onboardingAction = (() => {
+        if (!onboarding) {
+            return {
+                title: 'Invitez votre premier collaborateur',
+                description: 'Envoyez une invitation WhatsApp à une personne réelle pour voir le premier pointage arriver ici.',
+                cta: 'Inviter un collaborateur',
+                route: '/employees',
+                href: null
+            };
+        }
+
+        if (onboarding.nextAction === 'manager_activated') {
+            return {
+                title: 'Activez votre manager WhatsApp',
+                description: 'Revenez dans WhatsApp et envoyez Admin Start. Vous pourrez ensuite inviter un premier collaborateur.',
+                cta: 'Activer sur WhatsApp',
+                route: '/dashboard',
+                href: adminStartUrl
+            };
+        }
+
+        if (onboarding.nextAction === 'employee_invited') {
+            return {
+                title: 'Invitez votre premier collaborateur',
+                description: 'Ajoutez un collaborateur réel. Il recevra WhatsApp et pourra pointer sans installer d’application.',
+                cta: 'Inviter maintenant',
+                route: '/employees',
+                href: null
+            };
+        }
+
+        if (onboarding.nextAction === 'employee_activated') {
+            return {
+                title: 'Collaborateur invité',
+                description: 'Demandez-lui simplement de répondre au message WhatsApp reçu pour activer son accès.',
+                cta: 'Voir les collaborateurs',
+                route: '/employees',
+                href: null
+            };
+        }
+
+        if (onboarding.nextAction === 'first_checkin') {
+            return {
+                title: 'Prêt pour le premier pointage',
+                description: 'Le collaborateur peut cliquer sur Pointer depuis WhatsApp. Le résultat apparaîtra dans le tableau de bord.',
+                cta: 'Voir les pointages',
+                route: '/attendance',
+                href: null
+            };
+        }
+
+        return {
+            title: 'Tunnel opérationnel',
+            description: 'Le premier pointage est arrivé. Vous pouvez maintenant élargir le test à d’autres collaborateurs.',
+            cta: 'Inviter un autre collaborateur',
+            route: '/employees',
+            href: null
+        };
+    })();
 
     const kpiCards = [
         {
@@ -269,18 +329,29 @@ export default function DashboardHome() {
                                 <div>
                                     <h3 className="font-bold text-gray-900">Premiers pas WhatsPoint</h3>
                                     <p className="text-sm text-gray-500">
-                                        {completedOnboardingSteps}/{onboarding.steps.length} étapes validées dans le tunnel WhatsApp.
+                                        {completedOnboardingSteps}/{onboarding.steps.length} étapes validées. Prochaine action : {onboardingAction.title.toLowerCase()}.
                                     </p>
                                 </div>
                             </div>
                         </div>
 
                         <button
-                            onClick={() => navigate('/employees')}
+                            onClick={() => {
+                                if (onboardingAction.href) {
+                                    window.open(onboardingAction.href, '_blank', 'noopener,noreferrer');
+                                    return;
+                                }
+                                navigate(onboardingAction.route);
+                            }}
                             className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition"
                         >
-                            Inviter un collaborateur
+                            {onboardingAction.cta}
                         </button>
+                    </div>
+
+                    <div className="mt-5 rounded-xl bg-emerald-50 border border-emerald-100 p-4">
+                        <p className="text-sm font-semibold text-emerald-950">{onboardingAction.title}</p>
+                        <p className="text-sm text-emerald-800 mt-1">{onboardingAction.description}</p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-5">

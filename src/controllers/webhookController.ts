@@ -475,7 +475,7 @@ async function sendManagerActivationAha(to: string, manager: any, phoneNumberId?
     let dashboardLine = '';
 
     try {
-        const { url } = await createManagerMagicLoginLink(manager.id);
+        const { url } = await createManagerMagicLoginLink(manager.id, { source: 'WHATSAPP_ADMIN_START' });
         dashboardLine = `\n\n🔐 Votre dashboard manager :\n${url}\n_Ce lien personnel expire dans 15 minutes._`;
     } catch (error) {
         console.error('Manager activation magic link generation failed:', error);
@@ -1013,7 +1013,7 @@ async function createWhatsAppTrialSpace(from: string, session: SignupSession, ph
     });
 
     if (existingManager) {
-        const { url: dashboardUrl } = await createManagerMagicLoginLink(existingManager.id);
+        const { url: dashboardUrl } = await createManagerMagicLoginLink(existingManager.id, { source: 'WHATSAPP_EXISTING_MANAGER' });
         await sendMessage(
             from,
             `✅ Votre numéro est déjà rattaché à *${existingManager.tenant.name}*.\n\n` +
@@ -1102,7 +1102,7 @@ async function createWhatsAppTrialSpace(from: string, session: SignupSession, ph
     assignNumberToTenant(result.tenant.id, country)
         .catch(err => console.error('Number allocation failed after WhatsApp signup:', err));
 
-    const { url: dashboardUrl } = await createManagerMagicLoginLink(result.manager.id);
+    const { url: dashboardUrl } = await createManagerMagicLoginLink(result.manager.id, { source: 'WHATSAPP_SIGNUP' });
 
     await sendMessage(
         from,

@@ -29,7 +29,7 @@ export function normalizeManagerRedirect(redirectTo?: string): string {
 
 export async function createManagerMagicLoginLink(
     employeeId: string,
-    options: { redirectTo?: string } = {}
+    options: { redirectTo?: string; source?: string } = {}
 ): Promise<{ url: string; expiresAt: Date }> {
     const manager = await prisma.employee.findUnique({
         where: { id: employeeId },
@@ -57,13 +57,26 @@ export async function createManagerMagicLoginLink(
     const expiresAt = new Date(Date.now() + MAGIC_LOGIN_TTL_MS);
     const redirectTo = normalizeManagerRedirect(options.redirectTo);
 
-    await prisma.managerMagicLoginToken.create({
+    const loginToken = await prisma.managerMagicLoginToken.create({
         data: {
             tokenHash: hashToken(token),
             employeeId: manager.id,
             tenantId: manager.tenantId,
             redirectTo,
             expiresAt
+        }
+    });
+
+    await prisma.onboardingEvent.create({
+        data: {
+            tenantId: manager.tenantId,
+            employeeId: manager.id,
+            type: 'MANAGER_MAGIC_LINK_SENT',
+            metadata: {
+                source: options.source || 'SYSTEM',
+                tokenId: loginToken.id,
+                expiresAt
+            }
         }
     });
 
@@ -116,6 +129,18 @@ export async function consumeManagerMagicLoginToken(rawToken: string) {
         await tx.tenant.update({
             where: { id: loginToken.employee.tenantId },
             data: { lastLoginAt: new Date() }
+        });
+
+        await tx.onboardingEvent.create({
+            data: {
+                tenantId: loginToken.employee.tenantId,
+                employeeId: loginToken.employee.id,
+                type: 'MANAGER_DASHBOARD_REACHED',
+                metadata: {
+                    source: 'MAGIC_LINK',
+                    tokenId: loginToken.id
+                }
+            }
         });
 
         return {
