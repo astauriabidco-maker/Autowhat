@@ -109,6 +109,11 @@ const MANAGER_AHA_BUTTONS = [
     { id: 'btn_manager_menu', title: 'Menu' }
 ];
 
+const EMPLOYEE_ACTIVATION_BUTTONS = [
+    { id: 'btn_employee_first_checkin', title: 'Pointer' },
+    { id: 'btn_employee_first_menu', title: 'Menu' }
+];
+
 const DEFAULT_UNKNOWN_CONTACT_WELCOME =
     "WhatsPoint transforme WhatsApp en pointage, planning et demandes terrain pour vos équipes.\n\n" +
     "Vous pouvez créer votre espace, voir une démo ou simplement répondre à ce message pour parler à Astauria.";
@@ -753,6 +758,94 @@ async function handleManagerInviteConversation(employee: any, messageBody: strin
     return true;
 }
 
+async function notifyManagersByWhatsApp(tenantId: string, message: string, phoneNumberId?: string) {
+    const managers = await prisma.employee.findMany({
+        where: {
+            tenantId,
+            role: 'MANAGER',
+            phoneNumber: { not: '' }
+        },
+        select: { phoneNumber: true }
+    });
+
+    for (const manager of managers) {
+        if (!manager.phoneNumber) continue;
+        await sendMessage(manager.phoneNumber.replace(/^\+/, ''), message, phoneNumberId);
+    }
+}
+
+async function handleEmployeeFirstActivation(employee: any, messageType: string, messageBody: string, from: string, phoneNumberId?: string): Promise<boolean> {
+    if (employee.role !== 'EMPLOYEE' || employee.hasCompletedOnboarding || messageType !== 'text') {
+        return false;
+    }
+
+    if (normalizeText(messageBody) === 'stop') {
+        return false;
+    }
+
+    await prisma.employee.update({
+        where: { id: employee.id },
+        data: { hasCompletedOnboarding: true }
+    });
+
+    await sendInteractiveButtons(
+        from,
+        `Bienvenue *${employee.name || 'dans WhatsPoint'}* 👋\n\n` +
+        `Votre accès WhatsApp est actif.\n\n` +
+        `Vous pouvez maintenant pointer votre arrivée, consulter le menu ou envoyer vos demandes terrain depuis cette conversation.`,
+        EMPLOYEE_ACTIVATION_BUTTONS,
+        phoneNumberId
+    );
+
+    await notifyManagersByWhatsApp(
+        employee.tenantId,
+        `✅ *Collaborateur actif*\n\n` +
+        `${employee.name || 'Un collaborateur'} vient d'activer son accès WhatsPoint.\n\n` +
+        `Il peut maintenant pointer depuis WhatsApp.`,
+        phoneNumberId
+    );
+
+    return true;
+}
+
+async function handleEmployeeActivationAction(
+    selectedId: string,
+    employee: any,
+    from: string,
+    phoneNumberId?: string,
+    messageTimestamp?: Date
+): Promise<boolean> {
+    if (!['btn_employee_first_checkin', 'btn_employee_first_menu'].includes(selectedId)) {
+        return false;
+    }
+
+    if (employee.role !== 'EMPLOYEE') {
+        await sendMessage(from, `Cette action est réservée aux collaborateurs.`, phoneNumberId);
+        return true;
+    }
+
+    if (selectedId === 'btn_employee_first_menu') {
+        await sendMainMenu(from, phoneNumberId);
+        return true;
+    }
+
+    const result = await checkIn(employee, messageTimestamp);
+    if (result.success) {
+        await sendMessage(from, `✅ ${result.message} Bon travail ${employee.name || ''} !`, phoneNumberId);
+        await notifyManagersByWhatsApp(
+            employee.tenantId,
+            `🟢 *Premier pointage reçu*\n\n` +
+            `${employee.name || 'Un collaborateur'} vient de pointer depuis WhatsApp.\n\n` +
+            `Le pointage est visible dans le dashboard manager.`,
+            phoneNumberId
+        );
+    } else {
+        await sendMessage(from, `⚠️ ${result.message}`, phoneNumberId);
+    }
+
+    return true;
+}
+
 function startWhatsAppSignupSession(from: string) {
     whatsappSignupSessions.set(from, {
         step: 'WAITING_COMPANY',
@@ -1012,6 +1105,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                         }
 
                         if (employee && messageType === 'text' && await handleManagerInviteConversation(employee, messageBody, from, phoneNumberId)) {
+                            continue;
+                        }
+
+                        if (employee && await handleEmployeeFirstActivation(employee, messageType, messageBody, from, phoneNumberId)) {
                             continue;
                         }
 
@@ -1760,6 +1857,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 selectedId = message.interactive?.list_reply?.id;
                             } else if (interactiveType === 'button_reply') {
                                 selectedId = message.interactive?.button_reply?.id;
+                            }
+
+                            if (selectedId && await handleEmployeeActivationAction(selectedId, employee, from, phoneNumberId, messageTimestamp)) {
+                                continue;
                             }
 
                             if (selectedId && await handleManagerAhaAction(selectedId, employee, from, phoneNumberId)) {
