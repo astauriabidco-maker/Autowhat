@@ -59,6 +59,35 @@ Variables :
 
 - `{{1}}` : prenom collaborateur
 
+## 4. `whatspoint_employee_invite_fr`
+
+Categorie recommandee : Utility.
+
+Texte propose :
+
+```text
+Bonjour {{1}},
+
+Vous avez ete invite sur WhatsPoint par {{2}}.
+
+Pour pointer votre arrivee, repondez Hi a ce message.
+Pour consulter les options disponibles, repondez Menu.
+
+WhatsPoint est un service edite par Astauria.
+```
+
+Variables :
+
+- `{{1}}` : prenom ou nom du collaborateur
+- `{{2}}` : nom de l'entreprise
+
+Configuration serveur apres approbation Meta :
+
+```env
+WHATSAPP_EMPLOYEE_INVITE_TEMPLATE=whatspoint_employee_invite_fr
+WHATSAPP_EMPLOYEE_INVITE_TEMPLATE_LANG=fr
+```
+
 ## Appel API WhatsPoint
 
 Une fois le template approuve, un outil metier peut appeler :
