@@ -8,7 +8,10 @@ import {
     AlertCircle,
     MessageSquare,
     ArrowUp,
-    ArrowDown
+    ArrowDown,
+    CheckCircle,
+    Circle,
+    UserPlus
 } from 'lucide-react';
 
 interface Stats {
@@ -37,9 +40,38 @@ interface Stats {
     }>;
 }
 
+interface OnboardingFunnel {
+    periodDays: number;
+    summary: {
+        spacesCreated: number;
+        managerActivated: number;
+        employeeInvited: number;
+        employeeActivated: number;
+        firstCheckin: number;
+        managerActivationRate: number;
+        employeeInviteRate: number;
+        employeeActivationRate: number;
+        firstCheckinRate: number;
+    };
+    items: Array<{
+        tenantId: string;
+        tenantName: string;
+        completed: number;
+        total: number;
+        blockedAt: string | null;
+        steps: Array<{
+            key: string;
+            label: string;
+            done: boolean;
+            timestamp: string | null;
+        }>;
+    }>;
+}
+
 export default function Overview() {
     const navigate = useNavigate();
     const [stats, setStats] = useState<Stats | null>(null);
+    const [onboarding, setOnboarding] = useState<OnboardingFunnel | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -49,11 +81,16 @@ export default function Overview() {
     const fetchStats = async () => {
         try {
             const token = localStorage.getItem('superadmin_token');
-            const response = await fetch('/admin/stats', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await response.json();
-            setStats(data);
+            const [statsResponse, onboardingResponse] = await Promise.all([
+                fetch('/admin/stats', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                }),
+                fetch('/admin/onboarding-funnel', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+            ]);
+            setStats(await statsResponse.json());
+            setOnboarding(await onboardingResponse.json());
         } catch (error) {
             console.error('Error fetching stats:', error);
         } finally {
@@ -183,6 +220,73 @@ export default function Overview() {
                     </div>
                 </div>
             </div>
+
+            {/* WhatsApp Onboarding Funnel */}
+            {onboarding && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-emerald-100 rounded-xl">
+                                <UserPlus className="text-emerald-600" size={22} />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-semibold text-gray-900">Tunnel onboarding WhatsApp</h2>
+                                <p className="text-sm text-gray-500">Création espace → invitation → activation → premier pointage, sur {onboarding.periodDays} jours.</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => navigate('/superadmin/tenants')}
+                            className="text-sm text-emerald-700 font-semibold hover:text-emerald-800"
+                        >
+                            Voir les clients →
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                        {[
+                            ['Espaces', onboarding.summary.spacesCreated, 100],
+                            ['Managers actifs', onboarding.summary.managerActivated, onboarding.summary.managerActivationRate],
+                            ['Collaborateur invité', onboarding.summary.employeeInvited, onboarding.summary.employeeInviteRate],
+                            ['Collaborateur actif', onboarding.summary.employeeActivated, onboarding.summary.employeeActivationRate],
+                            ['Premier pointage', onboarding.summary.firstCheckin, onboarding.summary.firstCheckinRate]
+                        ].map(([label, value, rate]) => (
+                            <div key={label as string} className="rounded-lg bg-gray-50 border border-gray-200 p-4">
+                                <p className="text-xs text-gray-500 font-medium">{label}</p>
+                                <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+                                <p className="text-xs text-emerald-600 mt-1">{rate}% du tunnel</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-5 space-y-3">
+                        {onboarding.items.slice(0, 5).map((item) => (
+                            <div key={item.tenantId} className="rounded-lg border border-gray-100 p-4 hover:bg-gray-50 transition">
+                                <div className="flex items-center justify-between gap-3">
+                                    <button
+                                        onClick={() => navigate(`/superadmin/tenants/${item.tenantId}`)}
+                                        className="font-semibold text-gray-900 hover:text-red-600 text-left"
+                                    >
+                                        {item.tenantName}
+                                    </button>
+                                    <span className="text-xs text-gray-500">{item.completed}/{item.total}</span>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-3">
+                                    {item.steps.map((step) => (
+                                        <div key={step.key} className="flex items-center gap-1 text-xs">
+                                            {step.done ? (
+                                                <CheckCircle size={14} className="text-emerald-600" />
+                                            ) : (
+                                                <Circle size={14} className="text-gray-300" />
+                                            )}
+                                            <span className={step.done ? 'text-gray-700' : 'text-gray-400'}>{step.label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Recent Tenants */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100">

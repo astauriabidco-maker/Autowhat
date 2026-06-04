@@ -76,6 +76,8 @@ model Tenant {
   quotes             Quote[]            // FSM - Devis
   interventionRequests InterventionRequest[] // FSM - Demandes WhatsApp
   variations         TimeVariation[]
+  onboardingEvents   OnboardingEvent[]
+  whatsAppConversationSessions WhatsAppConversationSession[]
 }
 
 // --- MODÈLE NUMBER POOL (Numéros Système Partagés) ---
@@ -221,6 +223,8 @@ model Employee {
   phoneNumber String   // Format E.164 (ex: +33612345678)
   name        String?
   role        String   @default("EMPLOYEE") // EMPLOYEE, MANAGER
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt @default(now())
   password    String?  // Hashé, uniquement pour les MANAGER
   resetToken       String?   // Token de réinitialisation de mot de passe (UUID)
   resetTokenExpiry DateTime? // Date d'expiration du token (1h)
@@ -262,6 +266,8 @@ model Employee {
   interventions  Intervention[]   // FSM - Interventions assignées
   recurringInterventions RecurringIntervention[] // FSM - Récurrences assignées
   assignedInterventionRequests InterventionRequest[] @relation("InterventionRequestAssignee")
+  onboardingEvents OnboardingEvent[]
+  whatsAppConversationSessions WhatsAppConversationSession[]
 
   // Un numéro est unique pour un tenant donné
   @@unique([phoneNumber, tenantId])
@@ -447,6 +453,42 @@ model MessageLog {
   
   @@index([tenantId])
   @@index([direction])
+  @@index([createdAt])
+}
+
+model WhatsAppConversationSession {
+  id            String   @id @default(uuid())
+  phoneNumber   String
+  phoneNumberId String   @default("default")
+  kind          String
+  state         String
+  data          Json?
+  tenantId      String?
+  tenant        Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId    String?
+  employee      Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([phoneNumberId, phoneNumber, kind])
+  @@index([expiresAt])
+  @@index([tenantId])
+  @@index([employeeId, kind])
+}
+
+model OnboardingEvent {
+  id         String   @id @default(uuid())
+  type       String
+  metadata   Json?
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, type])
+  @@index([employeeId, type])
   @@index([createdAt])
 }
 

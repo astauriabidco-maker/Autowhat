@@ -59,7 +59,7 @@ Variables :
 
 - `{{1}}` : prenom collaborateur
 
-## 4. `whatspoint_employee_invite_fr`
+## 4. `whatspoint_employee_access_fr`
 
 Categorie recommandee : Utility.
 
@@ -68,12 +68,9 @@ Texte propose :
 ```text
 Bonjour {{1}},
 
-Vous avez ete invite sur WhatsPoint par {{2}}.
+Votre acces collaborateur pour {{2}} est pret.
 
-Pour pointer votre arrivee, repondez Hi a ce message.
-Pour consulter les options disponibles, repondez Menu.
-
-WhatsPoint est un service edite par Astauria.
+Pour activer votre acces WhatsApp, repondez a ce message.
 ```
 
 Variables :
@@ -84,7 +81,7 @@ Variables :
 Configuration serveur apres approbation Meta :
 
 ```env
-WHATSAPP_EMPLOYEE_INVITE_TEMPLATE=whatspoint_employee_invite_fr
+WHATSAPP_EMPLOYEE_INVITE_TEMPLATE=whatspoint_employee_access_fr
 WHATSAPP_EMPLOYEE_INVITE_TEMPLATE_LANG=fr
 ```
 

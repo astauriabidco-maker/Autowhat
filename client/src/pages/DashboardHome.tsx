@@ -13,7 +13,10 @@ import {
     FileText,
     BarChart3,
     Target,
-    Timer
+    Timer,
+    CheckCircle,
+    Circle,
+    UserPlus
 } from 'lucide-react';
 import {
     BarChart,
@@ -80,6 +83,30 @@ interface DashboardStats {
     analytics?: AnalyticsData;
 }
 
+interface OnboardingStep {
+    key: string;
+    label: string;
+    done: boolean;
+    timestamp: string | null;
+}
+
+interface OnboardingProgress {
+    summary: {
+        employeeCount: number;
+        activatedEmployees: number;
+        employeesWithCheckin: number;
+        remainingSeats: number;
+    };
+    firstEmployee: {
+        id: string;
+        name: string | null;
+        activated: boolean;
+        firstCheckinAt: string | null;
+    } | null;
+    steps: OnboardingStep[];
+    nextAction: string;
+}
+
 export default function DashboardHome() {
     const navigate = useNavigate();
     const { selectedSiteId } = useSiteContext();
@@ -91,6 +118,7 @@ export default function DashboardHome() {
     const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
     const [activities, setActivities] = useState<ActivityItem[]>([]);
     const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+    const [onboarding, setOnboarding] = useState<OnboardingProgress | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -110,7 +138,10 @@ export default function DashboardHome() {
 
             // Single API call for all dashboard data - with optional siteId filter
             const params = selectedSiteId ? { siteId: selectedSiteId } : {};
-            const response = await axios.get<DashboardStats>('/api/dashboard/stats', { headers, params });
+            const [response, onboardingResponse] = await Promise.all([
+                axios.get<DashboardStats>('/api/dashboard/stats', { headers, params }),
+                axios.get<OnboardingProgress>('/api/onboarding/progress', { headers })
+            ]);
 
             const { totalEmployees, activeNow, pendingExpenses, weeklyActivity, recentActivity, analytics: analyticsData } = response.data;
 
@@ -125,6 +156,7 @@ export default function DashboardHome() {
             if (analyticsData) {
                 setAnalytics(analyticsData);
             }
+            setOnboarding(onboardingResponse.data);
 
         } catch (err: unknown) {
             if (getErrorStatus(err) === 401) {
@@ -139,6 +171,7 @@ export default function DashboardHome() {
 
     // Calculate absent (total - active)
     const absentToday = kpis.totalEmployees - kpis.activeNow;
+    const completedOnboardingSteps = onboarding?.steps.filter(step => step.done).length || 0;
 
     const kpiCards = [
         {
@@ -223,6 +256,71 @@ export default function DashboardHome() {
                     </a>
                 </div>
             </div>
+
+            {/* First Steps Widget */}
+            {onboarding && (
+                <div className="bg-white border border-emerald-200 rounded-xl shadow-sm p-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <div className="p-2 bg-emerald-100 rounded-lg">
+                                    <UserPlus className="text-emerald-600" size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900">Premiers pas WhatsPoint</h3>
+                                    <p className="text-sm text-gray-500">
+                                        {completedOnboardingSteps}/{onboarding.steps.length} étapes validées dans le tunnel WhatsApp.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => navigate('/employees')}
+                            className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition"
+                        >
+                            Inviter un collaborateur
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-5">
+                        {onboarding.steps.map((step) => (
+                            <div
+                                key={step.key}
+                                className={clsx(
+                                    'rounded-lg border p-4',
+                                    step.done ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'
+                                )}
+                            >
+                                <div className="flex items-center gap-2">
+                                    {step.done ? (
+                                        <CheckCircle size={18} className="text-emerald-600" />
+                                    ) : (
+                                        <Circle size={18} className="text-gray-400" />
+                                    )}
+                                    <span className={clsx('text-sm font-semibold', step.done ? 'text-emerald-900' : 'text-gray-600')}>
+                                        {step.label}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    {step.timestamp ? new Date(step.timestamp).toLocaleString('fr-FR') : 'En attente'}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-4 text-sm text-gray-600">
+                        {onboarding.firstEmployee ? (
+                            <span>
+                                Premier collaborateur : <strong>{onboarding.firstEmployee.name || 'Sans nom'}</strong>.
+                                {' '}Activés : {onboarding.summary.activatedEmployees}/{onboarding.summary.employeeCount}.
+                            </span>
+                        ) : (
+                            <span>Prochaine étape : invitez un premier collaborateur depuis WhatsApp ou depuis l'écran Employés.</span>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

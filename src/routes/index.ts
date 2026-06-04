@@ -47,6 +47,7 @@ router.get('/api/config/legal', adminController.getLegalContent);
 router.get('/api/attendance', authenticateManager, dashboardController.getAttendance);
 router.get('/api/attendance/stats', authenticateManager, dashboardController.getAttendanceStats);
 router.get('/api/dashboard/stats', authenticateManager, dashboardController.getDashboardStats);
+router.get('/api/onboarding/progress', authenticateManager, dashboardController.getOnboardingProgress);
 
 // Site API Routes (Protected - Manager only)
 router.get('/api/sites', authenticateManager, siteController.getSites);
@@ -159,6 +160,7 @@ router.get('/admin/employees', authenticateSuperAdmin, adminController.getAllEmp
 router.get('/admin/attendance', authenticateSuperAdmin, adminController.getAllAttendance);
 router.get('/admin/stats', authenticateSuperAdmin, adminController.getGlobalStats);
 router.get('/admin/analytics', authenticateSuperAdmin, adminController.getAnalytics);
+router.get('/admin/onboarding-funnel', authenticateSuperAdmin, adminController.getOnboardingFunnel);
 router.get('/admin/logs', authenticateSuperAdmin, adminController.getActionLogs);
 router.post('/admin/tenants/:id/suspend', authenticateSuperAdmin, adminController.suspendTenant);
 router.delete('/admin/tenants/:id', authenticateSuperAdmin, adminController.deleteTenant);

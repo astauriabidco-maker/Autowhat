@@ -407,6 +407,142 @@ export const getAnalytics = async (req: Request, res: Response): Promise<void> =
 };
 
 /**
+ * GET /admin/onboarding-funnel
+ * Tracks the WhatsApp-first onboarding funnel across recent tenants.
+ */
+export const getOnboardingFunnel = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+        const days = Math.min(parseInt(req.query.days as string) || 30, 365);
+        const from = new Date();
+        from.setDate(from.getDate() - days);
+
+        const tenants = await prisma.tenant.findMany({
+            where: { createdAt: { gte: from } },
+            take: limit,
+            orderBy: { createdAt: 'desc' },
+            select: {
+                id: true,
+                name: true,
+                createdAt: true,
+                lastLoginAt: true,
+                plan: true,
+                employees: {
+                    where: { role: { not: 'ARCHIVED' } },
+                    select: {
+                        id: true,
+                        name: true,
+                        role: true,
+                        hasCompletedOnboarding: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        attendances: {
+                            orderBy: { checkIn: 'asc' },
+                            take: 1,
+                            select: { checkIn: true }
+                        }
+                    }
+                },
+                onboardingEvents: {
+                    orderBy: { createdAt: 'asc' },
+                    select: {
+                        type: true,
+                        employeeId: true,
+                        createdAt: true
+                    }
+                }
+            }
+        });
+
+        const eventTime = (events: { type: string; employeeId: string | null; createdAt: Date }[], type: string, employeeId?: string | null) => {
+            const event = events.find(e => e.type === type && (!employeeId || e.employeeId === employeeId));
+            return event?.createdAt || null;
+        };
+
+        const items = tenants.map(tenant => {
+            const manager = tenant.employees.find(e => e.role === 'MANAGER');
+            const employees = tenant.employees.filter(e => e.role === 'EMPLOYEE');
+            const firstInvited = employees[0] || null;
+            const firstActivated = employees.find(e => e.hasCompletedOnboarding) || null;
+            const firstWithCheckin = employees.find(e => e.attendances.length > 0) || null;
+            const firstCheckinAt = firstWithCheckin?.attendances[0]?.checkIn || null;
+
+            const steps = [
+                {
+                    key: 'space_created',
+                    label: 'Espace créé',
+                    done: true,
+                    timestamp: eventTime(tenant.onboardingEvents, 'SPACE_CREATED') || tenant.createdAt
+                },
+                {
+                    key: 'manager_activated',
+                    label: 'Manager activé',
+                    done: Boolean(eventTime(tenant.onboardingEvents, 'MANAGER_ACTIVATED', manager?.id) || manager?.hasCompletedOnboarding || tenant.lastLoginAt),
+                    timestamp: eventTime(tenant.onboardingEvents, 'MANAGER_ACTIVATED', manager?.id) || tenant.lastLoginAt || null
+                },
+                {
+                    key: 'employee_invited',
+                    label: 'Collaborateur invité',
+                    done: employees.length > 0,
+                    timestamp: firstInvited ? eventTime(tenant.onboardingEvents, 'EMPLOYEE_INVITED', firstInvited.id) || firstInvited.createdAt : null
+                },
+                {
+                    key: 'employee_activated',
+                    label: 'Collaborateur activé',
+                    done: Boolean(firstActivated),
+                    timestamp: firstActivated ? eventTime(tenant.onboardingEvents, 'EMPLOYEE_ACTIVATED', firstActivated.id) || firstActivated.updatedAt : null
+                },
+                {
+                    key: 'first_checkin',
+                    label: 'Premier pointage',
+                    done: Boolean(firstCheckinAt),
+                    timestamp: firstWithCheckin ? eventTime(tenant.onboardingEvents, 'FIRST_CHECKIN', firstWithCheckin.id) || firstCheckinAt : null
+                }
+            ];
+
+            const completed = steps.filter(s => s.done).length;
+            return {
+                tenantId: tenant.id,
+                tenantName: tenant.name,
+                plan: tenant.plan,
+                createdAt: tenant.createdAt,
+                completed,
+                total: steps.length,
+                blockedAt: steps.find(s => !s.done)?.key || null,
+                manager: manager ? { id: manager.id, name: manager.name } : null,
+                firstEmployee: firstInvited ? { id: firstInvited.id, name: firstInvited.name } : null,
+                steps
+            };
+        });
+
+        const summary = {
+            spacesCreated: tenants.length,
+            managerActivated: items.filter(i => i.steps.find(s => s.key === 'manager_activated')?.done).length,
+            employeeInvited: items.filter(i => i.steps.find(s => s.key === 'employee_invited')?.done).length,
+            employeeActivated: items.filter(i => i.steps.find(s => s.key === 'employee_activated')?.done).length,
+            firstCheckin: items.filter(i => i.steps.find(s => s.key === 'first_checkin')?.done).length
+        };
+
+        const rate = (value: number) => summary.spacesCreated > 0 ? Math.round((value / summary.spacesCreated) * 100) : 0;
+
+        res.status(200).json({
+            periodDays: days,
+            summary: {
+                ...summary,
+                managerActivationRate: rate(summary.managerActivated),
+                employeeInviteRate: rate(summary.employeeInvited),
+                employeeActivationRate: rate(summary.employeeActivated),
+                firstCheckinRate: rate(summary.firstCheckin)
+            },
+            items
+        });
+    } catch (error) {
+        console.error('Error fetching onboarding funnel:', error);
+        res.status(500).json({ error: 'Erreur lors de la récupération du tunnel onboarding' });
+    }
+};
+
+/**
  * GET /admin/tenants/list
  * Returns paginated list of tenants with admin info.
  */

@@ -27,10 +27,11 @@ interface SignupSession {
     companyName?: string;
     teamSize?: number;
     email?: string;
-    createdAt: number;
+    createdAt: Date;
+    id?: string;
 }
 
-const whatsappSignupSessions = new Map<string, SignupSession>();
+const SIGNUP_SESSION_KIND = 'SIGNUP_TRIAL';
 const SIGNUP_SESSION_TTL_MS = 30 * 60 * 1000;
 
 // Expense category buttons (WhatsApp allows max 3 per message, so we use list)
@@ -115,8 +116,9 @@ const EMPLOYEE_ACTIVATION_BUTTONS = [
 ];
 
 const DEFAULT_UNKNOWN_CONTACT_WELCOME =
-    "WhatsPoint transforme WhatsApp en pointage, planning et demandes terrain pour vos équipes.\n\n" +
-    "Vous pouvez créer votre espace, voir une démo ou simplement répondre à ce message pour parler à Astauria.";
+    "WhatsPoint aide vos équipes à gérer pointage, planning et demandes terrain depuis WhatsApp, sans application supplémentaire.\n\n" +
+    "Vous pouvez créer un espace d'essai, voir une démo, ou répondre à ce message pour échanger avec Astauria.\n\n" +
+    "Répondez STOP à tout moment pour ne plus recevoir de messages WhatsPoint.";
 const DEFAULT_UNKNOWN_CONTACT_BTN_1 = 'Créer un espace';
 const DEFAULT_UNKNOWN_CONTACT_BTN_2 = 'Voir une démo';
 
@@ -475,7 +477,7 @@ async function sendManagerActivationAha(to: string, manager: any, phoneNumberId?
         `👋 Bonjour *${firstName}* !\n\n` +
         `Vous êtes bien l'administrateur de *${manager.tenant.name}*.\n\n` +
         `✅ Votre manager WhatsApp est activé.\n\n` +
-        `Pour voir la valeur tout de suite, invitez un premier collaborateur. Il pourra pointer depuis WhatsApp sans installer d'application.`,
+        `Invitez maintenant un premier collaborateur autorisé par votre entreprise. Il recevra une invitation WhatsApp et pourra pointer sans installer d'application.`,
         MANAGER_AHA_BUTTONS,
         phoneNumberId
     );
@@ -511,6 +513,7 @@ async function activateManagerWhatsApp(from: string, existingEmployee: any, phon
     }
 
     await sendManagerActivationAha(from, manager, phoneNumberId);
+    await logOnboardingEvent(manager.tenantId, 'MANAGER_ACTIVATED', manager.id, { source: 'WHATSAPP' });
     console.log(`✅ Manager ${manager.name} activated successfully`);
     return true;
 }
@@ -568,10 +571,10 @@ async function sendEmployeeInvitation(employeePhone: string, employeeName: strin
     await sendMessage(
         to,
         `Bonjour ${employeeName},\n\n` +
-        `Vous avez été invité sur WhatsPoint par *${manager.tenant.name}*.\n\n` +
-        `Pour pointer votre arrivée, répondez simplement *Hi*.\n` +
+        `*${manager.tenant.name}* vous invite à utiliser WhatsPoint pour le pointage et les demandes liées au travail depuis WhatsApp.\n\n` +
+        `Pour commencer, répondez *Hi*.\n` +
         `Pour voir les options disponibles, répondez *Menu*.\n\n` +
-        `WhatsPoint est un service édité par Astauria.`,
+        `Si cette invitation ne vous concerne pas, répondez *STOP*.`,
         phoneNumberId
     );
     return 'session_message';
@@ -639,8 +642,9 @@ async function handleManagerAhaAction(selectedId: string, employee: any, from: s
         await sendMessage(
             from,
             `👤 *Inviter un collaborateur*\n\n` +
-            `Quel est son nom complet ?\n\n` +
-            `Exemple : *Marie Dupont*`,
+            `Indiquez son nom complet tel qu'il doit apparaître dans WhatsPoint.\n\n` +
+            `Exemple : *Marie Dupont*\n\n` +
+            `Tapez *Annuler* pour arrêter.`,
             phoneNumberId
         );
         return true;
@@ -703,7 +707,8 @@ async function handleManagerInviteConversation(employee: any, messageBody: strin
         await sendMessage(
             from,
             `Merci. Quel est son numéro WhatsApp avec indicatif pays ?\n\n` +
-            `Exemple : *+237690000000* ou *+33600000000*`,
+            `Exemple : *+237690000000* ou *+33600000000*\n\n` +
+            `Assurez-vous d'être autorisé à utiliser ce numéro pour lui envoyer l'invitation.`,
             phoneNumberId
         );
         return true;
@@ -729,6 +734,11 @@ async function handleManagerInviteConversation(employee: any, messageBody: strin
     try {
         const invitedEmployee = await createInvitedEmployee(employee, inviteName, phoneNumber);
         const deliveryMode = await sendEmployeeInvitation(phoneNumber, invitedEmployee.name || inviteName, employee, phoneNumberId);
+        await logOnboardingEvent(employee.tenantId, 'EMPLOYEE_INVITED', invitedEmployee.id, {
+            source: 'WHATSAPP_MANAGER',
+            deliveryMode,
+            invitedBy: employee.id
+        });
 
         await prisma.employee.update({
             where: { id: employee.id },
@@ -741,9 +751,9 @@ async function handleManagerInviteConversation(employee: any, messageBody: strin
             `👤 ${invitedEmployee.name}\n` +
             `📱 ${phoneNumber}\n\n` +
             (deliveryMode === 'template'
-                ? `L'invitation WhatsApp a été envoyée via template Meta.`
+                ? `Invitation WhatsApp envoyée via template Meta.`
                 : `J'ai tenté l'envoi WhatsApp direct. Si Meta bloque l'envoi proactif, il faudra valider le template d'invitation collaborateur.`) +
-            `\n\nDès qu'il répond *Hi*, son premier pointage apparaîtra dans votre dashboard.`,
+            `\n\nDès qu'il répond, WhatsPoint lui proposera de pointer. Il pourra répondre *STOP* à tout moment.`,
             phoneNumberId
         );
     } catch (error: any) {
@@ -791,8 +801,9 @@ async function handleEmployeeFirstActivation(employee: any, messageType: string,
     await sendInteractiveButtons(
         from,
         `Bienvenue *${employee.name || 'dans WhatsPoint'}* 👋\n\n` +
-        `Votre accès WhatsApp est actif.\n\n` +
-        `Vous pouvez maintenant pointer votre arrivée, consulter le menu ou envoyer vos demandes terrain depuis cette conversation.`,
+        `Votre accès WhatsPoint est actif.\n\n` +
+        `Vous pouvez maintenant pointer, consulter le menu et envoyer vos demandes liées au travail depuis cette conversation.\n\n` +
+        `Répondez *STOP* à tout moment pour suspendre les messages.`,
         EMPLOYEE_ACTIVATION_BUTTONS,
         phoneNumberId
     );
@@ -804,6 +815,7 @@ async function handleEmployeeFirstActivation(employee: any, messageType: string,
         `Il peut maintenant pointer depuis WhatsApp.`,
         phoneNumberId
     );
+    await logOnboardingEvent(employee.tenantId, 'EMPLOYEE_ACTIVATED', employee.id, { source: 'WHATSAPP' });
 
     return true;
 }
@@ -832,6 +844,7 @@ async function handleEmployeeActivationAction(
     const result = await checkIn(employee, messageTimestamp);
     if (result.success) {
         await sendMessage(from, `✅ ${result.message} Bon travail ${employee.name || ''} !`, phoneNumberId);
+        await logOnboardingEvent(employee.tenantId, 'FIRST_CHECKIN', employee.id, { source: 'WHATSAPP' });
         await notifyManagersByWhatsApp(
             employee.tenantId,
             `🟢 *Premier pointage reçu*\n\n` +
@@ -846,23 +859,123 @@ async function handleEmployeeActivationAction(
     return true;
 }
 
-function startWhatsAppSignupSession(from: string) {
-    whatsappSignupSessions.set(from, {
-        step: 'WAITING_COMPANY',
-        createdAt: Date.now()
+function normalizedPhoneNumberId(phoneNumberId?: string) {
+    return phoneNumberId || 'default';
+}
+
+function signupSessionExpiry() {
+    return new Date(Date.now() + SIGNUP_SESSION_TTL_MS);
+}
+
+function sessionDataForPrisma(session: SignupSession): Prisma.InputJsonValue {
+    return {
+        companyName: session.companyName || null,
+        teamSize: session.teamSize || null,
+        email: session.email || null
+    };
+}
+
+async function logOnboardingEvent(
+    tenantId: string,
+    type: string,
+    employeeId?: string | null,
+    metadata?: Record<string, any>
+) {
+    const existing = await prisma.onboardingEvent.findFirst({
+        where: {
+            tenantId,
+            type,
+            ...(employeeId ? { employeeId } : {})
+        }
+    });
+
+    if (existing) return existing;
+
+    return prisma.onboardingEvent.create({
+        data: {
+            tenantId,
+            type,
+            employeeId: employeeId || null,
+            metadata: metadata || Prisma.DbNull
+        }
     });
 }
 
-function getActiveSignupSession(from: string): SignupSession | null {
-    const session = whatsappSignupSessions.get(from);
-    if (!session) return null;
+async function startWhatsAppSignupSession(from: string, phoneNumberId?: string) {
+    await prisma.whatsAppConversationSession.upsert({
+        where: {
+            phoneNumberId_phoneNumber_kind: {
+                phoneNumberId: normalizedPhoneNumberId(phoneNumberId),
+                phoneNumber: from,
+                kind: SIGNUP_SESSION_KIND
+            }
+        },
+        create: {
+            phoneNumberId: normalizedPhoneNumberId(phoneNumberId),
+            phoneNumber: from,
+            kind: SIGNUP_SESSION_KIND,
+            state: 'WAITING_COMPANY',
+            data: {},
+            expiresAt: signupSessionExpiry()
+        },
+        update: {
+            state: 'WAITING_COMPANY',
+            data: {},
+            expiresAt: signupSessionExpiry()
+        }
+    });
+}
 
-    if (Date.now() - session.createdAt > SIGNUP_SESSION_TTL_MS) {
-        whatsappSignupSessions.delete(from);
+async function getActiveSignupSession(from: string, phoneNumberId?: string): Promise<SignupSession | null> {
+    const record = await prisma.whatsAppConversationSession.findUnique({
+        where: {
+            phoneNumberId_phoneNumber_kind: {
+                phoneNumberId: normalizedPhoneNumberId(phoneNumberId),
+                phoneNumber: from,
+                kind: SIGNUP_SESSION_KIND
+            }
+        }
+    });
+
+    if (!record) return null;
+
+    if (record.expiresAt.getTime() < Date.now()) {
+        await prisma.whatsAppConversationSession.delete({ where: { id: record.id } });
         return null;
     }
 
-    return session;
+    const data = (record.data as Record<string, any> | null) || {};
+    return {
+        id: record.id,
+        step: record.state as SignupSessionStep,
+        companyName: data.companyName || undefined,
+        teamSize: typeof data.teamSize === 'number' ? data.teamSize : undefined,
+        email: data.email || undefined,
+        createdAt: record.createdAt
+    };
+}
+
+async function saveWhatsAppSignupSession(session: SignupSession) {
+    if (!session.id) return;
+
+    await prisma.whatsAppConversationSession.update({
+        where: { id: session.id },
+        data: {
+            state: session.step,
+            data: sessionDataForPrisma(session),
+            expiresAt: signupSessionExpiry()
+        }
+    });
+}
+
+async function clearWhatsAppSignupSession(from: string, phoneNumberId?: string) {
+    await prisma.whatsAppConversationSession.deleteMany({
+        where: {
+            phoneNumberId: normalizedPhoneNumberId(phoneNumberId),
+            phoneNumber: from,
+            kind: SIGNUP_SESSION_KIND
+        }
+    });
 }
 
 async function createWhatsAppTrialSpace(from: string, session: SignupSession, phoneNumberId?: string) {
@@ -957,6 +1070,19 @@ async function createWhatsAppTrialSpace(from: string, session: SignupSession, ph
             }
         });
 
+        await tx.onboardingEvent.create({
+            data: {
+                tenantId: tenant.id,
+                employeeId: manager.id,
+                type: 'SPACE_CREATED',
+                metadata: {
+                    source: 'WHATSAPP',
+                    teamSize: session.teamSize,
+                    leadId: lead.id
+                }
+            }
+        });
+
         return { tenant, manager };
     });
 
@@ -970,23 +1096,23 @@ async function createWhatsAppTrialSpace(from: string, session: SignupSession, ph
         from,
         `✅ *Votre espace WhatsPoint est prêt !*\n\n` +
         `Entreprise : *${result.tenant.name}*\n` +
-        `Équipe test : *${maxEmployees} personnes*\n\n` +
+        `Capacité de test : *${maxEmployees} personnes*\n\n` +
         `1. Ouvrez votre dashboard :\n${loginUrl}\n\n` +
         `2. Connectez-vous avec le code reçu sur WhatsApp.\n\n` +
-        `3. Revenez ici et répondez *Admin Start* pour activer votre manager WhatsApp.`,
+        `3. Revenez ici et répondez *Admin Start* pour activer votre accès manager dans WhatsApp.`,
         phoneNumberId
     );
 }
 
 async function handleWhatsAppSignupSession(from: string, messageBody: string, phoneNumberId?: string): Promise<boolean> {
-    const session = getActiveSignupSession(from);
+    const session = await getActiveSignupSession(from, phoneNumberId);
     if (!session) return false;
 
     const trimmed = messageBody.trim();
     if (!trimmed) return true;
 
     if (isCancellation(trimmed)) {
-        whatsappSignupSessions.delete(from);
+        await clearWhatsAppSignupSession(from, phoneNumberId);
         await sendMessage(from, `C'est noté, création annulée. Répondez *Demo WhatsPoint* pour recommencer.`, phoneNumberId);
         return true;
     }
@@ -994,6 +1120,7 @@ async function handleWhatsAppSignupSession(from: string, messageBody: string, ph
     if (session.step === 'WAITING_COMPANY') {
         session.companyName = trimmed.slice(0, 80);
         session.step = 'WAITING_TEAM_SIZE';
+        await saveWhatsAppSignupSession(session);
         await sendMessage(
             from,
             `Parfait. Combien de personnes doivent pointer pendant le test ?\n\nExemple : *12*`,
@@ -1013,6 +1140,7 @@ async function handleWhatsAppSignupSession(from: string, messageBody: string, ph
 
         session.teamSize = teamSize;
         session.step = 'WAITING_EMAIL';
+        await saveWhatsAppSignupSession(session);
         await sendMessage(
             from,
             `Merci. Quel email professionnel utiliser pour votre accès manager ?`,
@@ -1030,6 +1158,7 @@ async function handleWhatsAppSignupSession(from: string, messageBody: string, ph
 
         session.email = email;
         session.step = 'WAITING_CONFIRMATION';
+        await saveWhatsAppSignupSession(session);
         await sendMessage(
             from,
             `Je vais créer votre espace WhatsPoint :\n\n` +
@@ -1049,7 +1178,7 @@ async function handleWhatsAppSignupSession(from: string, messageBody: string, ph
         }
 
         await createWhatsAppTrialSpace(from, session, phoneNumberId);
-        whatsappSignupSessions.delete(from);
+        await clearWhatsAppSignupSession(from, phoneNumberId);
         return true;
     }
 
@@ -1323,11 +1452,12 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 const buttonId = message.interactive?.button_reply?.id;
 
                                 if (buttonId === 'btn_signup') {
-                                    startWhatsAppSignupSession(from);
+                                    await startWhatsAppSignupSession(from, phoneNumberId);
                                     await sendMessage(
                                         from,
-                                        `🚀 C'est parti.\n\n` +
-                                        `On peut préparer votre espace directement ici, dans WhatsApp.\n\n` +
+                                        `🚀 *Création d'un espace d'essai*\n\n` +
+                                        `Nous allons préparer votre espace WhatsPoint en quelques étapes.\n\n` +
+                                        `Les informations demandées servent à créer votre accès et à assurer le suivi de votre demande.\n\n` +
                                         `Quel est le nom de votre entreprise ?`,
                                         phoneNumberId
                                     );
@@ -1339,12 +1469,9 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     await sendMessage(
                                         from,
                                         `📱 *Démo WhatsPoint*\n\n` +
-                                        `WhatsPoint permet à vos équipes de pointer, consulter leurs plannings et envoyer leurs demandes depuis WhatsApp.\n\n` +
-                                        `✅ Pointage et présence\n` +
-                                        `✅ Planning consultable\n` +
-                                        `✅ Justificatifs et demandes terrain\n` +
-                                        `✅ Transmission vers vos outils métier\n\n` +
-                                        `Répondez à ce message si vous souhaitez parler à l'équipe Astauria.`,
+                                        `WhatsPoint centralise les échanges terrain dans WhatsApp : pointage, planning, demandes et justificatifs.\n\n` +
+                                        `Côté manager, vous gardez un suivi dans le dashboard, sans demander aux équipes d'installer une nouvelle application.\n\n` +
+                                        `Pour une présentation ou une question, répondez à ce message. Répondez *STOP* si vous ne souhaitez plus être contacté.`,
                                         phoneNumberId
                                     );
                                     console.log(`ℹ️ Info message sent to ${from} after btn_info click`);

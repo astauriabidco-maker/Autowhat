@@ -486,6 +486,117 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
 };
 
 /**
+ * GET /api/onboarding/progress
+ * Returns manager-facing first steps after WhatsApp onboarding.
+ */
+export const getOnboardingProgress = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const tenantId = req.user?.tenantId;
+
+        if (!tenantId) {
+            res.status(401).json({ error: 'Non autorisé - tenantId manquant' });
+            return;
+        }
+
+        const tenant = await prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: {
+                id: true,
+                name: true,
+                createdAt: true,
+                maxEmployees: true,
+                employees: {
+                    where: { role: { not: 'ARCHIVED' } },
+                    select: {
+                        id: true,
+                        name: true,
+                        role: true,
+                        hasCompletedOnboarding: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        attendances: {
+                            orderBy: { checkIn: 'asc' },
+                            take: 1,
+                            select: { checkIn: true }
+                        }
+                    }
+                },
+                onboardingEvents: {
+                    orderBy: { createdAt: 'asc' },
+                    select: { type: true, employeeId: true, createdAt: true }
+                }
+            }
+        });
+
+        if (!tenant) {
+            res.status(404).json({ error: 'Tenant non trouvé' });
+            return;
+        }
+
+        const manager = tenant.employees.find(e => e.role === 'MANAGER');
+        const employees = tenant.employees.filter(e => e.role === 'EMPLOYEE');
+        const firstInvited = employees[0] || null;
+        const firstActivated = employees.find(e => e.hasCompletedOnboarding) || null;
+        const firstWithCheckin = employees.find(e => e.attendances.length > 0) || null;
+        const eventTime = (type: string, employeeId?: string | null) =>
+            tenant.onboardingEvents.find(e => e.type === type && (!employeeId || e.employeeId === employeeId))?.createdAt || null;
+
+        const steps = [
+            {
+                key: 'manager_activated',
+                label: 'Manager WhatsApp activé',
+                done: Boolean(manager?.hasCompletedOnboarding || eventTime('MANAGER_ACTIVATED', manager?.id)),
+                timestamp: eventTime('MANAGER_ACTIVATED', manager?.id) || manager?.updatedAt || null
+            },
+            {
+                key: 'employee_invited',
+                label: 'Premier collaborateur invité',
+                done: Boolean(firstInvited),
+                timestamp: firstInvited ? eventTime('EMPLOYEE_INVITED', firstInvited.id) || firstInvited.createdAt : null
+            },
+            {
+                key: 'employee_activated',
+                label: 'Collaborateur activé',
+                done: Boolean(firstActivated),
+                timestamp: firstActivated ? eventTime('EMPLOYEE_ACTIVATED', firstActivated.id) || firstActivated.updatedAt : null
+            },
+            {
+                key: 'first_checkin',
+                label: 'Premier pointage reçu',
+                done: Boolean(firstWithCheckin?.attendances[0]?.checkIn),
+                timestamp: firstWithCheckin ? eventTime('FIRST_CHECKIN', firstWithCheckin.id) || firstWithCheckin.attendances[0]?.checkIn || null : null
+            }
+        ];
+
+        res.status(200).json({
+            tenant: {
+                id: tenant.id,
+                name: tenant.name,
+                createdAt: tenant.createdAt,
+                maxEmployees: tenant.maxEmployees
+            },
+            summary: {
+                employeeCount: employees.length,
+                activatedEmployees: employees.filter(e => e.hasCompletedOnboarding).length,
+                employeesWithCheckin: employees.filter(e => e.attendances.length > 0).length,
+                remainingSeats: Math.max(tenant.maxEmployees - tenant.employees.length, 0)
+            },
+            firstEmployee: firstInvited ? {
+                id: firstInvited.id,
+                name: firstInvited.name,
+                activated: firstInvited.hasCompletedOnboarding,
+                firstCheckinAt: firstInvited.attendances[0]?.checkIn || null
+            } : null,
+            steps,
+            nextAction: steps.find(s => !s.done)?.key || 'invite_next_employee'
+        });
+    } catch (error) {
+        console.error('Error fetching onboarding progress:', error);
+        res.status(500).json({ error: 'Erreur interne du serveur' });
+    }
+};
+
+/**
  * Helper: Get human-readable time ago string
  */
 function getTimeAgo(date: Date): string {
