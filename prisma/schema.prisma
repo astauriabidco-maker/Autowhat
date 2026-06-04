@@ -78,6 +78,7 @@ model Tenant {
   variations         TimeVariation[]
   onboardingEvents   OnboardingEvent[]
   whatsAppConversationSessions WhatsAppConversationSession[]
+  managerMagicLoginTokens ManagerMagicLoginToken[]
 }
 
 // --- MODÈLE NUMBER POOL (Numéros Système Partagés) ---
@@ -268,6 +269,7 @@ model Employee {
   assignedInterventionRequests InterventionRequest[] @relation("InterventionRequestAssignee")
   onboardingEvents OnboardingEvent[]
   whatsAppConversationSessions WhatsAppConversationSession[]
+  managerMagicLoginTokens ManagerMagicLoginToken[]
 
   // Un numéro est unique pour un tenant donné
   @@unique([phoneNumber, tenantId])
@@ -490,6 +492,24 @@ model OnboardingEvent {
   @@index([tenantId, type])
   @@index([employeeId, type])
   @@index([createdAt])
+}
+
+model ManagerMagicLoginToken {
+  id         String    @id @default(uuid())
+  tokenHash  String    @unique
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  redirectTo String?
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([employeeId])
+  @@index([tenantId])
+  @@index([expiresAt])
+  @@index([usedAt])
 }
 
 // --- PLATFORM CONFIGURATION (Single Row) ---

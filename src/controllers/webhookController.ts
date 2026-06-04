@@ -16,6 +16,7 @@ import { getTemplate } from '../config/industryTemplates';
 import { dispatchWebhook, WEBHOOK_EVENTS } from '../services/webhookService';
 import { absoluteSignedUploadUrl, absoluteSignedUploadUrlIfNeeded } from '../utils/signedFileUrl';
 import { assignNumberToTenant } from '../services/numberAllocationService';
+import { createManagerMagicLoginLink } from '../services/managerMagicLoginService';
 
 // Anti-spam cooldown for Magic Link messages (in-memory cache)
 // In production, consider using Redis for persistence across restarts
@@ -471,12 +472,22 @@ async function findManagerByWhatsAppNumber(from: string) {
 
 async function sendManagerActivationAha(to: string, manager: any, phoneNumberId?: string) {
     const firstName = (manager.name || 'Manager').split(' ')[0];
+    let dashboardLine = '';
+
+    try {
+        const { url } = await createManagerMagicLoginLink(manager.id);
+        dashboardLine = `\n\n🔐 Votre dashboard manager :\n${url}\n_Ce lien personnel expire dans 15 minutes._`;
+    } catch (error) {
+        console.error('Manager activation magic link generation failed:', error);
+    }
 
     await sendInteractiveButtons(
         to,
         `👋 Bonjour *${firstName}* !\n\n` +
         `Vous êtes bien l'administrateur de *${manager.tenant.name}*.\n\n` +
-        `✅ Votre manager WhatsApp est activé.\n\n` +
+        `✅ Votre manager WhatsApp est activé.` +
+        dashboardLine +
+        `\n\n` +
         `Invitez maintenant un premier collaborateur autorisé par votre entreprise. Il recevra une invitation WhatsApp et pourra pointer sans installer d'application.`,
         MANAGER_AHA_BUTTONS,
         phoneNumberId
@@ -991,6 +1002,7 @@ async function createWhatsAppTrialSpace(from: string, session: SignupSession, ph
     const cleanPhone = from.replace(/\D/g, '');
     const existingManager = await prisma.employee.findFirst({
         where: {
+            role: 'MANAGER',
             OR: [
                 { phoneNumber: cleanPhone },
                 { phoneNumber: `+${cleanPhone}` },
@@ -1001,11 +1013,12 @@ async function createWhatsAppTrialSpace(from: string, session: SignupSession, ph
     });
 
     if (existingManager) {
-        const loginUrl = `${process.env.FRONTEND_URL || 'https://app.whatspoint.com'}/login?phone=%2B${cleanPhone}&source=whatsapp`;
+        const { url: dashboardUrl } = await createManagerMagicLoginLink(existingManager.id);
         await sendMessage(
             from,
             `✅ Votre numéro est déjà rattaché à *${existingManager.tenant.name}*.\n\n` +
-            `Connectez-vous ici avec le code WhatsApp :\n${loginUrl}`,
+            `Ouvrez votre dashboard manager ici :\n${dashboardUrl}\n\n` +
+            `_Ce lien personnel expire dans 15 minutes._`,
             phoneNumberId
         );
         return;
@@ -1089,17 +1102,16 @@ async function createWhatsAppTrialSpace(from: string, session: SignupSession, ph
     assignNumberToTenant(result.tenant.id, country)
         .catch(err => console.error('Number allocation failed after WhatsApp signup:', err));
 
-    const frontendUrl = process.env.FRONTEND_URL || 'https://app.whatspoint.com';
-    const loginUrl = `${frontendUrl}/login?phone=%2B${cleanPhone}&source=whatsapp`;
+    const { url: dashboardUrl } = await createManagerMagicLoginLink(result.manager.id);
 
     await sendMessage(
         from,
         `✅ *Votre espace WhatsPoint est prêt !*\n\n` +
         `Entreprise : *${result.tenant.name}*\n` +
         `Capacité de test : *${maxEmployees} personnes*\n\n` +
-        `1. Ouvrez votre dashboard :\n${loginUrl}\n\n` +
-        `2. Connectez-vous avec le code reçu sur WhatsApp.\n\n` +
-        `3. Revenez ici et répondez *Admin Start* pour activer votre accès manager dans WhatsApp.`,
+        `🔐 Ouvrez votre dashboard manager :\n${dashboardUrl}\n\n` +
+        `_Ce lien personnel expire dans 15 minutes._\n\n` +
+        `Ensuite, revenez ici et répondez *Admin Start* pour activer votre manager WhatsApp.`,
         phoneNumberId
     );
 }

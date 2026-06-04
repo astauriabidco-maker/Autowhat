@@ -7,6 +7,7 @@ import { sendWelcomeEmail, sendPasswordResetEmail } from '../services/emailServi
 import { assignNumberToTenant } from '../services/numberAllocationService';
 import { sendMessage } from '../services/whatsappService';
 import { getDefaultConfig } from '../services/whatsappConfigService';
+import { consumeManagerMagicLoginToken } from '../services/managerMagicLoginService';
 import prisma from '../lib/prisma';
 import { clearAuthCookies, clearManagerAuthCookie, setManagerAuthCookie, setSuperAdminAuthCookie } from '../utils/authCookies';
 
@@ -19,6 +20,18 @@ const JWT_SECRET = (() => {
 })();
 const JWT_EXPIRES_IN = '24h';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5174';
+
+function signManagerJwt(employee: { id: string; tenantId: string; role: string }): string {
+    return jwt.sign(
+        {
+            userId: employee.id,
+            tenantId: employee.tenantId,
+            role: employee.role,
+        },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN }
+    );
+}
 
 // Timezones par pays
 const TIMEZONES: Record<string, string> = {
@@ -131,15 +144,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         }
 
         // Generate JWT with userId, tenantId, and role
-        const token = jwt.sign(
-            {
-                userId: employee.id,
-                tenantId: employee.tenantId,
-                role: employee.role,
-            },
-            JWT_SECRET,
-            { expiresIn: JWT_EXPIRES_IN }
-        );
+        const token = signManagerJwt(employee);
 
         setManagerAuthCookie(res, token);
 
@@ -261,15 +266,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         });
 
         // Generate JWT for immediate login
-        const token = jwt.sign(
-            {
-                userId: result.user.id,
-                tenantId: result.tenant.id,
-                role: 'MANAGER',
-            },
-            JWT_SECRET,
-            { expiresIn: JWT_EXPIRES_IN }
-        );
+        const token = signManagerJwt({
+            id: result.user.id,
+            tenantId: result.tenant.id,
+            role: 'MANAGER',
+        });
 
         setManagerAuthCookie(res, token);
 
@@ -589,15 +590,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
         });
 
         // Generate JWT (same payload as the old login)
-        const token = jwt.sign(
-            {
-                userId: employee.id,
-                tenantId: employee.tenantId,
-                role: employee.role,
-            },
-            JWT_SECRET,
-            { expiresIn: JWT_EXPIRES_IN }
-        );
+        const token = signManagerJwt(employee);
 
         setManagerAuthCookie(res, token);
 
@@ -616,6 +609,48 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
     } catch (error) {
         console.error('Verify OTP error:', error);
         res.status(500).json({ error: 'Erreur lors de la vérification du code' });
+    }
+};
+
+/**
+ * POST /auth/magic-login
+ * Consumes a one-time manager magic link token and opens a dashboard session.
+ */
+export const magicLogin = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { token: rawToken } = req.body;
+
+        if (!rawToken || typeof rawToken !== 'string') {
+            res.status(400).json({ error: 'Lien de connexion manquant' });
+            return;
+        }
+
+        const result = await consumeManagerMagicLoginToken(rawToken);
+
+        if (!result) {
+            res.status(410).json({ error: 'Lien de connexion expiré ou déjà utilisé' });
+            return;
+        }
+
+        const token = signManagerJwt(result.employee);
+        setManagerAuthCookie(res, token);
+
+        console.log(`✅ Magic login successful for ${result.employee.name} (${result.employee.tenant.name})`);
+
+        res.status(200).json({
+            message: 'Connexion réussie',
+            token,
+            redirectTo: result.redirectTo,
+            user: {
+                id: result.employee.id,
+                name: result.employee.name,
+                role: result.employee.role,
+                tenant: result.employee.tenant.name,
+            },
+        });
+    } catch (error) {
+        console.error('Magic login error:', error);
+        res.status(500).json({ error: 'Erreur lors de la connexion automatique' });
     }
 };
 

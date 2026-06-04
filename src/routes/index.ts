@@ -37,6 +37,7 @@ router.post('/auth/forgot-password', authController.forgotPassword);
 router.post('/auth/reset-password', authController.resetPassword);
 router.post('/auth/request-otp', authController.requestOtp);
 router.post('/auth/verify-otp', authController.verifyOtp);
+router.post('/auth/magic-login', authController.magicLogin);
 router.post('/auth/logout', authController.logout);
 router.post('/auth/logout-manager', authController.logoutManager);
 
