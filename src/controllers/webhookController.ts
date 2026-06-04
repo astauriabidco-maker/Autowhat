@@ -102,6 +102,12 @@ const INTERACTIVE_ID_TO_COMMAND: Record<string, string> = {
     'cmd_sos': 'sos'
 };
 
+const MANAGER_AHA_BUTTONS = [
+    { id: 'btn_manager_demo_employee', title: 'Employé test' },
+    { id: 'btn_manager_demo_pointage', title: 'Simulation' },
+    { id: 'btn_manager_menu', title: 'Menu' }
+];
+
 const DEFAULT_UNKNOWN_CONTACT_WELCOME =
     "WhatsPoint transforme WhatsApp en pointage, planning et demandes terrain pour vos équipes.\n\n" +
     "Vous pouvez créer votre espace, voir une démo ou simplement répondre à ce message pour parler à Astauria.";
@@ -437,6 +443,175 @@ function firstNameFromEmail(email: string): string {
         : 'Manager';
 }
 
+function isAdminStart(message: string): boolean {
+    return normalizeText(message) === 'admin start';
+}
+
+async function findManagerByWhatsAppNumber(from: string) {
+    return prisma.employee.findFirst({
+        where: {
+            role: 'MANAGER',
+            OR: [
+                { phoneNumber: from },
+                { phoneNumber: `+${from}` },
+                { phoneNumber: { endsWith: from.slice(-9) } }
+            ]
+        },
+        include: { tenant: true }
+    });
+}
+
+async function sendManagerActivationAha(to: string, manager: any, phoneNumberId?: string) {
+    const firstName = (manager.name || 'Manager').split(' ')[0];
+
+    await sendInteractiveButtons(
+        to,
+        `👋 Bonjour *${firstName}* !\n\n` +
+        `Vous êtes bien l'administrateur de *${manager.tenant.name}*.\n\n` +
+        `✅ Votre manager WhatsApp est activé.\n\n` +
+        `Pour voir la valeur tout de suite, je peux créer un employé test et enregistrer un premier pointage dans votre espace.`,
+        MANAGER_AHA_BUTTONS,
+        phoneNumberId
+    );
+}
+
+async function activateManagerWhatsApp(from: string, existingEmployee: any, phoneNumberId?: string): Promise<boolean> {
+    const manager = existingEmployee?.role === 'MANAGER'
+        ? existingEmployee
+        : await findManagerByWhatsAppNumber(from);
+
+    if (!manager) {
+        await sendMessage(
+            from,
+            `⚠️ Je ne reconnais pas ce numéro administrateur.\n\n` +
+            `Assurez-vous d'avoir utilisé ce numéro lors de votre inscription.\n\n` +
+            `📞 Numéro reçu: +${from}`,
+            phoneNumberId
+        );
+        console.log(`❌ Unknown manager number: ${from}`);
+        return true;
+    }
+
+    try {
+        await prisma.employee.update({
+            where: { id: manager.id },
+            data: {
+                phoneNumber: from,
+                hasCompletedOnboarding: true
+            }
+        });
+    } catch (e) {
+        console.log('Manager activation update skipped:', e);
+    }
+
+    await sendManagerActivationAha(from, manager, phoneNumberId);
+    console.log(`✅ Manager ${manager.name} activated successfully`);
+    return true;
+}
+
+async function createDemoEmployeeAndAttendance(manager: any) {
+    const site = await prisma.site.findFirst({
+        where: { tenantId: manager.tenantId },
+        orderBy: { name: 'asc' }
+    });
+
+    const demoPhone = `demo-${manager.tenantId.slice(0, 8)}`;
+    const demoEmployee = await prisma.employee.upsert({
+        where: {
+            phoneNumber_tenantId: {
+                phoneNumber: demoPhone,
+                tenantId: manager.tenantId
+            }
+        },
+        update: {
+            name: 'Employé Démo',
+            role: 'EMPLOYEE',
+            siteId: site?.id || null,
+            workProfile: 'MOBILE'
+        },
+        create: {
+            name: 'Employé Démo',
+            phoneNumber: demoPhone,
+            role: 'EMPLOYEE',
+            tenantId: manager.tenantId,
+            siteId: site?.id || null,
+            workProfile: 'MOBILE'
+        }
+    });
+
+    const now = new Date();
+    const startOfDay = new Date(now);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    const endOfDay = new Date(now);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+
+    const existingAttendance = await prisma.attendance.findFirst({
+        where: {
+            employeeId: demoEmployee.id,
+            tenantId: manager.tenantId,
+            checkIn: { gte: startOfDay, lte: endOfDay }
+        }
+    });
+
+    const attendance = existingAttendance || await prisma.attendance.create({
+        data: {
+            checkIn: now,
+            employeeId: demoEmployee.id,
+            tenantId: manager.tenantId,
+            siteId: site?.id || null,
+            status: 'PRESENT'
+        }
+    });
+
+    return { demoEmployee, attendance, site };
+}
+
+async function handleManagerAhaAction(selectedId: string, employee: any, from: string, phoneNumberId?: string): Promise<boolean> {
+    if (!['btn_manager_demo_employee', 'btn_manager_demo_pointage', 'btn_manager_menu'].includes(selectedId)) {
+        return false;
+    }
+
+    if (employee.role !== 'MANAGER') {
+        await sendMessage(from, `Cette action est réservée aux managers.`, phoneNumberId);
+        return true;
+    }
+
+    if (selectedId === 'btn_manager_menu') {
+        await sendMainMenu(from, phoneNumberId);
+        return true;
+    }
+
+    if (selectedId === 'btn_manager_demo_pointage') {
+        await sendMessage(
+            from,
+            `🎬 *Simulation de pointage*\n\n` +
+            `Dans WhatsPoint, un collaborateur écrit simplement *Hi* dans WhatsApp.\n\n` +
+            `WhatsPoint enregistre la présence, rattache le pointage au site et rend l'information disponible dans le dashboard manager et vos outils métier.\n\n` +
+            `Cliquez sur *Employé test* pour créer une vraie ligne de démonstration dans votre espace.`,
+            phoneNumberId
+        );
+        return true;
+    }
+
+    const { demoEmployee, attendance, site } = await createDemoEmployeeAndAttendance(employee);
+    const time = attendance.checkIn.toLocaleTimeString('fr-FR', {
+        timeZone: 'Europe/Paris',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    const frontendUrl = process.env.FRONTEND_URL || 'https://app.whatspoint.com';
+
+    await sendMessage(
+        from,
+        `✅ *Premier pointage visible !*\n\n` +
+        `J'ai créé *${demoEmployee.name}* et enregistré une présence à *${time}*${site ? ` sur *${site.name}*` : ''}.\n\n` +
+        `Vous pouvez maintenant ouvrir le dashboard pour voir le résultat :\n${frontendUrl}/manager\n\n` +
+        `Prochaine étape : ajoutez un vrai collaborateur ou tapez *Menu* pour explorer les demandes terrain.`,
+        phoneNumberId
+    );
+    return true;
+}
+
 function startWhatsAppSignupSession(from: string) {
     whatsappSignupSessions.set(from, {
         step: 'WAITING_COMPANY',
@@ -689,55 +864,9 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                         }
 
                         // Handle "Admin Start" command for manager activation
-                        if (!employee && messageType === 'text' && messageBody.toLowerCase().trim() === 'admin start') {
+                        if (messageType === 'text' && isAdminStart(messageBody)) {
                             console.log(`🔑 Processing ADMIN START activation from ${from}`);
-
-                            // Try to find manager with flexible phone matching
-                            const manager = await prisma.employee.findFirst({
-                                where: {
-                                    role: 'MANAGER',
-                                    OR: [
-                                        { phoneNumber: from },           // Without +
-                                        { phoneNumber: `+${from}` },     // With +
-                                        { phoneNumber: { endsWith: from.slice(-9) } }  // Last 9 digits
-                                    ]
-                                },
-                                include: { tenant: true }
-                            });
-
-                            if (manager) {
-                                // Extract first name
-                                const firstName = (manager.name || 'Manager').split(' ')[0];
-
-                                // Update botActivated flag if field exists
-                                try {
-                                    await prisma.employee.update({
-                                        where: { id: manager.id },
-                                        data: { phoneNumber: from }  // Normalize to WhatsApp format
-                                    });
-                                } catch (e) {
-                                    console.log('Phone number already normalized');
-                                }
-
-                                await sendMessage(
-                                    from,
-                                    `👋 Bonjour *${firstName}* !\n\n` +
-                                    `Je vous ai reconnu. Vous êtes l'administrateur de *${manager.tenant.name}*.\n\n` +
-                                    `✅ Votre bot WhatsApp est maintenant activé !\n\n` +
-                                    `Tapez *Menu* pour voir vos options.`,
-                                    phoneNumberId
-                                );
-                                console.log(`✅ Manager ${manager.name} activated successfully`);
-                            } else {
-                                await sendMessage(
-                                    from,
-                                    `⚠️ Je ne reconnais pas ce numéro administrateur.\n\n` +
-                                    `Assurez-vous d'avoir utilisé ce numéro lors de votre inscription sur le site web.\n\n` +
-                                    `📞 Numéro reçu: +${from}`,
-                                    phoneNumberId
-                                );
-                                console.log(`❌ Unknown manager number: ${from}`);
-                            }
+                            await activateManagerWhatsApp(from, employee, phoneNumberId);
                             continue;
                         }
 
@@ -1486,6 +1615,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 selectedId = message.interactive?.list_reply?.id;
                             } else if (interactiveType === 'button_reply') {
                                 selectedId = message.interactive?.button_reply?.id;
+                            }
+
+                            if (selectedId && await handleManagerAhaAction(selectedId, employee, from, phoneNumberId)) {
+                                continue;
                             }
 
                             if (selectedId && INTERACTIVE_ID_TO_COMMAND[selectedId]) {
