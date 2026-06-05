@@ -43,9 +43,17 @@ interface InboxItem {
 
 type Counts = Record<InboxKind | 'ALL', number>;
 
+interface InboxSummary {
+    actionable: number;
+    urgent: number;
+    pendingApproval: number;
+    stale: number;
+}
+
 interface InboxResponse {
     items: InboxItem[];
     counts: Counts;
+    summary?: InboxSummary;
 }
 
 interface KindConfig {
@@ -136,6 +144,13 @@ const EMPTY_COUNTS: Counts = {
     NOTIFICATION: 0,
 };
 
+const EMPTY_SUMMARY: InboxSummary = {
+    actionable: 0,
+    urgent: 0,
+    pendingApproval: 0,
+    stale: 0,
+};
+
 function getToken() {
     return localStorage.getItem('token');
 }
@@ -167,10 +182,19 @@ function getPriorityStyle(priority: InboxPriority) {
     return 'bg-amber-100 text-amber-700 border-amber-200';
 }
 
+function isActionable(item: InboxItem) {
+    return item.availableActions.some(action => action !== 'open');
+}
+
+function isPendingApproval(item: InboxItem) {
+    return item.status === 'PENDING' && item.availableActions.some(action => action === 'approve' || action === 'review');
+}
+
 export default function Inbox() {
     const navigate = useNavigate();
     const [items, setItems] = useState<InboxItem[]>([]);
     const [counts, setCounts] = useState<Counts>(EMPTY_COUNTS);
+    const [summary, setSummary] = useState<InboxSummary>(EMPTY_SUMMARY);
     const [activeKind, setActiveKind] = useState<'ALL' | InboxKind>('ALL');
     const [statusMode, setStatusMode] = useState<'open' | 'all'>('open');
     const [search, setSearch] = useState('');
@@ -200,6 +224,7 @@ export default function Inbox() {
             });
             setItems(response.data.items || []);
             setCounts(response.data.counts || EMPTY_COUNTS);
+            setSummary(response.data.summary || EMPTY_SUMMARY);
         } catch (err: unknown) {
             if (getErrorStatus(err) === 401) {
                 localStorage.removeItem('token');
@@ -232,6 +257,22 @@ export default function Inbox() {
             ].some(value => value.toLowerCase().includes(query));
         });
     }, [items, search]);
+
+    const visibleSummary = useMemo<InboxSummary>(() => {
+        if (!search.trim()) return summary;
+
+        return {
+            actionable: filteredItems.filter(isActionable).length,
+            urgent: filteredItems.filter(item => item.priority === 'URGENT').length,
+            pendingApproval: filteredItems.filter(isPendingApproval).length,
+            stale: 0,
+        };
+    }, [filteredItems, search, summary]);
+
+    const priorityItems = useMemo(
+        () => filteredItems.filter(item => item.priority === 'URGENT' || isActionable(item)).slice(0, 3),
+        [filteredItems]
+    );
 
     const handleKindChange = (kind: 'ALL' | InboxKind) => {
         setActiveKind(kind);
@@ -380,6 +421,63 @@ export default function Inbox() {
                 })}
             </div>
 
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase text-red-600">Urgent</p>
+                    <p className="mt-1 text-2xl font-bold text-red-700">{visibleSummary.urgent}</p>
+                </div>
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase text-blue-600">À traiter</p>
+                    <p className="mt-1 text-2xl font-bold text-blue-700">{visibleSummary.actionable}</p>
+                </div>
+                <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase text-amber-600">À valider</p>
+                    <p className="mt-1 text-2xl font-bold text-amber-700">{visibleSummary.pendingApproval}</p>
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
+                    <p className="text-xs font-semibold uppercase text-gray-500">Sans réponse 24h</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-900">{visibleSummary.stale}</p>
+                </div>
+            </div>
+
+            {priorityItems.length > 0 && (
+                <div className="rounded-2xl border border-gray-100 bg-white p-3 sm:p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <p className="text-sm font-semibold text-gray-900">Priorité maintenant</p>
+                            <p className="text-xs text-gray-500">Les demandes urgentes ou actionnables en premier.</p>
+                        </div>
+                        <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">
+                            {priorityItems.length}
+                        </span>
+                    </div>
+                    <div className="mt-3 grid gap-2 md:grid-cols-3">
+                        {priorityItems.map(item => {
+                            const config = KIND_CONFIG[item.kind];
+                            return (
+                                <button
+                                    key={`priority-${item.kind}-${item.id}`}
+                                    onClick={() => openItem(item)}
+                                    className="rounded-xl border border-gray-100 px-3 py-2 text-left transition hover:border-blue-200 hover:bg-blue-50"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <span className={clsx('h-7 w-7 rounded-lg border flex items-center justify-center flex-shrink-0', config.tint)}>
+                                            <config.icon size={15} />
+                                        </span>
+                                        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900">
+                                            {item.title}
+                                        </span>
+                                    </div>
+                                    <p className="mt-1 truncate text-xs text-gray-500">
+                                        {item.priority === 'URGENT' ? 'Urgent' : 'Action requise'} - {formatRelativeDate(item.updatedAt || item.createdAt)}
+                                    </p>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
                     <div className="relative flex-1 max-w-xl">
@@ -417,8 +515,16 @@ export default function Inbox() {
                         {filteredItems.map(item => {
                             const config = KIND_CONFIG[item.kind];
                             const Icon = config.icon;
+                            const actionable = isActionable(item);
                             return (
-                                <div key={`${item.kind}-${item.id}`} className="p-4 hover:bg-gray-50/80 transition">
+                                <div
+                                    key={`${item.kind}-${item.id}`}
+                                    className={clsx(
+                                        'p-4 transition',
+                                        actionable ? 'bg-blue-50/30 hover:bg-blue-50/60' : 'hover:bg-gray-50/80',
+                                        item.priority === 'URGENT' && 'border-l-4 border-red-500'
+                                    )}
+                                >
                                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
                                         <div className="flex gap-3 flex-1 min-w-0">
                                             <div className={clsx('h-11 w-11 rounded-xl border flex items-center justify-center flex-shrink-0', config.tint)}>
@@ -435,10 +541,15 @@ export default function Inbox() {
                                                     <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold">
                                                         {STATUS_LABELS[item.status] || item.status}
                                                     </span>
+                                                    {actionable && (
+                                                        <span className="px-2 py-1 rounded-full bg-blue-600 text-white text-xs font-semibold">
+                                                            Action requise
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <button
                                                     onClick={() => openItem(item)}
-                                                    className="mt-2 text-left text-base font-semibold text-gray-900 hover:text-blue-700 transition line-clamp-1"
+                                                    className="mt-2 text-left text-base font-semibold text-gray-900 hover:text-blue-700 transition line-clamp-2 sm:line-clamp-1"
                                                 >
                                                     {item.title}
                                                 </button>
@@ -451,7 +562,7 @@ export default function Inbox() {
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 lg:justify-end">
+                                        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 lg:justify-end lg:min-w-64">
                                             {item.availableActions.slice(0, 3).map(action => {
                                                 const actionKey = getActionKey(item, action);
                                                 const isActionLoading = actionLoadingKey === actionKey;
@@ -461,7 +572,7 @@ export default function Inbox() {
                                                         onClick={() => runItemAction(item, action)}
                                                         disabled={isActionLoading}
                                                         className={clsx(
-                                                            'justify-center px-3 py-2 rounded-lg text-sm font-medium transition inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed',
+                                                            'min-h-10 justify-center px-3 py-2 rounded-lg text-sm font-medium transition inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed',
                                                             action === 'approve' || action === 'plan' || action === 'mark_read'
                                                                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                                                                 : action === 'reject'

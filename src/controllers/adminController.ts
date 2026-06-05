@@ -432,6 +432,7 @@ export const getOnboardingFunnel = async (req: Request, res: Response): Promise<
                     select: {
                         id: true,
                         name: true,
+                        phoneNumber: true,
                         role: true,
                         hasCompletedOnboarding: true,
                         createdAt: true,
@@ -457,6 +458,21 @@ export const getOnboardingFunnel = async (req: Request, res: Response): Promise<
         const eventTime = (events: { type: string; employeeId: string | null; createdAt: Date }[], type: string, employeeId?: string | null) => {
             const event = events.find(e => e.type === type && (!employeeId || e.employeeId === employeeId));
             return event?.createdAt || null;
+        };
+
+        const now = new Date();
+        const daysBetween = (start: Date | null) => {
+            if (!start) return 0;
+            return Math.max(0, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+        };
+
+        const blockerActions: Record<string, string> = {
+            magic_link_sent: 'Renvoyer le lien dashboard au manager',
+            dashboard_reached: 'Relancer le manager pour ouvrir le dashboard',
+            manager_activated: 'Aider le manager à terminer son onboarding',
+            employee_invited: 'Proposer la première invitation collaborateur',
+            employee_activated: 'Relancer le collaborateur invité',
+            first_checkin: 'Accompagner le premier pointage WhatsApp'
         };
 
         const items = tenants.map(tenant => {
@@ -513,6 +529,10 @@ export const getOnboardingFunnel = async (req: Request, res: Response): Promise<
             ];
 
             const completed = steps.filter(s => s.done).length;
+            const blockedStep = steps.find(s => !s.done) || null;
+            const lastCompletedStep = [...steps].reverse().find(s => s.done) || null;
+            const blockedSince = blockedStep ? lastCompletedStep?.timestamp || tenant.createdAt : null;
+
             return {
                 tenantId: tenant.id,
                 tenantName: tenant.name,
@@ -520,8 +540,12 @@ export const getOnboardingFunnel = async (req: Request, res: Response): Promise<
                 createdAt: tenant.createdAt,
                 completed,
                 total: steps.length,
-                blockedAt: steps.find(s => !s.done)?.key || null,
-                manager: manager ? { id: manager.id, name: manager.name } : null,
+                blockedAt: blockedStep?.key || null,
+                blockedLabel: blockedStep?.label || null,
+                blockedSince,
+                daysBlocked: daysBetween(blockedSince),
+                recommendedAction: blockedStep ? blockerActions[blockedStep.key] || 'Relancer ce tenant' : null,
+                manager: manager ? { id: manager.id, name: manager.name, phoneNumber: manager.phoneNumber } : null,
                 firstEmployee: firstInvited ? { id: firstInvited.id, name: firstInvited.name } : null,
                 steps
             };
@@ -538,6 +562,44 @@ export const getOnboardingFunnel = async (req: Request, res: Response): Promise<
         };
 
         const rate = (value: number) => summary.spacesCreated > 0 ? Math.round((value / summary.spacesCreated) * 100) : 0;
+        const blockedItems = items.filter(i => i.blockedAt);
+        const blockerSteps = [
+            'magic_link_sent',
+            'dashboard_reached',
+            'manager_activated',
+            'employee_invited',
+            'employee_activated',
+            'first_checkin'
+        ];
+        const blockersByStep = blockerSteps
+            .map(stepKey => {
+                const stepItems = blockedItems
+                    .filter(i => i.blockedAt === stepKey)
+                    .sort((a, b) => b.daysBlocked - a.daysBlocked)
+                    .slice(0, 3);
+                const step = items[0]?.steps.find(s => s.key === stepKey);
+
+                return {
+                    key: stepKey,
+                    label: step?.label || stepKey,
+                    count: blockedItems.filter(i => i.blockedAt === stepKey).length,
+                    rate: summary.spacesCreated > 0 ? Math.round((blockedItems.filter(i => i.blockedAt === stepKey).length / summary.spacesCreated) * 100) : 0,
+                    action: blockerActions[stepKey],
+                    tenants: stepItems.map(i => ({
+                        tenantId: i.tenantId,
+                        tenantName: i.tenantName,
+                        plan: i.plan,
+                        createdAt: i.createdAt,
+                        blockedSince: i.blockedSince,
+                        daysBlocked: i.daysBlocked,
+                        managerName: i.manager?.name || null,
+                        managerPhone: i.manager?.phoneNumber || null
+                    }))
+                };
+            })
+            .filter(step => step.count > 0)
+            .sort((a, b) => b.count - a.count || (b.tenants[0]?.daysBlocked || 0) - (a.tenants[0]?.daysBlocked || 0));
+        const topBlocker = blockersByStep[0] || null;
 
         res.status(200).json({
             periodDays: days,
@@ -549,6 +611,15 @@ export const getOnboardingFunnel = async (req: Request, res: Response): Promise<
                 employeeInviteRate: rate(summary.employeeInvited),
                 employeeActivationRate: rate(summary.employeeActivated),
                 firstCheckinRate: rate(summary.firstCheckin)
+            },
+            blockers: {
+                totalBlocked: blockedItems.length,
+                completed: items.filter(i => !i.blockedAt).length,
+                topStepKey: topBlocker?.key || null,
+                topStepLabel: topBlocker?.label || null,
+                topStepCount: topBlocker?.count || 0,
+                primaryAction: topBlocker?.action || null,
+                byStep: blockersByStep
             },
             items
         });

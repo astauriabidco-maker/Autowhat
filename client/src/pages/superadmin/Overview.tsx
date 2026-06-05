@@ -57,12 +57,41 @@ interface OnboardingFunnel {
         employeeActivationRate: number;
         firstCheckinRate: number;
     };
+    blockers?: {
+        totalBlocked: number;
+        completed: number;
+        topStepKey: string | null;
+        topStepLabel: string | null;
+        topStepCount: number;
+        primaryAction: string | null;
+        byStep: Array<{
+            key: string;
+            label: string;
+            count: number;
+            rate: number;
+            action: string;
+            tenants: Array<{
+                tenantId: string;
+                tenantName: string;
+                plan: string;
+                createdAt: string;
+                blockedSince: string | null;
+                daysBlocked: number;
+                managerName: string | null;
+                managerPhone: string | null;
+            }>;
+        }>;
+    };
     items: Array<{
         tenantId: string;
         tenantName: string;
+        createdAt: string;
         completed: number;
         total: number;
         blockedAt: string | null;
+        blockedLabel: string | null;
+        daysBlocked: number;
+        recommendedAction: string | null;
         steps: Array<{
             key: string;
             label: string;
@@ -109,6 +138,17 @@ export default function Overview() {
             year: 'numeric'
         });
     };
+
+    const formatBlockedDelay = (days: number) => {
+        if (days <= 0) return "aujourd'hui";
+        if (days === 1) return '1 jour';
+        return `${days} jours`;
+    };
+
+    const blockedPreview = onboarding?.items
+        .filter(item => item.blockedAt)
+        .sort((a, b) => b.daysBlocked - a.daysBlocked)
+        .slice(0, 4) || [];
 
     if (loading) {
         return (
@@ -263,8 +303,54 @@ export default function Overview() {
                         ))}
                     </div>
 
+                    {onboarding.blockers && (
+                        <div className="mt-5 grid grid-cols-1 xl:grid-cols-3 gap-4">
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                                <div className="flex items-start gap-3">
+                                    <AlertCircle size={18} className="text-amber-600 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-900">
+                                            {onboarding.blockers.totalBlocked} tenant{onboarding.blockers.totalBlocked > 1 ? 's' : ''} bloqué{onboarding.blockers.totalBlocked > 1 ? 's' : ''}
+                                        </p>
+                                        <p className="text-sm text-gray-600 mt-1">
+                                            {onboarding.blockers.primaryAction
+                                                ? `${onboarding.blockers.topStepCount} à l'étape "${onboarding.blockers.topStepLabel}". ${onboarding.blockers.primaryAction}.`
+                                                : `${onboarding.blockers.completed} tenant${onboarding.blockers.completed > 1 ? 's' : ''} ont terminé le tunnel.`}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {onboarding.blockers.byStep.slice(0, 4).map((step) => (
+                                    <div key={step.key} className="rounded-lg border border-gray-200 p-4">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-sm font-semibold text-gray-900">{step.label}</p>
+                                            <span className="text-xs font-semibold text-amber-700 bg-amber-100 rounded-full px-2 py-1">
+                                                {step.count} ({step.rate}%)
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1">{step.action}</p>
+                                        <div className="mt-3 space-y-2">
+                                            {step.tenants.map((tenant) => (
+                                                <button
+                                                    key={tenant.tenantId}
+                                                    onClick={() => navigate(`/superadmin/tenants/${tenant.tenantId}`)}
+                                                    className="w-full flex items-center justify-between gap-3 text-left rounded-md hover:bg-gray-50 px-2 py-1.5"
+                                                >
+                                                    <span className="text-sm font-medium text-gray-800 truncate">{tenant.tenantName}</span>
+                                                    <span className="text-xs text-gray-500 whitespace-nowrap">{formatBlockedDelay(tenant.daysBlocked)}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="mt-5 space-y-3">
-                        {onboarding.items.slice(0, 5).map((item) => (
+                        {blockedPreview.map((item) => (
                             <div key={item.tenantId} className="rounded-lg border border-gray-100 p-4 hover:bg-gray-50 transition">
                                 <div className="flex items-center justify-between gap-3">
                                     <button
@@ -273,8 +359,18 @@ export default function Overview() {
                                     >
                                         {item.tenantName}
                                     </button>
-                                    <span className="text-xs text-gray-500">{item.completed}/{item.total}</span>
+                                    <div className="text-right">
+                                        <span className="text-xs text-gray-500">{item.completed}/{item.total}</span>
+                                        {item.blockedLabel && (
+                                            <p className="text-xs text-amber-700">
+                                                Bloqué: {item.blockedLabel} depuis {formatBlockedDelay(item.daysBlocked)}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
+                                {item.recommendedAction && (
+                                    <p className="mt-2 text-xs font-medium text-gray-600">{item.recommendedAction}</p>
+                                )}
                                 <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2 mt-3">
                                     {item.steps.map((step) => (
                                         <div key={step.key} className="flex items-center gap-1 text-xs">
@@ -289,6 +385,11 @@ export default function Overview() {
                                 </div>
                             </div>
                         ))}
+                        {blockedPreview.length === 0 && (
+                            <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-800">
+                                Aucun tenant bloqué dans la période.
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

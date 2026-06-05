@@ -507,6 +507,7 @@ export const getOnboardingProgress = async (req: Request, res: Response): Promis
                 maxEmployees: true,
                 employees: {
                     where: { role: { not: 'ARCHIVED' } },
+                    orderBy: { createdAt: 'asc' },
                     select: {
                         id: true,
                         name: true,
@@ -540,6 +541,12 @@ export const getOnboardingProgress = async (req: Request, res: Response): Promis
         const firstWithCheckin = employees.find(e => e.attendances.length > 0) || null;
         const eventTime = (type: string, employeeId?: string | null) =>
             tenant.onboardingEvents.find(e => e.type === type && (!employeeId || e.employeeId === employeeId))?.createdAt || null;
+        const firstInvitedAt = firstInvited
+            ? eventTime('EMPLOYEE_INVITED', firstInvited.id) || firstInvited.createdAt
+            : null;
+        const firstActivationReminderAt = firstInvited
+            ? eventTime('FIRST_EMPLOYEE_ACTIVATION_REMINDER_SENT', firstInvited.id)
+            : null;
 
         const steps = [
             {
@@ -552,7 +559,7 @@ export const getOnboardingProgress = async (req: Request, res: Response): Promis
                 key: 'employee_invited',
                 label: 'Premier collaborateur invité',
                 done: Boolean(firstInvited),
-                timestamp: firstInvited ? eventTime('EMPLOYEE_INVITED', firstInvited.id) || firstInvited.createdAt : null
+                timestamp: firstInvitedAt
             },
             {
                 key: 'employee_activated',
@@ -585,6 +592,8 @@ export const getOnboardingProgress = async (req: Request, res: Response): Promis
                 id: firstInvited.id,
                 name: firstInvited.name,
                 activated: firstInvited.hasCompletedOnboarding,
+                invitedAt: firstInvitedAt,
+                activationReminderSentAt: firstActivationReminderAt,
                 firstCheckinAt: firstInvited.attendances[0]?.checkIn || null
             } : null,
             steps,

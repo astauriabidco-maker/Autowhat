@@ -5,6 +5,7 @@ import { sendMessage } from '../services/whatsappService';
 
 const LINK_REMINDER_DELAY_MS = 20 * 60 * 1000;
 const INVITE_REMINDER_DELAY_MS = 30 * 60 * 1000;
+const EMPLOYEE_ACTIVATION_REMINDER_DELAY_MS = 2 * 60 * 60 * 1000;
 const LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 
 function cleanWhatsAppNumber(phoneNumber: string): string {
@@ -148,21 +149,104 @@ async function sendFirstEmployeeInviteReminders(now: Date): Promise<number> {
     return sent;
 }
 
-export async function runOnboardingConversionJobs(): Promise<{ magicLinkReminders: number; employeeInviteReminders: number }> {
+async function sendFirstEmployeeActivationReminders(now: Date): Promise<number> {
+    const olderThan = new Date(now.getTime() - EMPLOYEE_ACTIVATION_REMINDER_DELAY_MS);
+    const since = new Date(now.getTime() - LOOKBACK_MS);
+
+    const tenants = await prisma.tenant.findMany({
+        where: {
+            status: { not: 'SUSPENDED' },
+            employees: {
+                some: {
+                    role: 'EMPLOYEE',
+                    hasCompletedOnboarding: false,
+                    createdAt: {
+                        gte: since,
+                        lte: olderThan
+                    }
+                }
+            }
+        },
+        take: 50,
+        orderBy: { createdAt: 'asc' },
+        include: {
+            employees: {
+                where: { role: { in: ['MANAGER', 'EMPLOYEE'] } },
+                orderBy: { createdAt: 'asc' },
+                select: {
+                    id: true,
+                    role: true,
+                    name: true,
+                    phoneNumber: true,
+                    hasCompletedOnboarding: true,
+                    createdAt: true
+                }
+            }
+        }
+    });
+
+    let sent = 0;
+
+    for (const tenant of tenants) {
+        const manager = tenant.employees.find(e => e.role === 'MANAGER');
+        const firstPendingEmployee = tenant.employees.find(e =>
+            e.role === 'EMPLOYEE' &&
+            !e.hasCompletedOnboarding &&
+            e.createdAt >= since &&
+            e.createdAt <= olderThan
+        );
+        if (!manager || !firstPendingEmployee) continue;
+
+        const employeeActivated = await hasEvent(tenant.id, 'EMPLOYEE_ACTIVATED', firstPendingEmployee.id);
+        const alreadyReminded = await hasEvent(tenant.id, 'FIRST_EMPLOYEE_ACTIVATION_REMINDER_SENT', firstPendingEmployee.id);
+        if (employeeActivated || alreadyReminded) continue;
+
+        const { url } = await createManagerMagicLoginLink(manager.id, {
+            redirectTo: '/employees',
+            source: 'REMINDER_EMPLOYEE_ACTIVATION'
+        });
+
+        await sendMessage(
+            cleanWhatsAppNumber(manager.phoneNumber),
+            `Votre premier collaborateur n'a pas encore activé WhatsPoint.\n\n` +
+            `${firstPendingEmployee.name || 'Le collaborateur invité'} doit simplement répondre au message WhatsApp reçu pour activer son accès.\n\n` +
+            `Vous pouvez suivre ou relancer l'invitation ici :\n${url}`
+        );
+
+        await prisma.onboardingEvent.create({
+            data: {
+                tenantId: tenant.id,
+                employeeId: firstPendingEmployee.id,
+                type: 'FIRST_EMPLOYEE_ACTIVATION_REMINDER_SENT',
+                metadata: {
+                    source: 'CRON',
+                    managerId: manager.id
+                }
+            }
+        });
+        sent += 1;
+    }
+
+    return sent;
+}
+
+export async function runOnboardingConversionJobs(): Promise<{ magicLinkReminders: number; employeeInviteReminders: number; employeeActivationReminders: number }> {
     const now = new Date();
     console.log(`🧭 [Onboarding Conversion] Running check at ${now.toISOString()}`);
 
-    const [magicLinkReminders, employeeInviteReminders] = await Promise.all([
+    const [magicLinkReminders, employeeInviteReminders, employeeActivationReminders] = await Promise.all([
         sendMagicLinkOpenReminders(now),
-        sendFirstEmployeeInviteReminders(now)
+        sendFirstEmployeeInviteReminders(now),
+        sendFirstEmployeeActivationReminders(now)
     ]);
 
     console.log(
         `🧭 [Onboarding Conversion] Complete: ${magicLinkReminders} magic link reminder(s), ` +
-        `${employeeInviteReminders} employee invite reminder(s).`
+        `${employeeInviteReminders} employee invite reminder(s), ` +
+        `${employeeActivationReminders} employee activation reminder(s).`
     );
 
-    return { magicLinkReminders, employeeInviteReminders };
+    return { magicLinkReminders, employeeInviteReminders, employeeActivationReminders };
 }
 
 export function initOnboardingConversionJobs(): void {

@@ -8,11 +8,12 @@ const plugins = [
   tailwindcss(),
 ]
 
-if (process.env.VITE_ENABLE_PWA !== 'false') {
+if (process.env.VITE_ENABLE_PWA === 'true') {
   plugins.push(
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
+      injectRegister: 'script-defer',
+      includeAssets: ['vite.svg'],
       manifest: {
         name: 'WhatsPoint - Gestion RH WhatsApp',
         short_name: 'WhatsPoint',
@@ -39,8 +40,11 @@ if (process.env.VITE_ENABLE_PWA !== 'false') {
         ]
       },
       workbox: {
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        navigateFallbackDenylist: [/^\/api\//, /\.[^/?]+$/],
         maximumFileSizeToCacheInBytes: 5000000,
-        // Cache strategies
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -65,21 +69,6 @@ if (process.env.VITE_ENABLE_PWA !== 'false') {
                 maxEntries: 10,
                 maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
               },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /\/api\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 // 1 day
-              },
-              networkTimeoutSeconds: 10,
               cacheableResponse: {
                 statuses: [0, 200]
               }

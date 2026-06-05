@@ -24,6 +24,13 @@ interface InboxItem {
     metadata?: Record<string, unknown>;
 }
 
+interface InboxSummary {
+    actionable: number;
+    urgent: number;
+    pendingApproval: number;
+    stale: number;
+}
+
 function clampLimit(rawLimit: unknown): number {
     const parsed = Number(rawLimit);
     if (!Number.isFinite(parsed) || parsed <= 0) return 50;
@@ -64,6 +71,22 @@ function priorityRank(priority: InboxItem['priority']): number {
     if (priority === 'NORMAL') return 2;
     if (priority === 'LOW') return 1;
     return 0;
+}
+
+function isActionable(item: InboxItem): boolean {
+    return item.availableActions.some(action => action !== 'open');
+}
+
+function isPendingApproval(item: InboxItem): boolean {
+    return item.status === 'PENDING' && item.availableActions.some(action => action === 'approve' || action === 'review');
+}
+
+function isStale(item: InboxItem): boolean {
+    const referenceDate = new Date(item.updatedAt || item.createdAt).getTime();
+    if (!Number.isFinite(referenceDate)) return false;
+
+    const ageHours = (Date.now() - referenceDate) / 3600000;
+    return ageHours >= 24 && isActionable(item);
 }
 
 export const getInbox = async (req: Request, res: Response): Promise<any> => {
@@ -286,11 +309,25 @@ export const getInbox = async (req: Request, res: Response): Promise<any> => {
 
         const sortedItems = items
             .sort((a, b) => {
+                const actionableDelta = Number(isActionable(b)) - Number(isActionable(a));
+                if (actionableDelta !== 0) return actionableDelta;
+
                 const priorityDelta = priorityRank(b.priority) - priorityRank(a.priority);
                 if (priorityDelta !== 0) return priorityDelta;
+
+                const approvalDelta = Number(isPendingApproval(b)) - Number(isPendingApproval(a));
+                if (approvalDelta !== 0) return approvalDelta;
+
                 return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
             })
             .slice(0, limit);
+
+        const summary: InboxSummary = {
+            actionable: sortedItems.filter(isActionable).length,
+            urgent: sortedItems.filter(item => item.priority === 'URGENT').length,
+            pendingApproval: sortedItems.filter(isPendingApproval).length,
+            stale: sortedItems.filter(isStale).length,
+        };
 
         return res.json({
             items: sortedItems,
@@ -302,6 +339,7 @@ export const getInbox = async (req: Request, res: Response): Promise<any> => {
                 EXPENSE: expenseCount,
                 NOTIFICATION: notificationCount,
             },
+            summary,
             filters: {
                 kind: kinds ? Array.from(kinds) : 'ALL',
                 status: includeResolved ? 'all' : 'open',

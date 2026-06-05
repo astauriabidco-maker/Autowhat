@@ -101,6 +101,8 @@ interface OnboardingProgress {
         id: string;
         name: string | null;
         activated: boolean;
+        invitedAt: string | null;
+        activationReminderSentAt: string | null;
         firstCheckinAt: string | null;
     } | null;
     steps: OnboardingStep[];
@@ -173,6 +175,16 @@ export default function DashboardHome() {
     const absentToday = kpis.totalEmployees - kpis.activeNow;
     const completedOnboardingSteps = onboarding?.steps.filter(step => step.done).length || 0;
     const adminStartUrl = `https://wa.me/${import.meta.env.VITE_BOT_PHONE_NUMBER || '33612345678'}?text=${encodeURIComponent("Admin Start")}`;
+    const firstEmployeeName = onboarding?.firstEmployee?.name || 'le collaborateur invité';
+    const formatOnboardingDate = (value: string | null | undefined) =>
+        value
+            ? new Date(value).toLocaleString('fr-FR', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            })
+            : null;
     const onboardingAction = (() => {
         if (!onboarding) {
             return {
@@ -205,10 +217,14 @@ export default function DashboardHome() {
         }
 
         if (onboarding.nextAction === 'employee_activated') {
+            const reminderSentAt = formatOnboardingDate(onboarding.firstEmployee?.activationReminderSentAt);
+
             return {
-                title: 'Collaborateur invité',
-                description: 'Demandez-lui simplement de répondre au message WhatsApp reçu pour activer son accès.',
-                cta: 'Voir les collaborateurs',
+                title: `${firstEmployeeName} doit activer son accès`,
+                description: reminderSentAt
+                    ? `Relance envoyée au manager le ${reminderSentAt}. Prochaine action : contactez ${firstEmployeeName} pour lui demander de répondre au message WhatsApp reçu.`
+                    : `Prochaine action manager : contactez ${firstEmployeeName} et demandez-lui de répondre au message WhatsApp reçu. Son accès sera actif dès sa première réponse.`,
+                cta: 'Ouvrir Employés',
                 route: '/employees',
                 href: null
             };
@@ -350,8 +366,17 @@ export default function DashboardHome() {
                     </div>
 
                     <div className="mt-5 rounded-xl bg-emerald-50 border border-emerald-100 p-4">
-                        <p className="text-sm font-semibold text-emerald-950">{onboardingAction.title}</p>
-                        <p className="text-sm text-emerald-800 mt-1">{onboardingAction.description}</p>
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                            <div>
+                                <p className="text-sm font-semibold text-emerald-950">{onboardingAction.title}</p>
+                                <p className="text-sm text-emerald-800 mt-1">{onboardingAction.description}</p>
+                            </div>
+                            {onboarding.nextAction === 'employee_activated' && (
+                                <span className="inline-flex w-fit items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+                                    En attente de réponse
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-5">
@@ -382,10 +407,22 @@ export default function DashboardHome() {
 
                     <div className="mt-4 text-sm text-gray-600">
                         {onboarding.firstEmployee ? (
-                            <span>
-                                Premier collaborateur : <strong>{onboarding.firstEmployee.name || 'Sans nom'}</strong>.
-                                {' '}Activés : {onboarding.summary.activatedEmployees}/{onboarding.summary.employeeCount}.
-                            </span>
+                            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-center">
+                                <span>
+                                    Premier collaborateur : <strong>{onboarding.firstEmployee.name || 'Sans nom'}</strong>.
+                                </span>
+                                <span>Activés : {onboarding.summary.activatedEmployees}/{onboarding.summary.employeeCount}.</span>
+                                {onboarding.firstEmployee.invitedAt && (
+                                    <span className="text-gray-500">
+                                        Invité le {formatOnboardingDate(onboarding.firstEmployee.invitedAt)}.
+                                    </span>
+                                )}
+                                {!onboarding.firstEmployee.activated && onboarding.firstEmployee.activationReminderSentAt && (
+                                    <span className="text-amber-700 font-medium">
+                                        Relance envoyée le {formatOnboardingDate(onboarding.firstEmployee.activationReminderSentAt)}.
+                                    </span>
+                                )}
+                            </div>
                         ) : (
                             <span>Prochaine étape : invitez un premier collaborateur depuis WhatsApp ou depuis l'écran Employés.</span>
                         )}
