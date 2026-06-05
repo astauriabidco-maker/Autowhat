@@ -472,6 +472,12 @@ function isResetTestManager(employee: any): boolean {
         && Boolean(tenantConfig(employee.tenant?.config).lastOnboardingResetAt);
 }
 
+function isFromResetTestTenant(employee: any): boolean {
+    return Boolean(employee?.tenant?.config)
+        && isTestTenant(employee.tenant.config)
+        && Boolean(tenantConfig(employee.tenant.config).lastOnboardingResetAt);
+}
+
 async function findManagerByWhatsAppNumber(from: string) {
     return prisma.employee.findFirst({
         where: {
@@ -1250,12 +1256,12 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                         // 1. Identify User
                         const identifiedEmployee = await identifyUser(`+${from}`);
-                        const employee = isResetTestManager(identifiedEmployee) && !isAdminStart(messageBody)
+                        const employee = isFromResetTestTenant(identifiedEmployee) && !isAdminStart(messageBody)
                             ? null
                             : identifiedEmployee;
 
                         if (identifiedEmployee && !employee) {
-                            console.log(`🧪 Reset test manager treated as unknown for replay: ${from}`);
+                            console.log(`🧪 Reset test profile treated as unknown for replay: ${from}`);
                         }
 
                         if (!employee && messageType === 'text' && await handleWhatsAppSignupSession(from, messageBody, phoneNumberId)) {

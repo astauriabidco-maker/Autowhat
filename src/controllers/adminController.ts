@@ -1730,18 +1730,21 @@ export const resetTestOnboarding = async (req: Request, res: Response): Promise<
                 }
             });
 
-            await tx.employee.updateMany({
-                where: { tenantId: id, role: 'MANAGER' },
-                data: {
-                    hasCompletedOnboarding: false,
-                    conversationState: null,
-                    tempExpenseData: Prisma.DbNull,
-                    tempLeaveData: Prisma.DbNull,
-                    otpCode: null,
-                    otpExpiresAt: null,
-                    isOptedOut: false
-                }
-            });
+            for (const manager of managers) {
+                await tx.employee.update({
+                    where: { id: manager.id },
+                    data: {
+                        phoneNumber: `reset-test-manager-${resetStamp}-${manager.id}`,
+                        hasCompletedOnboarding: false,
+                        conversationState: null,
+                        tempExpenseData: Prisma.DbNull,
+                        tempLeaveData: Prisma.DbNull,
+                        otpCode: null,
+                        otpExpiresAt: null,
+                        isOptedOut: false
+                    }
+                });
+            }
 
             for (const employee of employees) {
                 await tx.employee.update({
