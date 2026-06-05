@@ -1,5 +1,14 @@
 import prisma from '../lib/prisma';
 
+function tenantConfig(config: unknown): Record<string, any> {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) return {};
+    return config as Record<string, any>;
+}
+
+function isResetTestTenant(config: unknown): boolean {
+    const parsed = tenantConfig(config);
+    return parsed.isTestTenant === true && Boolean(parsed.lastOnboardingResetAt);
+}
 
 /**
  * Identifies a user by their phone number.
@@ -16,9 +25,12 @@ export const identifyUser = async (phoneNumber: string) => {
 
     const withoutPlus = cleanedPhoneNumber.replace(/^\+/, '');
 
-    const employee = await prisma.employee.findFirst({
+    const matches = await prisma.employee.findMany({
         where: {
             role: { not: 'ARCHIVED' },
+            tenant: {
+                status: 'ACTIVE'
+            },
             OR: [
                 { phoneNumber: cleanedPhoneNumber },
                 { phoneNumber: withoutPlus },
@@ -29,7 +41,13 @@ export const identifyUser = async (phoneNumber: string) => {
         include: {
             tenant: true,
         },
+        orderBy: [
+            { updatedAt: 'desc' },
+            { createdAt: 'desc' }
+        ],
+        take: 10
     });
 
-    return employee;
+    const activeOperationalMatch = matches.find(employee => !isResetTestTenant(employee.tenant?.config));
+    return activeOperationalMatch || null;
 };

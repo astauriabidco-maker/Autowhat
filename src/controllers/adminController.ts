@@ -27,6 +27,19 @@ const tenantConfig = (config: unknown): Record<string, any> => {
 
 const isTestTenantConfig = (config: unknown): boolean => tenantConfig(config).isTestTenant === true;
 
+const phoneMatchers = (phoneNumber: string | null | undefined): Array<{ phoneNumber: any }> => {
+    if (!phoneNumber) return [];
+    const digits = phoneNumber.replace(/\D/g, '');
+    if (!digits) return [];
+
+    return [
+        { phoneNumber },
+        { phoneNumber: digits },
+        { phoneNumber: `+${digits}` },
+        ...(digits.length >= 9 ? [{ phoneNumber: { endsWith: digits.slice(-9) } }] : [])
+    ];
+};
+
 /**
  * POST /admin/login
  * Authenticates a Super Admin and returns a JWT token.
@@ -1707,6 +1720,9 @@ export const resetTestOnboarding = async (req: Request, res: Response): Promise<
 
         const managers = tenant.employees.filter(employee => employee.role === 'MANAGER');
         const employees = tenant.employees.filter(employee => employee.role === 'EMPLOYEE');
+        const phonesToDetach = tenant.employees
+            .map(employee => employee.phoneNumber)
+            .filter((phoneNumber): phoneNumber is string => Boolean(phoneNumber));
         const resetAt = new Date();
         const resetStamp = resetAt.getTime();
 
@@ -1763,6 +1779,49 @@ export const resetTestOnboarding = async (req: Request, res: Response): Promise<
                 });
             }
 
+            let detachedCrossTenantProfiles = 0;
+            for (const phoneNumber of phonesToDetach) {
+                const matchers = phoneMatchers(phoneNumber);
+                if (matchers.length === 0) continue;
+
+                const matchingProfiles = await tx.employee.findMany({
+                    where: {
+                        tenantId: { not: id },
+                        role: { not: 'ARCHIVED' },
+                        OR: matchers
+                    },
+                    select: {
+                        id: true,
+                        role: true,
+                        tenant: {
+                            select: {
+                                config: true
+                            }
+                        }
+                    }
+                });
+
+                for (const profile of matchingProfiles) {
+                    if (!isTestTenantConfig(profile.tenant.config)) continue;
+
+                    await tx.employee.update({
+                        where: { id: profile.id },
+                        data: {
+                            phoneNumber: `detached-test-${resetStamp}-${profile.id}`,
+                            role: profile.role === 'MANAGER' ? 'MANAGER' : 'ARCHIVED',
+                            hasCompletedOnboarding: false,
+                            conversationState: null,
+                            tempExpenseData: Prisma.DbNull,
+                            tempLeaveData: Prisma.DbNull,
+                            otpCode: null,
+                            otpExpiresAt: null,
+                            isOptedOut: false
+                        }
+                    });
+                    detachedCrossTenantProfiles += 1;
+                }
+            }
+
             return {
                 archivedEmployees: employees.length,
                 resetManagers: managers.length,
@@ -1770,7 +1829,8 @@ export const resetTestOnboarding = async (req: Request, res: Response): Promise<
                 deletedEvents: deletedEvents.count,
                 deletedTokens: deletedTokens.count,
                 deletedSessions: deletedSessions.count,
-                deletedNotifications: deletedNotifications.count
+                deletedNotifications: deletedNotifications.count,
+                detachedCrossTenantProfiles
             };
         });
 
