@@ -18,6 +18,7 @@ export const identifyUser = async (phoneNumber: string) => {
 
     const employee = await prisma.employee.findFirst({
         where: {
+            role: { not: 'ARCHIVED' },
             OR: [
                 { phoneNumber: cleanedPhoneNumber },
                 { phoneNumber: withoutPlus },

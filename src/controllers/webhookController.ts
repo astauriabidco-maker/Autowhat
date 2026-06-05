@@ -456,6 +456,22 @@ function isAdminStart(message: string): boolean {
     return normalizeText(message) === 'admin start';
 }
 
+function tenantConfig(config: unknown): Record<string, any> {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) return {};
+    return config as Record<string, any>;
+}
+
+function isTestTenant(config: unknown): boolean {
+    return tenantConfig(config).isTestTenant === true;
+}
+
+function isResetTestManager(employee: any): boolean {
+    return employee?.role === 'MANAGER'
+        && employee.hasCompletedOnboarding === false
+        && isTestTenant(employee.tenant?.config)
+        && Boolean(tenantConfig(employee.tenant?.config).lastOnboardingResetAt);
+}
+
 async function findManagerByWhatsAppNumber(from: string) {
     return prisma.employee.findFirst({
         where: {
@@ -544,6 +560,7 @@ async function findEmployeeInTenantByPhone(tenantId: string, phoneNumber: string
     return prisma.employee.findFirst({
         where: {
             tenantId,
+            role: { not: 'ARCHIVED' },
             OR: [
                 { phoneNumber },
                 { phoneNumber: withoutPlus },
@@ -1012,7 +1029,7 @@ async function createWhatsAppTrialSpace(from: string, session: SignupSession, ph
         include: { tenant: true }
     });
 
-    if (existingManager) {
+    if (existingManager && !isResetTestManager(existingManager)) {
         const { url: dashboardUrl } = await createManagerMagicLoginLink(existingManager.id, { source: 'WHATSAPP_EXISTING_MANAGER' });
         await sendMessage(
             from,
@@ -1232,7 +1249,14 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                         console.log(`🕐 Message timestamp: ${messageTimestamp.toISOString()} (WhatsApp: ${whatsappTimestamp || 'none'})`);
 
                         // 1. Identify User
-                        const employee = await identifyUser(`+${from}`);
+                        const identifiedEmployee = await identifyUser(`+${from}`);
+                        const employee = isResetTestManager(identifiedEmployee) && !isAdminStart(messageBody)
+                            ? null
+                            : identifiedEmployee;
+
+                        if (identifiedEmployee && !employee) {
+                            console.log(`🧪 Reset test manager treated as unknown for replay: ${from}`);
+                        }
 
                         if (!employee && messageType === 'text' && await handleWhatsAppSignupSession(from, messageBody, phoneNumberId)) {
                             continue;
