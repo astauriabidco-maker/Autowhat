@@ -20,6 +20,9 @@ const PLAN_PRICES = {
     ENTERPRISE: 99
 };
 
+const TEST_REPLAY_OVERRIDE_KIND = 'TEST_REPLAY_OVERRIDE';
+const TEST_REPLAY_OVERRIDE_TTL_MS = 6 * 60 * 60 * 1000;
+
 const tenantConfig = (config: unknown): Record<string, any> => {
     if (!config || typeof config !== 'object' || Array.isArray(config)) return {};
     return { ...(config as Record<string, any>) };
@@ -38,6 +41,11 @@ const phoneMatchers = (phoneNumber: string | null | undefined): Array<{ phoneNum
         { phoneNumber: `+${digits}` },
         ...(digits.length >= 9 ? [{ phoneNumber: { endsWith: digits.slice(-9) } }] : [])
     ];
+};
+
+const replayPhoneCandidates = (phoneNumber: string): string[] => {
+    const digits = phoneNumber.replace(/\D/g, '');
+    return Array.from(new Set([phoneNumber, digits, digits ? `+${digits}` : ''].filter(Boolean)));
 };
 
 /**
@@ -1780,6 +1788,7 @@ export const resetTestOnboarding = async (req: Request, res: Response): Promise<
             }
 
             let detachedCrossTenantProfiles = 0;
+            let replayOverrides = 0;
             for (const phoneNumber of phonesToDetach) {
                 const matchers = phoneMatchers(phoneNumber);
                 if (matchers.length === 0) continue;
@@ -1820,6 +1829,42 @@ export const resetTestOnboarding = async (req: Request, res: Response): Promise<
                     });
                     detachedCrossTenantProfiles += 1;
                 }
+
+                for (const candidate of replayPhoneCandidates(phoneNumber)) {
+                    await tx.whatsAppConversationSession.upsert({
+                        where: {
+                            phoneNumberId_phoneNumber_kind: {
+                                phoneNumberId: 'default',
+                                phoneNumber: candidate,
+                                kind: TEST_REPLAY_OVERRIDE_KIND
+                            }
+                        },
+                        create: {
+                            phoneNumberId: 'default',
+                            phoneNumber: candidate,
+                            kind: TEST_REPLAY_OVERRIDE_KIND,
+                            state: 'ACTIVE',
+                            tenantId: id,
+                            data: {
+                                source: 'SUPERADMIN_RESET',
+                                resetAt: resetAt.toISOString(),
+                                resetBy: superAdmin?.id || null
+                            },
+                            expiresAt: new Date(resetAt.getTime() + TEST_REPLAY_OVERRIDE_TTL_MS)
+                        },
+                        update: {
+                            state: 'ACTIVE',
+                            tenantId: id,
+                            data: {
+                                source: 'SUPERADMIN_RESET',
+                                resetAt: resetAt.toISOString(),
+                                resetBy: superAdmin?.id || null
+                            },
+                            expiresAt: new Date(resetAt.getTime() + TEST_REPLAY_OVERRIDE_TTL_MS)
+                        }
+                    });
+                    replayOverrides += 1;
+                }
             }
 
             return {
@@ -1830,7 +1875,8 @@ export const resetTestOnboarding = async (req: Request, res: Response): Promise<
                 deletedTokens: deletedTokens.count,
                 deletedSessions: deletedSessions.count,
                 deletedNotifications: deletedNotifications.count,
-                detachedCrossTenantProfiles
+                detachedCrossTenantProfiles,
+                replayOverrides
             };
         });
 

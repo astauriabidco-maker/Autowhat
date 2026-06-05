@@ -33,6 +33,7 @@ interface SignupSession {
 }
 
 const SIGNUP_SESSION_KIND = 'SIGNUP_TRIAL';
+const TEST_REPLAY_OVERRIDE_KIND = 'TEST_REPLAY_OVERRIDE';
 const SIGNUP_SESSION_TTL_MS = 30 * 60 * 1000;
 
 // Expense category buttons (WhatsApp allows max 3 per message, so we use list)
@@ -897,6 +898,37 @@ function normalizedPhoneNumberId(phoneNumberId?: string) {
     return phoneNumberId || 'default';
 }
 
+async function hasActiveTestReplayOverride(from: string, phoneNumberId?: string): Promise<boolean> {
+    const candidates = Array.from(new Set([from, `+${from}`]));
+    const phoneNumberIds = Array.from(new Set([normalizedPhoneNumberId(phoneNumberId), 'default']));
+
+    const override = await prisma.whatsAppConversationSession.findFirst({
+        where: {
+            phoneNumberId: { in: phoneNumberIds },
+            phoneNumber: { in: candidates },
+            kind: TEST_REPLAY_OVERRIDE_KIND,
+            state: 'ACTIVE',
+            expiresAt: { gt: new Date() }
+        },
+        select: { id: true }
+    });
+
+    return Boolean(override);
+}
+
+async function clearTestReplayOverride(from: string, phoneNumberId?: string) {
+    const candidates = Array.from(new Set([from, `+${from}`]));
+    const phoneNumberIds = Array.from(new Set([normalizedPhoneNumberId(phoneNumberId), 'default']));
+
+    await prisma.whatsAppConversationSession.deleteMany({
+        where: {
+            phoneNumberId: { in: phoneNumberIds },
+            phoneNumber: { in: candidates },
+            kind: TEST_REPLAY_OVERRIDE_KIND
+        }
+    });
+}
+
 function signupSessionExpiry() {
     return new Date(Date.now() + SIGNUP_SESSION_TTL_MS);
 }
@@ -1126,6 +1158,7 @@ async function createWhatsAppTrialSpace(from: string, session: SignupSession, ph
         .catch(err => console.error('Number allocation failed after WhatsApp signup:', err));
 
     const { url: dashboardUrl } = await createManagerMagicLoginLink(result.manager.id, { source: 'WHATSAPP_SIGNUP' });
+    await clearTestReplayOverride(from, phoneNumberId);
 
     await sendMessage(
         from,
@@ -1255,7 +1288,12 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                         console.log(`🕐 Message timestamp: ${messageTimestamp.toISOString()} (WhatsApp: ${whatsappTimestamp || 'none'})`);
 
                         // 1. Identify User
-                        const identifiedEmployee = await identifyUser(`+${from}`);
+                        const replayOverrideActive = await hasActiveTestReplayOverride(from, phoneNumberId);
+                        if (replayOverrideActive) {
+                            console.log(`🧪 Test replay override active for ${from}`);
+                        }
+
+                        const identifiedEmployee = replayOverrideActive ? null : await identifyUser(`+${from}`);
                         const employee = isFromResetTestTenant(identifiedEmployee) && !isAdminStart(messageBody)
                             ? null
                             : identifiedEmployee;
@@ -1285,7 +1323,7 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                         // ─── FSM: CUSTOMER INTERVENTION REQUEST BOT ───────────────
                         // If the sender is NOT an employee, check if they're a known customer
-                        if (!employee) {
+                        if (!employee && !replayOverrideActive) {
                             const senderPhoneNormalized = `+${from}`;
                             const customer = await prisma.customer.findFirst({
                                 where: {
