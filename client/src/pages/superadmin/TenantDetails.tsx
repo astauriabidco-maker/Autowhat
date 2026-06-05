@@ -32,6 +32,7 @@ interface Tenant {
     country: string;
     legalName?: string;
     stripeCustomerId?: string | null;
+    isTestTenant?: boolean;
 }
 
 interface TenantStats {
@@ -95,6 +96,8 @@ export default function TenantDetails() {
     const [overrideMaxEmployees, setOverrideMaxEmployees] = useState(50);
     const [overrideReason, setOverrideReason] = useState('');
     const [savingOverride, setSavingOverride] = useState(false);
+    const [updatingTestMode, setUpdatingTestMode] = useState(false);
+    const [resettingOnboarding, setResettingOnboarding] = useState(false);
 
     const token = localStorage.getItem('superadmin_token');
 
@@ -219,6 +222,74 @@ export default function TenantDetails() {
         }
     };
 
+    const handleToggleTestMode = async () => {
+        if (!tenant) return;
+        const nextEnabled = !tenant.isTestTenant;
+        const message = nextEnabled
+            ? `Marquer "${tenant.name}" comme tenant de test ?\n\nLes outils de reset QA seront alors disponibles sur ce client.`
+            : `Désactiver le mode test pour "${tenant.name}" ?\n\nLe reset onboarding sera bloqué pour ce client.`;
+
+        if (!confirm(message)) return;
+
+        setUpdatingTestMode(true);
+        try {
+            const res = await fetch(`/admin/tenants/${id}/test-mode`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ enabled: nextEnabled })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setTenant(current => current ? { ...current, isTestTenant: data.tenant?.isTestTenant } : current);
+            } else {
+                alert(`Erreur: ${data.error || 'Impossible de mettre à jour le mode test'}`);
+            }
+        } catch (error) {
+            console.error('Error toggling test mode:', error);
+            alert('Erreur réseau lors de la mise à jour du mode test');
+        } finally {
+            setUpdatingTestMode(false);
+        }
+    };
+
+    const handleResetOnboarding = async () => {
+        if (!tenant?.isTestTenant) {
+            alert('Ce client doit d’abord être marqué comme tenant de test.');
+            return;
+        }
+
+        if (!confirm(`Réinitialiser le tunnel onboarding de "${tenant.name}" ?\n\nCette action archive les collaborateurs de test, libère leurs numéros, supprime les événements onboarding, les sessions WhatsApp, les liens magiques et les pointages du tenant.`)) {
+            return;
+        }
+
+        if (!confirm('Confirmation finale : cette action est réservée aux tenants de test. Continuer ?')) {
+            return;
+        }
+
+        setResettingOnboarding(true);
+        try {
+            const res = await fetch(`/admin/tenants/${id}/reset-onboarding-test`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert(`✅ Tunnel réinitialisé.\n\nManagers remis à zéro: ${data.result?.resetManagers || 0}\nCollaborateurs archivés: ${data.result?.archivedEmployees || 0}\nÉvénements supprimés: ${data.result?.deletedEvents || 0}`);
+                fetchFullDetails();
+            } else {
+                alert(`Erreur: ${data.error || 'Réinitialisation impossible'}`);
+            }
+        } catch (error) {
+            console.error('Error resetting onboarding:', error);
+            alert('Erreur réseau lors de la réinitialisation');
+        } finally {
+            setResettingOnboarding(false);
+        }
+    };
+
     const getStatusBadge = (status: string | null) => {
         switch (status) {
             case 'paid':
@@ -274,6 +345,11 @@ export default function TenantDetails() {
                         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
                             <Building2 className="w-6 h-6" />
                             {tenant.name}
+                            {tenant.isTestTenant && (
+                                <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">
+                                    TEST
+                                </span>
+                            )}
                         </h1>
                         <p className="text-slate-500">ID: {tenant.id.slice(0, 8)}...</p>
                     </div>
@@ -387,7 +463,31 @@ export default function TenantDetails() {
                                 <Shield size={16} />
                                 {tenant.status === 'SUSPENDED' ? 'Réactiver' : 'Suspendre'}
                             </button>
+                            <button
+                                onClick={handleToggleTestMode}
+                                disabled={updatingTestMode}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition disabled:opacity-50 ${tenant.isTestTenant
+                                    ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                    }`}
+                            >
+                                {updatingTestMode ? <Loader2 size={16} className="animate-spin" /> : <AlertTriangle size={16} />}
+                                {tenant.isTestTenant ? 'Mode test actif' : 'Marquer test'}
+                            </button>
+                            <button
+                                onClick={handleResetOnboarding}
+                                disabled={!tenant.isTestTenant || resettingOnboarding}
+                                className="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {resettingOnboarding ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                                Réinitialiser tunnel test
+                            </button>
                         </div>
+                        {tenant.isTestTenant && (
+                            <p className="mt-3 text-sm text-amber-700">
+                                Espace de test : vous pouvez rejouer le parcours WhatsApp avec les mêmes numéros après reset.
+                            </p>
+                        )}
                     </div>
 
                     {/* Trial Info */}

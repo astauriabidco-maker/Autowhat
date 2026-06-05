@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { setManagerAuthCookie, setSuperAdminAuthCookie } from '../utils/authCookies';
 
@@ -18,6 +19,13 @@ const PLAN_PRICES = {
     PRO: 29,
     ENTERPRISE: 99
 };
+
+const tenantConfig = (config: unknown): Record<string, any> => {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) return {};
+    return { ...(config as Record<string, any>) };
+};
+
+const isTestTenantConfig = (config: unknown): boolean => tenantConfig(config).isTestTenant === true;
 
 /**
  * POST /admin/login
@@ -1609,6 +1617,186 @@ export const planOverride = async (req: Request, res: Response): Promise<void> =
 };
 
 /**
+ * PATCH /admin/tenants/:id/test-mode
+ * Marks a tenant as safe for repeated SuperAdmin QA flows.
+ */
+export const setTenantTestMode = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const id = req.params.id as string;
+        const enabled = req.body?.enabled === true;
+        const superAdmin = req.superAdmin;
+
+        const tenant = await prisma.tenant.findUnique({ where: { id } });
+        if (!tenant) {
+            res.status(404).json({ error: 'Tenant non trouvé' });
+            return;
+        }
+
+        const nextConfig = {
+            ...tenantConfig(tenant.config),
+            isTestTenant: enabled,
+            testModeUpdatedAt: new Date().toISOString(),
+            testModeUpdatedBy: superAdmin?.id || null
+        };
+
+        const updatedTenant = await prisma.tenant.update({
+            where: { id },
+            data: { config: nextConfig }
+        });
+
+        if (superAdmin) {
+            await logAdminAction(
+                superAdmin.id,
+                enabled ? 'ENABLE_TEST_TENANT' : 'DISABLE_TEST_TENANT',
+                'TENANT',
+                tenant.id,
+                tenant.name,
+                { enabled }
+            );
+        }
+
+        res.status(200).json({
+            message: enabled ? 'Tenant marqué comme espace de test' : 'Mode test désactivé',
+            tenant: {
+                id: updatedTenant.id,
+                name: updatedTenant.name,
+                isTestTenant: isTestTenantConfig(updatedTenant.config)
+            }
+        });
+    } catch (error: any) {
+        console.error('Error updating tenant test mode:', error);
+        res.status(500).json({ error: 'Erreur lors de la mise à jour du mode test' });
+    }
+};
+
+/**
+ * POST /admin/tenants/:id/reset-onboarding-test
+ * Resets WhatsApp onboarding for a tenant explicitly marked as test.
+ */
+export const resetTestOnboarding = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const id = req.params.id as string;
+        const superAdmin = req.superAdmin;
+
+        const tenant = await prisma.tenant.findUnique({
+            where: { id },
+            include: {
+                employees: {
+                    where: { role: { not: 'ARCHIVED' } },
+                    select: {
+                        id: true,
+                        name: true,
+                        phoneNumber: true,
+                        role: true
+                    }
+                }
+            }
+        });
+
+        if (!tenant) {
+            res.status(404).json({ error: 'Tenant non trouvé' });
+            return;
+        }
+
+        if (!isTestTenantConfig(tenant.config)) {
+            res.status(403).json({
+                error: 'Reset refusé: marquez d’abord ce client comme tenant de test.'
+            });
+            return;
+        }
+
+        const managers = tenant.employees.filter(employee => employee.role === 'MANAGER');
+        const employees = tenant.employees.filter(employee => employee.role === 'EMPLOYEE');
+        const resetAt = new Date();
+        const resetStamp = resetAt.getTime();
+
+        const result = await prisma.$transaction(async (tx) => {
+            const deletedAttendances = await tx.attendance.deleteMany({ where: { tenantId: id } });
+            const deletedEvents = await tx.onboardingEvent.deleteMany({ where: { tenantId: id } });
+            const deletedTokens = await tx.managerMagicLoginToken.deleteMany({ where: { tenantId: id } });
+            const deletedSessions = await tx.whatsAppConversationSession.deleteMany({ where: { tenantId: id } });
+            const deletedNotifications = await tx.notification.deleteMany({ where: { tenantId: id } });
+
+            await tx.tenant.update({
+                where: { id },
+                data: {
+                    lastLoginAt: null,
+                    config: {
+                        ...tenantConfig(tenant.config),
+                        isTestTenant: true,
+                        lastOnboardingResetAt: resetAt.toISOString(),
+                        lastOnboardingResetBy: superAdmin?.id || null
+                    }
+                }
+            });
+
+            await tx.employee.updateMany({
+                where: { tenantId: id, role: 'MANAGER' },
+                data: {
+                    hasCompletedOnboarding: false,
+                    conversationState: null,
+                    tempExpenseData: Prisma.DbNull,
+                    tempLeaveData: Prisma.DbNull,
+                    otpCode: null,
+                    otpExpiresAt: null,
+                    isOptedOut: false
+                }
+            });
+
+            for (const employee of employees) {
+                await tx.employee.update({
+                    where: { id: employee.id },
+                    data: {
+                        role: 'ARCHIVED',
+                        phoneNumber: `archived-test-${resetStamp}-${employee.id}`,
+                        hasCompletedOnboarding: false,
+                        conversationState: null,
+                        tempExpenseData: Prisma.DbNull,
+                        tempLeaveData: Prisma.DbNull,
+                        otpCode: null,
+                        otpExpiresAt: null,
+                        isOptedOut: false
+                    }
+                });
+            }
+
+            return {
+                archivedEmployees: employees.length,
+                resetManagers: managers.length,
+                deletedAttendances: deletedAttendances.count,
+                deletedEvents: deletedEvents.count,
+                deletedTokens: deletedTokens.count,
+                deletedSessions: deletedSessions.count,
+                deletedNotifications: deletedNotifications.count
+            };
+        });
+
+        if (superAdmin) {
+            await logAdminAction(
+                superAdmin.id,
+                'RESET_TEST_ONBOARDING',
+                'TENANT',
+                tenant.id,
+                tenant.name,
+                result
+            );
+        }
+
+        res.status(200).json({
+            message: 'Tunnel onboarding de test réinitialisé',
+            tenant: {
+                id: tenant.id,
+                name: tenant.name
+            },
+            result
+        });
+    } catch (error: any) {
+        console.error('Error resetting test onboarding:', error);
+        res.status(500).json({ error: 'Erreur lors de la réinitialisation du tunnel test' });
+    }
+};
+
+/**
  * GET /admin/tenants/:id/full-details
  * Returns complete tenant details with employees, stats, and invoices
  */
@@ -1633,7 +1821,8 @@ export const getTenantFullDetails = async (req: Request, res: Response): Promise
                 id: true,
                 name: true,
                 phoneNumber: true,
-                role: true
+                role: true,
+                createdAt: true
             },
             orderBy: { name: 'asc' }
         });
@@ -1685,7 +1874,8 @@ export const getTenantFullDetails = async (req: Request, res: Response): Promise
                 createdAt: tenant.createdAt,
                 country: tenant.country,
                 legalName: tenant.legalName,
-                stripeCustomerId: tenant.stripeCustomerId
+                stripeCustomerId: tenant.stripeCustomerId,
+                isTestTenant: isTestTenantConfig(tenant.config)
             },
             stats: {
                 totalEmployees,

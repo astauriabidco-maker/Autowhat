@@ -170,6 +170,8 @@ router.get('/admin/sessions/active', authenticateSuperAdmin, adminController.get
 // Manual Tenant Management (CRM)
 router.post('/admin/tenants/create', authenticateSuperAdmin, adminController.createTenant);
 router.put('/admin/tenants/:id/plan-override', authenticateSuperAdmin, adminController.planOverride);
+router.patch('/admin/tenants/:id/test-mode', authenticateSuperAdmin, adminController.setTenantTestMode);
+router.post('/admin/tenants/:id/reset-onboarding-test', authenticateSuperAdmin, adminController.resetTestOnboarding);
 router.get('/admin/tenants/:id/full-details', authenticateSuperAdmin, adminController.getTenantFullDetails);
 
 // Platform Configuration & Admin Team
