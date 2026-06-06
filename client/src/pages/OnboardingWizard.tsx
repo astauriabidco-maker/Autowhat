@@ -4,7 +4,7 @@ import axios from 'axios';
 import {
     Sparkles, Building2, Users, MessageSquare, Check,
     ArrowRight, ArrowLeft, MapPin, Plus, Loader2, X,
-    Phone, User
+    Phone, User, Globe2, Navigation, ShieldAlert
 } from 'lucide-react';
 
 interface WizardStep {
@@ -17,6 +17,10 @@ interface WizardStep {
 interface SiteForm {
     name: string;
     address: string;
+    country: string;
+    locationMethod: 'address' | 'current' | 'none' | 'manual';
+    gpsMode: 'STRICT' | 'WARNING' | 'DISABLED';
+    radius: string;
     latitude: string;
     longitude: string;
 }
@@ -33,11 +37,17 @@ export default function OnboardingWizard() {
     const [skipLoading, setSkipLoading] = useState(false);
     const [showSkipModal, setShowSkipModal] = useState(false);
     const [companyName, setCompanyName] = useState('');
+    const [locationLoading, setLocationLoading] = useState(false);
+    const [locationError, setLocationError] = useState('');
 
     // Site form
     const [siteForm, setSiteForm] = useState<SiteForm>({
         name: '',
         address: '',
+        country: 'FR',
+        locationMethod: 'address',
+        gpsMode: 'WARNING',
+        radius: '200',
         latitude: '',
         longitude: ''
     });
@@ -48,6 +58,19 @@ export default function OnboardingWizard() {
     ]);
 
     const [tenantStats, setTenantStats] = useState({ sites: 0, employees: 0 });
+    const countryOptions = [
+        { code: 'FR', label: 'France', addressFirst: true },
+        { code: 'CM', label: 'Cameroun', addressFirst: false },
+        { code: 'US', label: 'États-Unis', addressFirst: true },
+        { code: 'CA', label: 'Canada', addressFirst: true },
+        { code: 'BE', label: 'Belgique', addressFirst: true },
+        { code: 'CH', label: 'Suisse', addressFirst: true },
+        { code: 'GB', label: 'Royaume-Uni', addressFirst: true },
+        { code: 'DE', label: 'Allemagne', addressFirst: true },
+        { code: 'ES', label: 'Espagne', addressFirst: true },
+        { code: 'OTHER', label: 'Autre pays', addressFirst: false }
+    ];
+    const selectedCountry = countryOptions.find(country => country.code === siteForm.country) || countryOptions[0];
 
     const steps: WizardStep[] = [
         { id: 1, title: 'Bienvenue', icon: <Sparkles size={20} />, completed: currentStep > 1 },
@@ -68,6 +91,13 @@ export default function OnboardingWizard() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setCompanyName(res.data.name || 'Votre entreprise');
+            const tenantCountry = res.data.country || 'FR';
+            const countryConfig = countryOptions.find(country => country.code === tenantCountry);
+            setSiteForm(prev => ({
+                ...prev,
+                country: countryConfig ? tenantCountry : 'OTHER',
+                locationMethod: countryConfig?.addressFirst === false ? 'current' : 'address'
+            }));
 
             // Also fetch onboarding status
             const statusRes = await axios.get('/api/user/onboarding-status', {
@@ -88,6 +118,10 @@ export default function OnboardingWizard() {
             await axios.post('/api/sites', {
                 name: siteForm.name,
                 address: siteForm.address || null,
+                country: siteForm.country === 'OTHER' ? 'FR' : siteForm.country,
+                locationMethod: siteForm.locationMethod,
+                gpsMode: siteForm.locationMethod === 'none' ? 'DISABLED' : siteForm.gpsMode,
+                radius: parseInt(siteForm.radius, 10) || 200,
                 latitude: siteForm.latitude ? parseFloat(siteForm.latitude) : null,
                 longitude: siteForm.longitude ? parseFloat(siteForm.longitude) : null
             }, {
@@ -101,6 +135,33 @@ export default function OnboardingWizard() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleUseCurrentLocation = () => {
+        setLocationError('');
+        if (!navigator.geolocation) {
+            setLocationError("Votre navigateur ne permet pas de récupérer la position.");
+            return;
+        }
+
+        setLocationLoading(true);
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                setSiteForm(prev => ({
+                    ...prev,
+                    locationMethod: 'current',
+                    gpsMode: prev.gpsMode === 'DISABLED' ? 'WARNING' : prev.gpsMode,
+                    latitude: position.coords.latitude.toFixed(6),
+                    longitude: position.coords.longitude.toFixed(6)
+                }));
+                setLocationLoading(false);
+            },
+            () => {
+                setLocationError("Position indisponible. Vous pouvez créer le site sans GPS pour l'instant.");
+                setLocationLoading(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+        );
     };
 
     const handleAddEmployees = async () => {
@@ -309,44 +370,157 @@ export default function OnboardingWizard() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm text-slate-400 mb-2">Adresse (optionnel)</label>
-                                    <input
-                                        type="text"
-                                        value={siteForm.address}
-                                        onChange={e => setSiteForm({ ...siteForm, address: e.target.value })}
-                                        placeholder="ex: 15 rue de la Paix, 75001 Paris"
-                                        className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-red-500"
-                                    />
+                                    <label className="block text-sm text-slate-400 mb-2">
+                                        <Globe2 size={14} className="inline mr-1" />
+                                        Pays du site
+                                    </label>
+                                    <select
+                                        value={siteForm.country}
+                                        onChange={e => {
+                                            const nextCountry = e.target.value;
+                                            const nextConfig = countryOptions.find(country => country.code === nextCountry);
+                                            setSiteForm({
+                                                ...siteForm,
+                                                country: nextCountry,
+                                                locationMethod: nextConfig?.addressFirst === false ? 'current' : 'address'
+                                            });
+                                        }}
+                                        className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-red-500"
+                                    >
+                                        {countryOptions.map(country => (
+                                            <option key={country.code} value={country.code}>{country.label}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        Le pays du site peut être différent du pays de l'entreprise.
+                                    </p>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    {([
+                                        { key: 'address', icon: MapPin, title: 'Entrer une adresse', desc: selectedCountry.addressFirst ? 'Recommandé pour ce pays' : 'Si vous avez une adresse fiable' },
+                                        { key: 'current', icon: Navigation, title: 'Position actuelle', desc: 'Idéal sur site ou chantier' },
+                                        { key: 'none', icon: ShieldAlert, title: 'Sans GPS', desc: 'À compléter plus tard' }
+                                    ] as const).map(option => {
+                                        const Icon = option.icon;
+                                        const active = siteForm.locationMethod === option.key;
+                                        return (
+                                            <button
+                                                key={option.key}
+                                                type="button"
+                                                onClick={() => setSiteForm({
+                                                    ...siteForm,
+                                                    locationMethod: option.key,
+                                                    gpsMode: option.key === 'none' ? 'DISABLED' : siteForm.gpsMode === 'DISABLED' ? 'WARNING' : siteForm.gpsMode
+                                                })}
+                                                className={`text-left rounded-xl border p-4 transition ${active
+                                                    ? 'border-red-500 bg-red-500/10 text-white'
+                                                    : 'border-slate-600 bg-slate-700/60 text-slate-300 hover:border-slate-400'
+                                                    }`}
+                                            >
+                                                <Icon size={20} className={active ? 'text-red-300' : 'text-slate-400'} />
+                                                <p className="font-semibold mt-2">{option.title}</p>
+                                                <p className="text-xs text-slate-400 mt-1">{option.desc}</p>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {siteForm.locationMethod === 'address' && (
                                     <div>
-                                        <label className="block text-sm text-slate-400 mb-2">
-                                            <MapPin size={14} className="inline mr-1" />
-                                            Latitude (optionnel)
-                                        </label>
+                                        <label className="block text-sm text-slate-400 mb-2">Adresse du site</label>
+                                        <input
+                                            type="text"
+                                            value={siteForm.address}
+                                            onChange={e => setSiteForm({ ...siteForm, address: e.target.value })}
+                                            placeholder={selectedCountry.addressFirst ? 'ex: 15 rue de la Paix, Paris' : 'ex: Quartier, repère ou lieu connu'}
+                                            className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-red-500"
+                                        />
+                                        <p className="text-xs text-slate-500 mt-2">
+                                            Si l'adresse est reconnue, WhatsPoint positionnera le site automatiquement.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {siteForm.locationMethod === 'current' && (
+                                    <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4">
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                            <div>
+                                                <p className="text-white font-semibold">Utiliser la position de cet appareil</p>
+                                                <p className="text-sm text-slate-400">Pratique si vous êtes déjà sur le site de pointage.</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={handleUseCurrentLocation}
+                                                disabled={locationLoading}
+                                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white rounded-lg font-semibold flex items-center justify-center gap-2"
+                                            >
+                                                {locationLoading ? <Loader2 size={16} className="animate-spin" /> : <Navigation size={16} />}
+                                                Capturer
+                                            </button>
+                                        </div>
+                                        {siteForm.latitude && siteForm.longitude && (
+                                            <p className="text-xs text-blue-200 mt-3">
+                                                Position capturée : {siteForm.latitude}, {siteForm.longitude}
+                                            </p>
+                                        )}
+                                        {locationError && <p className="text-xs text-amber-300 mt-3">{locationError}</p>}
+                                    </div>
+                                )}
+
+                                {siteForm.locationMethod !== 'none' && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm text-slate-400 mb-2">Contrôle GPS</label>
+                                            <select
+                                                value={siteForm.gpsMode}
+                                                onChange={e => setSiteForm({ ...siteForm, gpsMode: e.target.value as SiteForm['gpsMode'] })}
+                                                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-red-500"
+                                            >
+                                                <option value="WARNING">Avertir sans bloquer</option>
+                                                <option value="STRICT">Bloquer hors zone</option>
+                                                <option value="DISABLED">Désactivé</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-slate-400 mb-2">Rayon autorisé</label>
+                                            <input
+                                                type="number"
+                                                value={siteForm.radius}
+                                                onChange={e => setSiteForm({ ...siteForm, radius: e.target.value })}
+                                                min="25"
+                                                max="5000"
+                                                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-red-500"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                <details className="rounded-xl border border-slate-700 p-4">
+                                    <summary className="cursor-pointer text-sm text-slate-400">Coordonnées avancées</summary>
+                                    <div className="grid grid-cols-2 gap-4 mt-4">
                                         <input
                                             type="text"
                                             value={siteForm.latitude}
-                                            onChange={e => setSiteForm({ ...siteForm, latitude: e.target.value })}
-                                            placeholder="48.8566"
+                                            onChange={e => setSiteForm({ ...siteForm, latitude: e.target.value, locationMethod: 'manual' })}
+                                            placeholder="Latitude"
                                             className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-red-500"
                                         />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm text-slate-400 mb-2">
-                                            <MapPin size={14} className="inline mr-1" />
-                                            Longitude (optionnel)
-                                        </label>
                                         <input
                                             type="text"
                                             value={siteForm.longitude}
-                                            onChange={e => setSiteForm({ ...siteForm, longitude: e.target.value })}
-                                            placeholder="2.3522"
+                                            onChange={e => setSiteForm({ ...siteForm, longitude: e.target.value, locationMethod: 'manual' })}
+                                            placeholder="Longitude"
                                             className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-red-500"
                                         />
                                     </div>
-                                </div>
+                                </details>
+
+                                {siteForm.locationMethod === 'none' && (
+                                    <p className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-4 text-sm text-amber-100">
+                                        Le site sera créé sans contrôle GPS. Vous pourrez activer la géolocalisation plus tard.
+                                    </p>
+                                )}
                             </div>
 
                             <div className="flex justify-between">

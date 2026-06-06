@@ -207,9 +207,11 @@ model Site {
   id        String   @id @default(uuid())
   name      String   // "Paris", "Lyon", "Marseille"
   address   String?
+  country   String   @default("FR") // Pays réel du site, distinct du pays du tenant
   latitude  Float?
   longitude Float?
   radius    Int      @default(200) // Rayon de tolérance en mètres pour géofencing
+  gpsMode   String   @default("WARNING") // STRICT, WARNING, DISABLED
   
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id])

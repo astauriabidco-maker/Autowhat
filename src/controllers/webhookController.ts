@@ -1102,6 +1102,8 @@ async function createWhatsAppTrialSpace(from: string, session: SignupSession, ph
         await tx.site.create({
             data: {
                 name: 'Site principal',
+                country,
+                gpsMode: 'WARNING',
                 tenantId: tenant.id
             }
         });

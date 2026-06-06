@@ -247,6 +247,7 @@ export const getTenantInfo = async (req: Request, res: Response): Promise<any> =
             select: {
                 id: true,
                 name: true,
+                country: true,
                 plan: true,
                 trialEndsAt: true,
                 maxEmployees: true

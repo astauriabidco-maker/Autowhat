@@ -246,6 +246,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
             const site = await tx.site.create({
                 data: {
                     name: 'Siège Social',
+                    country: country || 'FR',
+                    gpsMode: 'WARNING',
                     tenantId: tenant.id,
                 }
             });

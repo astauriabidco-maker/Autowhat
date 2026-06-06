@@ -5,8 +5,11 @@ interface Site {
     id: string;
     name: string;
     address: string | null;
+    country: string;
     latitude: number | null;
     longitude: number | null;
+    radius: number;
+    gpsMode: 'STRICT' | 'WARNING' | 'DISABLED';
 }
 
 interface SiteContextType {

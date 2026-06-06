@@ -103,13 +103,25 @@ export async function checkLocationCompliance(
         };
     }
 
-    // Site sans coordonnées GPS -> On ne peut pas vérifier
-    if (site.latitude === null || site.longitude === null) {
+    const gpsMode = (site as Site & { gpsMode?: string }).gpsMode || 'WARNING';
+    if (gpsMode === 'DISABLED') {
         return {
             isCompliant: true,
             distance: null,
             warning: false,
             message: '✅ Pointage validé'
+        };
+    }
+
+    // Site sans coordonnées GPS -> On ne peut pas vérifier
+    if (site.latitude === null || site.longitude === null) {
+        return {
+            isCompliant: true,
+            distance: null,
+            warning: gpsMode === 'STRICT',
+            message: gpsMode === 'STRICT'
+                ? '⚠️ Site sans coordonnées GPS. Pointage enregistré sous réserve.'
+                : '✅ Pointage validé'
         };
     }
 
@@ -127,12 +139,14 @@ export async function checkLocationCompliance(
         };
     }
 
-    // Hors du rayon -> Warning
+    // Hors du rayon -> Warning/Strict
     return {
-        isCompliant: true,
+        isCompliant: gpsMode !== 'STRICT',
         distance,
         warning: true,
-        message: `⚠️ Attention, vous êtes à ${distance}m de votre lieu de travail (rayon autorisé: ${radius}m). Pointage enregistré sous réserve.`
+        message: gpsMode === 'STRICT'
+            ? `❌ Vous êtes à ${distance}m de votre lieu de travail (rayon autorisé: ${radius}m). Pointage refusé.`
+            : `⚠️ Attention, vous êtes à ${distance}m de votre lieu de travail (rayon autorisé: ${radius}m). Pointage enregistré sous réserve.`
     };
 }
 
