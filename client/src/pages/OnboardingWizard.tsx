@@ -30,6 +30,68 @@ interface EmployeeForm {
     phoneNumber: string;
 }
 
+interface CountryBounds {
+    label: string;
+    minLat: number;
+    maxLat: number;
+    minLon: number;
+    maxLon: number;
+}
+
+interface LocationCountryWarning {
+    selectedCountry: string;
+    selectedLabel: string;
+    detectedCountry: string;
+    detectedLabel: string;
+}
+
+const COUNTRY_BOUNDS: Record<string, CountryBounds[]> = {
+    FR: [{ label: 'France', minLat: 41, maxLat: 51.5, minLon: -5.5, maxLon: 10 }],
+    CM: [{ label: 'Cameroun', minLat: 1.5, maxLat: 13.5, minLon: 8, maxLon: 16.5 }],
+    BE: [{ label: 'Belgique', minLat: 49.4, maxLat: 51.6, minLon: 2.5, maxLon: 6.5 }],
+    CH: [{ label: 'Suisse', minLat: 45.7, maxLat: 47.9, minLon: 5.7, maxLon: 10.6 }],
+    DE: [{ label: 'Allemagne', minLat: 47.2, maxLat: 55.2, minLon: 5.8, maxLon: 15.1 }],
+    ES: [{ label: 'Espagne', minLat: 35.8, maxLat: 43.9, minLon: -9.5, maxLon: 4.4 }],
+    GB: [{ label: 'Royaume-Uni', minLat: 49.8, maxLat: 59.5, minLon: -8.7, maxLon: 2.1 }],
+    US: [{ label: 'États-Unis', minLat: 24, maxLat: 49.8, minLon: -125, maxLon: -66 }],
+    CA: [{ label: 'Canada', minLat: 41, maxLat: 84, minLon: -141, maxLon: -52 }]
+};
+
+function isPointInBounds(latitude: number, longitude: number, bounds: CountryBounds) {
+    return latitude >= bounds.minLat &&
+        latitude <= bounds.maxLat &&
+        longitude >= bounds.minLon &&
+        longitude <= bounds.maxLon;
+}
+
+function inferCountryFromCoordinates(latitude: number, longitude: number): { code: string; label: string } | null {
+    for (const [code, boundsList] of Object.entries(COUNTRY_BOUNDS)) {
+        const match = boundsList.find(bounds => isPointInBounds(latitude, longitude, bounds));
+        if (match) return { code, label: match.label };
+    }
+    return null;
+}
+
+function getLocationCountryMismatch(country: string, latitudeValue: string, longitudeValue: string): LocationCountryWarning | null {
+    const selectedCountry = country === 'OTHER' ? '' : country;
+    const selectedBounds = COUNTRY_BOUNDS[selectedCountry];
+    if (!selectedBounds) return null;
+
+    const latitude = Number(latitudeValue);
+    const longitude = Number(longitudeValue);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+    const detected = inferCountryFromCoordinates(latitude, longitude);
+    if (!detected || detected.code === selectedCountry) return null;
+
+    return {
+        selectedCountry,
+        selectedLabel: selectedBounds[0].label,
+        detectedCountry: detected.code,
+        detectedLabel: detected.label
+    };
+}
+
 export default function OnboardingWizard() {
     const navigate = useNavigate();
     const [currentStep, setCurrentStep] = useState(1);
@@ -39,6 +101,8 @@ export default function OnboardingWizard() {
     const [companyName, setCompanyName] = useState('');
     const [locationLoading, setLocationLoading] = useState(false);
     const [locationError, setLocationError] = useState('');
+    const [countryLocationWarning, setCountryLocationWarning] = useState<LocationCountryWarning | null>(null);
+    const [countryMismatchAccepted, setCountryMismatchAccepted] = useState(false);
 
     // Site form
     const [siteForm, setSiteForm] = useState<SiteForm>({
@@ -112,18 +176,25 @@ export default function OnboardingWizard() {
     const handleCreateSite = async () => {
         if (!siteForm.name.trim()) return;
 
+        const mismatch = getLocationCountryMismatch(siteForm.country, siteForm.latitude, siteForm.longitude);
+        if (mismatch && !countryMismatchAccepted) {
+            setCountryLocationWarning(mismatch);
+            return;
+        }
+
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
             await axios.post('/api/sites', {
                 name: siteForm.name,
                 address: siteForm.address || null,
-                country: siteForm.country === 'OTHER' ? 'FR' : siteForm.country,
+                country: siteForm.country,
                 locationMethod: siteForm.locationMethod,
                 gpsMode: siteForm.locationMethod === 'none' ? 'DISABLED' : siteForm.gpsMode,
                 radius: parseInt(siteForm.radius, 10) || 200,
                 latitude: siteForm.latitude ? parseFloat(siteForm.latitude) : null,
-                longitude: siteForm.longitude ? parseFloat(siteForm.longitude) : null
+                longitude: siteForm.longitude ? parseFloat(siteForm.longitude) : null,
+                acceptCountryMismatch: countryMismatchAccepted
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -132,6 +203,14 @@ export default function OnboardingWizard() {
             setCurrentStep(3);
         } catch (error) {
             console.error('Error creating site:', error);
+            if (axios.isAxiosError(error) && error.response?.data?.code === 'SITE_COUNTRY_LOCATION_MISMATCH') {
+                setCountryLocationWarning({
+                    selectedCountry: error.response.data.selectedCountry,
+                    selectedLabel: error.response.data.selectedLabel,
+                    detectedCountry: error.response.data.detectedCountry,
+                    detectedLabel: error.response.data.detectedLabel
+                });
+            }
         } finally {
             setLoading(false);
         }
@@ -147,13 +226,17 @@ export default function OnboardingWizard() {
         setLocationLoading(true);
         navigator.geolocation.getCurrentPosition(
             position => {
+                const latitude = position.coords.latitude.toFixed(6);
+                const longitude = position.coords.longitude.toFixed(6);
                 setSiteForm(prev => ({
                     ...prev,
                     locationMethod: 'current',
                     gpsMode: prev.gpsMode === 'DISABLED' ? 'WARNING' : prev.gpsMode,
-                    latitude: position.coords.latitude.toFixed(6),
-                    longitude: position.coords.longitude.toFixed(6)
+                    latitude,
+                    longitude
                 }));
+                setCountryMismatchAccepted(false);
+                setCountryLocationWarning(getLocationCountryMismatch(siteForm.country, latitude, longitude));
                 setLocationLoading(false);
             },
             () => {
@@ -379,6 +462,8 @@ export default function OnboardingWizard() {
                                         onChange={e => {
                                             const nextCountry = e.target.value;
                                             const nextConfig = countryOptions.find(country => country.code === nextCountry);
+                                            setCountryMismatchAccepted(false);
+                                            setCountryLocationWarning(getLocationCountryMismatch(nextCountry, siteForm.latitude, siteForm.longitude));
                                             setSiteForm({
                                                 ...siteForm,
                                                 country: nextCountry,
@@ -408,11 +493,21 @@ export default function OnboardingWizard() {
                                             <button
                                                 key={option.key}
                                                 type="button"
-                                                onClick={() => setSiteForm({
-                                                    ...siteForm,
-                                                    locationMethod: option.key,
-                                                    gpsMode: option.key === 'none' ? 'DISABLED' : siteForm.gpsMode === 'DISABLED' ? 'WARNING' : siteForm.gpsMode
-                                                })}
+                                                onClick={() => {
+                                                    setCountryMismatchAccepted(false);
+                                                    if (option.key === 'none') {
+                                                        setCountryLocationWarning(null);
+                                                    } else {
+                                                        setCountryLocationWarning(getLocationCountryMismatch(siteForm.country, siteForm.latitude, siteForm.longitude));
+                                                    }
+                                                    setSiteForm({
+                                                        ...siteForm,
+                                                        locationMethod: option.key,
+                                                        gpsMode: option.key === 'none' ? 'DISABLED' : siteForm.gpsMode === 'DISABLED' ? 'WARNING' : siteForm.gpsMode,
+                                                        latitude: option.key === 'none' ? '' : siteForm.latitude,
+                                                        longitude: option.key === 'none' ? '' : siteForm.longitude
+                                                    });
+                                                }}
                                                 className={`text-left rounded-xl border p-4 transition ${active
                                                     ? 'border-red-500 bg-red-500/10 text-white'
                                                     : 'border-slate-600 bg-slate-700/60 text-slate-300 hover:border-slate-400'
@@ -468,6 +563,67 @@ export default function OnboardingWizard() {
                                     </div>
                                 )}
 
+                                {countryLocationWarning && (
+                                    <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+                                        <div className="flex items-start gap-3">
+                                            <ShieldAlert size={20} className="text-amber-300 mt-0.5 shrink-0" />
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <p className="text-white font-semibold">Pays du site et position GPS incohérents</p>
+                                                    <p className="text-sm text-amber-100 mt-1">
+                                                        La position détectée semble être en {countryLocationWarning.detectedLabel}, alors que ce site est déclaré en {countryLocationWarning.selectedLabel}.
+                                                    </p>
+                                                </div>
+                                                <div className="flex flex-col sm:flex-row gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const nextConfig = countryOptions.find(country => country.code === countryLocationWarning.detectedCountry);
+                                                            setSiteForm(prev => ({
+                                                                ...prev,
+                                                                country: countryLocationWarning.detectedCountry,
+                                                                locationMethod: nextConfig?.addressFirst === false ? 'current' : prev.locationMethod
+                                                            }));
+                                                            setCountryLocationWarning(null);
+                                                            setCountryMismatchAccepted(false);
+                                                        }}
+                                                        className="px-3 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg text-sm font-semibold"
+                                                    >
+                                                        Corriger le pays
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setCountryMismatchAccepted(true);
+                                                            setCountryLocationWarning(null);
+                                                        }}
+                                                        className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-semibold"
+                                                    >
+                                                        Utiliser quand même
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSiteForm(prev => ({
+                                                                ...prev,
+                                                                locationMethod: 'none',
+                                                                gpsMode: 'DISABLED',
+                                                                latitude: '',
+                                                                longitude: ''
+                                                            }));
+                                                            setCountryLocationWarning(null);
+                                                            setCountryMismatchAccepted(false);
+                                                        }}
+                                                        className="px-3 py-2 border border-slate-600 hover:border-slate-400 text-slate-200 rounded-lg text-sm font-semibold"
+                                                    >
+                                                        Créer sans GPS
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {siteForm.locationMethod !== 'none' && (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
@@ -502,14 +658,24 @@ export default function OnboardingWizard() {
                                         <input
                                             type="text"
                                             value={siteForm.latitude}
-                                            onChange={e => setSiteForm({ ...siteForm, latitude: e.target.value, locationMethod: 'manual' })}
+                                            onChange={e => {
+                                                const nextLatitude = e.target.value;
+                                                setCountryMismatchAccepted(false);
+                                                setCountryLocationWarning(getLocationCountryMismatch(siteForm.country, nextLatitude, siteForm.longitude));
+                                                setSiteForm({ ...siteForm, latitude: nextLatitude, locationMethod: 'manual' });
+                                            }}
                                             placeholder="Latitude"
                                             className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-red-500"
                                         />
                                         <input
                                             type="text"
                                             value={siteForm.longitude}
-                                            onChange={e => setSiteForm({ ...siteForm, longitude: e.target.value, locationMethod: 'manual' })}
+                                            onChange={e => {
+                                                const nextLongitude = e.target.value;
+                                                setCountryMismatchAccepted(false);
+                                                setCountryLocationWarning(getLocationCountryMismatch(siteForm.country, siteForm.latitude, nextLongitude));
+                                                setSiteForm({ ...siteForm, longitude: nextLongitude, locationMethod: 'manual' });
+                                            }}
                                             placeholder="Longitude"
                                             className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-red-500"
                                         />

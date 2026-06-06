@@ -3,6 +3,25 @@ import prisma from '../lib/prisma';
 
 const GPS_MODES = ['STRICT', 'WARNING', 'DISABLED'] as const;
 type GpsMode = typeof GPS_MODES[number];
+type CountryBounds = {
+    label: string;
+    minLat: number;
+    maxLat: number;
+    minLon: number;
+    maxLon: number;
+};
+
+const COUNTRY_BOUNDS: Record<string, CountryBounds[]> = {
+    FR: [{ label: 'France', minLat: 41, maxLat: 51.5, minLon: -5.5, maxLon: 10 }],
+    CM: [{ label: 'Cameroun', minLat: 1.5, maxLat: 13.5, minLon: 8, maxLon: 16.5 }],
+    BE: [{ label: 'Belgique', minLat: 49.4, maxLat: 51.6, minLon: 2.5, maxLon: 6.5 }],
+    CH: [{ label: 'Suisse', minLat: 45.7, maxLat: 47.9, minLon: 5.7, maxLon: 10.6 }],
+    DE: [{ label: 'Allemagne', minLat: 47.2, maxLat: 55.2, minLon: 5.8, maxLon: 15.1 }],
+    ES: [{ label: 'Espagne', minLat: 35.8, maxLat: 43.9, minLon: -9.5, maxLon: 4.4 }],
+    GB: [{ label: 'Royaume-Uni', minLat: 49.8, maxLat: 59.5, minLon: -8.7, maxLon: 2.1 }],
+    US: [{ label: 'États-Unis', minLat: 24, maxLat: 49.8, minLon: -125, maxLon: -66 }],
+    CA: [{ label: 'Canada', minLat: 41, maxLat: 84, minLon: -141, maxLon: -52 }]
+};
 
 function normalizeGpsMode(rawMode: unknown): GpsMode {
     return GPS_MODES.includes(rawMode as GpsMode) ? rawMode as GpsMode : 'WARNING';
@@ -18,6 +37,46 @@ function parseRadius(value: unknown, fallback = 200): number {
     const parsed = Number(value);
     if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
     return Math.min(Math.max(Math.round(parsed), 25), 5000);
+}
+
+function isPointInBounds(latitude: number, longitude: number, bounds: CountryBounds): boolean {
+    return latitude >= bounds.minLat &&
+        latitude <= bounds.maxLat &&
+        longitude >= bounds.minLon &&
+        longitude <= bounds.maxLon;
+}
+
+function inferCountryFromCoordinates(latitude: number | null, longitude: number | null): { code: string; label: string } | null {
+    if (latitude === null || longitude === null) return null;
+
+    for (const [code, boundsList] of Object.entries(COUNTRY_BOUNDS)) {
+        const match = boundsList.find(bounds => isPointInBounds(latitude, longitude, bounds));
+        if (match) return { code, label: match.label };
+    }
+
+    return null;
+}
+
+function getCountryLabel(country: string): string {
+    return COUNTRY_BOUNDS[country]?.[0]?.label || country;
+}
+
+function getCountryMismatch(
+    selectedCountry: string,
+    latitude: number | null,
+    longitude: number | null
+): { selectedCountry: string; selectedLabel: string; detectedCountry: string; detectedLabel: string } | null {
+    if (!COUNTRY_BOUNDS[selectedCountry]) return null;
+
+    const detected = inferCountryFromCoordinates(latitude, longitude);
+    if (!detected || detected.code === selectedCountry) return null;
+
+    return {
+        selectedCountry,
+        selectedLabel: getCountryLabel(selectedCountry),
+        detectedCountry: detected.code,
+        detectedLabel: detected.label
+    };
 }
 
 function isAddressFriendlyCountry(country: string): boolean {
@@ -108,7 +167,8 @@ export const createSite = async (req: Request, res: Response) => {
             longitude,
             radius,
             gpsMode,
-            locationMethod
+            locationMethod,
+            acceptCountryMismatch
         } = req.body;
 
         if (!tenantId) {
@@ -134,6 +194,15 @@ export const createSite = async (req: Request, res: Response) => {
                 parsedLatitude = geocoded.latitude;
                 parsedLongitude = geocoded.longitude;
             }
+        }
+
+        const countryMismatch = getCountryMismatch(siteCountry, parsedLatitude, parsedLongitude);
+        if (countryMismatch && acceptCountryMismatch !== true) {
+            return res.status(409).json({
+                code: 'SITE_COUNTRY_LOCATION_MISMATCH',
+                error: `La position détectée semble être en ${countryMismatch.detectedLabel}, alors que le site est déclaré en ${countryMismatch.selectedLabel}.`,
+                ...countryMismatch
+            });
         }
 
         const site = await prisma.site.create({
@@ -164,7 +233,7 @@ export const updateSite = async (req: Request, res: Response) => {
     try {
         const tenantId = req.user?.tenantId;
         const id = req.params.id as string;
-        const { name, address, country, latitude, longitude, radius, gpsMode } = req.body;
+        const { name, address, country, latitude, longitude, radius, gpsMode, acceptCountryMismatch } = req.body;
 
         if (!tenantId) {
             return res.status(401).json({ error: 'Non autorisé - tenantId manquant' });
@@ -179,14 +248,26 @@ export const updateSite = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Site non trouvé' });
         }
 
+        const nextCountry = country ? String(country).toUpperCase() : existingSite.country;
+        const nextLatitude = latitude !== undefined ? parseNullableFloat(latitude) : existingSite.latitude;
+        const nextLongitude = longitude !== undefined ? parseNullableFloat(longitude) : existingSite.longitude;
+        const countryMismatch = getCountryMismatch(nextCountry, nextLatitude, nextLongitude);
+        if (countryMismatch && acceptCountryMismatch !== true) {
+            return res.status(409).json({
+                code: 'SITE_COUNTRY_LOCATION_MISMATCH',
+                error: `La position détectée semble être en ${countryMismatch.detectedLabel}, alors que le site est déclaré en ${countryMismatch.selectedLabel}.`,
+                ...countryMismatch
+            });
+        }
+
         const site = await prisma.site.update({
             where: { id },
             data: {
                 name,
                 address,
-                country: country ? String(country).toUpperCase() : existingSite.country,
-                latitude: parseNullableFloat(latitude),
-                longitude: parseNullableFloat(longitude),
+                country: nextCountry,
+                latitude: nextLatitude,
+                longitude: nextLongitude,
                 radius: radius ? parseRadius(radius, existingSite.radius) : existingSite.radius,
                 gpsMode: gpsMode ? normalizeGpsMode(gpsMode) : existingSite.gpsMode
             }
