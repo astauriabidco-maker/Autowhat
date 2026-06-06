@@ -22,12 +22,32 @@ import { createManagerMagicLoginLink } from '../services/managerMagicLoginServic
 // In production, consider using Redis for persistence across restarts
 const magicLinkCooldowns = new Map<string, number>();
 
-type SignupSessionStep = 'WAITING_COMPANY' | 'WAITING_TEAM_SIZE' | 'WAITING_EMAIL' | 'WAITING_CONFIRMATION';
+type SignupSessionStep =
+    'WAITING_COMPANY' |
+    'WAITING_COUNTRY' |
+    'WAITING_TEAM_SIZE' |
+    'WAITING_EMAIL' |
+    'WAITING_CONFIRMATION' |
+    'WAITING_SITE_DECISION' |
+    'WAITING_SITE_NAME' |
+    'WAITING_SITE_COUNTRY' |
+    'WAITING_SITE_LOCATION' |
+    'WAITING_SITE_LOCATION_MISMATCH' |
+    'WAITING_SITE_GPS_MODE';
 interface SignupSession {
     step: SignupSessionStep;
     companyName?: string;
+    companyCountry?: string;
     teamSize?: number;
     email?: string;
+    tenantId?: string;
+    managerId?: string;
+    dashboardUrl?: string;
+    siteName?: string;
+    siteCountry?: string;
+    siteLatitude?: number;
+    siteLongitude?: number;
+    detectedCountry?: string;
     createdAt: Date;
     id?: string;
 }
@@ -123,6 +143,38 @@ const DEFAULT_UNKNOWN_CONTACT_WELCOME =
     "Répondez STOP à tout moment pour ne plus recevoir de messages WhatsPoint.";
 const DEFAULT_UNKNOWN_CONTACT_BTN_1 = 'Créer un espace';
 const DEFAULT_UNKNOWN_CONTACT_BTN_2 = 'Voir une démo';
+
+const COUNTRY_LABELS: Record<string, string> = {
+    FR: 'France',
+    CM: 'Cameroun',
+    BE: 'Belgique',
+    CH: 'Suisse',
+    CA: 'Canada',
+    US: 'États-Unis',
+    GB: 'Royaume-Uni',
+    DE: 'Allemagne',
+    ES: 'Espagne'
+};
+
+type CountryBounds = {
+    label: string;
+    minLat: number;
+    maxLat: number;
+    minLon: number;
+    maxLon: number;
+};
+
+const COUNTRY_BOUNDS: Record<string, CountryBounds[]> = {
+    FR: [{ label: 'France', minLat: 41, maxLat: 51.5, minLon: -5.5, maxLon: 10 }],
+    CM: [{ label: 'Cameroun', minLat: 1.5, maxLat: 13.5, minLon: 8, maxLon: 16.5 }],
+    BE: [{ label: 'Belgique', minLat: 49.4, maxLat: 51.6, minLon: 2.5, maxLon: 6.5 }],
+    CH: [{ label: 'Suisse', minLat: 45.7, maxLat: 47.9, minLon: 5.7, maxLon: 10.6 }],
+    DE: [{ label: 'Allemagne', minLat: 47.2, maxLat: 55.2, minLon: 5.8, maxLon: 15.1 }],
+    ES: [{ label: 'Espagne', minLat: 35.8, maxLat: 43.9, minLon: -9.5, maxLon: 4.4 }],
+    GB: [{ label: 'Royaume-Uni', minLat: 49.8, maxLat: 59.5, minLon: -8.7, maxLon: 2.1 }],
+    US: [{ label: 'États-Unis', minLat: 24, maxLat: 49.8, minLon: -125, maxLon: -66 }],
+    CA: [{ label: 'Canada', minLat: 41, maxLat: 84, minLon: -141, maxLon: -52 }]
+};
 
 /**
  * Check if the message should trigger the main menu
@@ -434,6 +486,76 @@ function isAffirmative(message: string): boolean {
 
 function isCancellation(message: string): boolean {
     return ['annuler', 'stop', 'cancel', 'non'].includes(normalizeText(message));
+}
+
+function parseCountryCode(message: string, fallback?: string): string | null {
+    const normalized = normalizeText(message);
+    if (['idem', 'meme pays', 'pays societe', 'pays entreprise'].includes(normalized) && fallback) {
+        return fallback;
+    }
+
+    const compact = normalized.replace(/[^a-z]/g, '');
+    const aliases: Record<string, string> = {
+        fr: 'FR',
+        france: 'FR',
+        cm: 'CM',
+        cameroun: 'CM',
+        cameroon: 'CM',
+        be: 'BE',
+        belgique: 'BE',
+        ch: 'CH',
+        suisse: 'CH',
+        ca: 'CA',
+        canada: 'CA',
+        us: 'US',
+        usa: 'US',
+        etatsunis: 'US',
+        gb: 'GB',
+        uk: 'GB',
+        royaumeuni: 'GB',
+        de: 'DE',
+        allemagne: 'DE',
+        es: 'ES',
+        espagne: 'ES'
+    };
+
+    return aliases[compact] || null;
+}
+
+function countryLabel(country?: string): string {
+    if (!country) return 'ce pays';
+    return COUNTRY_LABELS[country] || country;
+}
+
+function isPointInBounds(latitude: number, longitude: number, bounds: CountryBounds): boolean {
+    return latitude >= bounds.minLat &&
+        latitude <= bounds.maxLat &&
+        longitude >= bounds.minLon &&
+        longitude <= bounds.maxLon;
+}
+
+function inferCountryFromCoordinates(latitude: number, longitude: number): string | null {
+    for (const [code, boundsList] of Object.entries(COUNTRY_BOUNDS)) {
+        if (boundsList.some(bounds => isPointInBounds(latitude, longitude, bounds))) {
+            return code;
+        }
+    }
+    return null;
+}
+
+function getCountryMismatch(selectedCountry?: string, latitude?: number, longitude?: number): { detectedCountry: string } | null {
+    if (!selectedCountry || latitude === undefined || longitude === undefined || !COUNTRY_BOUNDS[selectedCountry]) return null;
+    const detectedCountry = inferCountryFromCoordinates(latitude, longitude);
+    if (!detectedCountry || detectedCountry === selectedCountry) return null;
+    return { detectedCountry };
+}
+
+function parseGpsMode(message: string): 'WARNING' | 'STRICT' | 'DISABLED' | null {
+    const normalized = normalizeText(message);
+    if (['souple', 'avertir', 'warning', 'alerte'].includes(normalized)) return 'WARNING';
+    if (['strict', 'bloquer', 'bloquant'].includes(normalized)) return 'STRICT';
+    if (['sans gps', 'desactive', 'desactiver', 'disabled'].includes(normalized)) return 'DISABLED';
+    return null;
 }
 
 function inferCountryFromPhone(phone: string): string {
@@ -936,8 +1058,17 @@ function signupSessionExpiry() {
 function sessionDataForPrisma(session: SignupSession): Prisma.InputJsonValue {
     return {
         companyName: session.companyName || null,
+        companyCountry: session.companyCountry || null,
         teamSize: session.teamSize || null,
-        email: session.email || null
+        email: session.email || null,
+        tenantId: session.tenantId || null,
+        managerId: session.managerId || null,
+        dashboardUrl: session.dashboardUrl || null,
+        siteName: session.siteName || null,
+        siteCountry: session.siteCountry || null,
+        siteLatitude: session.siteLatitude ?? null,
+        siteLongitude: session.siteLongitude ?? null,
+        detectedCountry: session.detectedCountry || null
     };
 }
 
@@ -1015,8 +1146,17 @@ async function getActiveSignupSession(from: string, phoneNumberId?: string): Pro
         id: record.id,
         step: record.state as SignupSessionStep,
         companyName: data.companyName || undefined,
+        companyCountry: data.companyCountry || inferCountryFromPhone(record.phoneNumber.replace(/\D/g, '')),
         teamSize: typeof data.teamSize === 'number' ? data.teamSize : undefined,
         email: data.email || undefined,
+        tenantId: data.tenantId || undefined,
+        managerId: data.managerId || undefined,
+        dashboardUrl: data.dashboardUrl || undefined,
+        siteName: data.siteName || undefined,
+        siteCountry: data.siteCountry || undefined,
+        siteLatitude: typeof data.siteLatitude === 'number' ? data.siteLatitude : undefined,
+        siteLongitude: typeof data.siteLongitude === 'number' ? data.siteLongitude : undefined,
+        detectedCountry: data.detectedCountry || undefined,
         createdAt: record.createdAt
     };
 }
@@ -1044,14 +1184,14 @@ async function clearWhatsAppSignupSession(from: string, phoneNumberId?: string) 
     });
 }
 
-async function createWhatsAppTrialSpace(from: string, session: SignupSession, phoneNumberId?: string) {
-    if (!session.companyName || !session.teamSize || !session.email) {
+async function createWhatsAppTrialSpace(from: string, session: SignupSession, phoneNumberId?: string): Promise<SignupSession | null> {
+    if (!session.companyName || !session.companyCountry || !session.teamSize || !session.email) {
         await sendMessage(
             from,
             `⚠️ Il manque une information pour créer votre espace. Répondez *Créer un espace* pour recommencer.`,
             phoneNumberId
         );
-        return;
+        return null;
     }
 
     const cleanPhone = from.replace(/\D/g, '');
@@ -1076,10 +1216,10 @@ async function createWhatsAppTrialSpace(from: string, session: SignupSession, ph
             `_Ce lien personnel expire dans 15 minutes._`,
             phoneNumberId
         );
-        return;
+        return null;
     }
 
-    const country = inferCountryFromPhone(cleanPhone);
+    const country = session.companyCountry;
     const industryKey = 'GENERIC';
     const template = getTemplate(industryKey);
     const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
@@ -1096,15 +1236,6 @@ async function createWhatsAppTrialSpace(from: string, session: SignupSession, ph
                 plan: 'TRIAL',
                 trialEndsAt,
                 maxEmployees
-            }
-        });
-
-        await tx.site.create({
-            data: {
-                name: 'Site principal',
-                country,
-                gpsMode: 'WARNING',
-                tenantId: tenant.id
             }
         });
 
@@ -1166,34 +1297,143 @@ async function createWhatsAppTrialSpace(from: string, session: SignupSession, ph
         from,
         `✅ *Votre espace WhatsPoint est prêt !*\n\n` +
         `Entreprise : *${result.tenant.name}*\n` +
+        `Pays société : *${countryLabel(country)}*\n` +
         `Capacité de test : *${maxEmployees} personnes*\n\n` +
         `🔐 Ouvrez votre dashboard manager :\n${dashboardUrl}\n\n` +
         `_Ce lien personnel expire dans 15 minutes._\n\n` +
-        `Ensuite, revenez ici et répondez *Admin Start* pour activer votre manager WhatsApp.`,
+        `Vous pouvez aussi continuer ici directement.\n\n` +
+        `Voulez-vous créer votre premier site de pointage maintenant ? Répondez *Oui* ou *Plus tard*.`,
+        phoneNumberId
+    );
+
+    return {
+        ...session,
+        tenantId: result.tenant.id,
+        managerId: result.manager.id,
+        dashboardUrl,
+        step: 'WAITING_SITE_DECISION'
+    };
+}
+
+async function createFirstSiteFromWhatsApp(
+    from: string,
+    session: SignupSession,
+    gpsMode: 'WARNING' | 'STRICT' | 'DISABLED',
+    phoneNumberId?: string
+) {
+    if (!session.tenantId || !session.siteName || !session.siteCountry) {
+        await sendMessage(from, `⚠️ Il manque une information pour créer le site. Répondez *Créer un espace* pour recommencer.`, phoneNumberId);
+        return;
+    }
+
+    const site = await prisma.site.create({
+        data: {
+            name: session.siteName,
+            country: session.siteCountry,
+            latitude: gpsMode === 'DISABLED' ? null : session.siteLatitude ?? null,
+            longitude: gpsMode === 'DISABLED' ? null : session.siteLongitude ?? null,
+            radius: 200,
+            gpsMode,
+            tenantId: session.tenantId
+        }
+    });
+
+    await logOnboardingEvent(session.tenantId, 'FIRST_SITE_CREATED', session.managerId || null, {
+        source: 'WHATSAPP',
+        siteId: site.id,
+        country: session.siteCountry,
+        gpsMode,
+        hasCoordinates: Boolean(site.latitude && site.longitude)
+    });
+
+    await sendMessage(
+        from,
+        `✅ *Site créé*\n\n` +
+        `📍 Site : *${site.name}*\n` +
+        `🌍 Pays : *${countryLabel(site.country)}*\n` +
+        `🛰️ GPS : *${gpsMode === 'DISABLED' ? 'désactivé' : gpsMode === 'STRICT' ? 'strict' : 'souple'}*\n\n` +
+        `Vous pouvez maintenant inviter un collaborateur depuis WhatsApp avec *Admin Start*, ou ouvrir votre dashboard manager :\n${session.dashboardUrl || ''}`,
         phoneNumberId
     );
 }
 
-async function handleWhatsAppSignupSession(from: string, messageBody: string, phoneNumberId?: string): Promise<boolean> {
+async function askSiteGpsMode(from: string, session: SignupSession, phoneNumberId?: string) {
+    await saveWhatsAppSignupSession({ ...session, step: 'WAITING_SITE_GPS_MODE' });
+    await sendInteractiveButtons(
+        from,
+        `Dernier choix : quel contrôle GPS appliquer au site *${session.siteName}* ?`,
+        [
+            { id: 'btn_site_gps_warning', title: 'Souple' },
+            { id: 'btn_site_gps_strict', title: 'Strict' },
+            { id: 'btn_site_no_gps', title: 'Sans GPS' }
+        ],
+        phoneNumberId
+    );
+}
+
+function interactiveButtonId(message: any): string | null {
+    if (message?.type !== 'interactive' || message.interactive?.type !== 'button_reply') return null;
+    return message.interactive?.button_reply?.id || null;
+}
+
+async function handleWhatsAppSignupSession(from: string, message: any, phoneNumberId?: string): Promise<boolean> {
     const session = await getActiveSignupSession(from, phoneNumberId);
     if (!session) return false;
 
+    const messageBody = message.text?.body || '';
+    const buttonId = interactiveButtonId(message);
     const trimmed = messageBody.trim();
-    if (!trimmed) return true;
+    if (!trimmed && !buttonId && message.type !== 'location') return true;
 
-    if (isCancellation(trimmed)) {
+    if (trimmed && isCancellation(trimmed)) {
         await clearWhatsAppSignupSession(from, phoneNumberId);
         await sendMessage(from, `C'est noté, création annulée. Répondez *Demo WhatsPoint* pour recommencer.`, phoneNumberId);
         return true;
     }
 
+    const textOnlySteps: SignupSessionStep[] = [
+        'WAITING_COMPANY',
+        'WAITING_COUNTRY',
+        'WAITING_TEAM_SIZE',
+        'WAITING_EMAIL',
+        'WAITING_CONFIRMATION',
+        'WAITING_SITE_DECISION',
+        'WAITING_SITE_NAME',
+        'WAITING_SITE_COUNTRY'
+    ];
+    if (textOnlySteps.includes(session.step) && !trimmed) {
+        await sendMessage(from, `J'attends une réponse texte pour continuer ce parcours.`, phoneNumberId);
+        return true;
+    }
+
     if (session.step === 'WAITING_COMPANY') {
         session.companyName = trimmed.slice(0, 80);
+        session.step = 'WAITING_COUNTRY';
+        await saveWhatsAppSignupSession(session);
+        const detectedCountry = inferCountryFromPhone(from.replace(/\D/g, ''));
+        await sendMessage(
+            from,
+            `Parfait. Quel est le pays principal de votre société ?\n\n` +
+            `Exemples : *France*, *Cameroun*, *Belgique*.\n` +
+            `J'ai détecté par défaut : *${countryLabel(detectedCountry)}*. Vous pouvez répondre *${detectedCountry}* si c'est correct.`,
+            phoneNumberId
+        );
+        return true;
+    }
+
+    if (session.step === 'WAITING_COUNTRY') {
+        const country = parseCountryCode(trimmed) || (isAffirmative(trimmed) ? inferCountryFromPhone(from.replace(/\D/g, '')) : null);
+        if (!country) {
+            await sendMessage(from, `Répondez avec le pays de la société, par exemple *France*, *Cameroun*, *FR* ou *CM*.`, phoneNumberId);
+            return true;
+        }
+
+        session.companyCountry = country;
         session.step = 'WAITING_TEAM_SIZE';
         await saveWhatsAppSignupSession(session);
         await sendMessage(
             from,
-            `Parfait. Combien de personnes doivent pointer pendant le test ?\n\nExemple : *12*`,
+            `Très bien : *${countryLabel(country)}*.\n\nCombien de personnes doivent pointer pendant le test ?\n\nExemple : *12*`,
             phoneNumberId
         );
         return true;
@@ -1233,6 +1473,7 @@ async function handleWhatsAppSignupSession(from: string, messageBody: string, ph
             from,
             `Je vais créer votre espace WhatsPoint :\n\n` +
             `🏢 Entreprise : *${session.companyName}*\n` +
+            `🌍 Pays société : *${countryLabel(session.companyCountry)}*\n` +
             `👥 Équipe : *${session.teamSize} personnes*\n` +
             `✉️ Email admin : *${session.email}*\n\n` +
             `Répondez *Oui* pour confirmer ou *Annuler*.`,
@@ -1247,7 +1488,143 @@ async function handleWhatsAppSignupSession(from: string, messageBody: string, ph
             return true;
         }
 
-        await createWhatsAppTrialSpace(from, session, phoneNumberId);
+        const nextSession = await createWhatsAppTrialSpace(from, session, phoneNumberId);
+        if (nextSession) {
+            await saveWhatsAppSignupSession(nextSession);
+        } else {
+            await clearWhatsAppSignupSession(from, phoneNumberId);
+        }
+        return true;
+    }
+
+    if (session.step === 'WAITING_SITE_DECISION') {
+        if (!isAffirmative(trimmed)) {
+            await sendMessage(
+                from,
+                `Très bien. Vous pourrez créer vos sites depuis le dashboard.\n\n` +
+                `Pour activer votre manager WhatsApp maintenant, répondez *Admin Start*.`,
+                phoneNumberId
+            );
+            await clearWhatsAppSignupSession(from, phoneNumberId);
+            return true;
+        }
+
+        session.step = 'WAITING_SITE_NAME';
+        await saveWhatsAppSignupSession(session);
+        await sendMessage(from, `Quel est le nom de votre premier site ?\n\nExemple : *Siège Douala*, *Chantier Paris 15*, *Agence Yaoundé*.`, phoneNumberId);
+        return true;
+    }
+
+    if (session.step === 'WAITING_SITE_NAME') {
+        session.siteName = trimmed.slice(0, 80);
+        session.step = 'WAITING_SITE_COUNTRY';
+        await saveWhatsAppSignupSession(session);
+        await sendMessage(
+            from,
+            `Dans quel pays se trouve *${session.siteName}* ?\n\n` +
+            `Répondez *idem* si c'est aussi *${countryLabel(session.companyCountry)}*.`,
+            phoneNumberId
+        );
+        return true;
+    }
+
+    if (session.step === 'WAITING_SITE_COUNTRY') {
+        const country = parseCountryCode(trimmed, session.companyCountry);
+        if (!country) {
+            await sendMessage(from, `Répondez avec le pays du site, par exemple *France*, *Cameroun*, *FR*, *CM*, ou *idem*.`, phoneNumberId);
+            return true;
+        }
+
+        session.siteCountry = country;
+        session.step = 'WAITING_SITE_LOCATION';
+        await saveWhatsAppSignupSession(session);
+        await sendMessage(
+            from,
+            `Parfait. Pour positionner *${session.siteName}* :\n\n` +
+            `1. Envoyez votre *position WhatsApp* si vous êtes sur place.\n` +
+            `2. Ou répondez *Sans GPS* pour créer le site sans géolocalisation pour l'instant.`,
+            phoneNumberId
+        );
+        return true;
+    }
+
+    if (session.step === 'WAITING_SITE_LOCATION') {
+        if (message.type === 'location' && message.location) {
+            session.siteLatitude = Number(message.location.latitude);
+            session.siteLongitude = Number(message.location.longitude);
+            const mismatch = getCountryMismatch(session.siteCountry, session.siteLatitude, session.siteLongitude);
+
+            if (mismatch) {
+                session.detectedCountry = mismatch.detectedCountry;
+                session.step = 'WAITING_SITE_LOCATION_MISMATCH';
+                await saveWhatsAppSignupSession(session);
+                await sendInteractiveButtons(
+                    from,
+                    `⚠️ La position semble être en *${countryLabel(mismatch.detectedCountry)}*, alors que le site est déclaré en *${countryLabel(session.siteCountry)}*.\n\nQue voulez-vous faire ?`,
+                    [
+                        { id: 'btn_site_fix_country', title: 'Corriger pays' },
+                        { id: 'btn_site_use_location', title: 'Utiliser' },
+                        { id: 'btn_site_no_gps', title: 'Sans GPS' }
+                    ],
+                    phoneNumberId
+                );
+                return true;
+            }
+
+            await askSiteGpsMode(from, session, phoneNumberId);
+            return true;
+        }
+
+        if (parseGpsMode(trimmed) === 'DISABLED') {
+            await createFirstSiteFromWhatsApp(from, session, 'DISABLED', phoneNumberId);
+            await clearWhatsAppSignupSession(from, phoneNumberId);
+            return true;
+        }
+
+        await sendMessage(from, `Envoyez une *position WhatsApp*, ou répondez *Sans GPS*.`, phoneNumberId);
+        return true;
+    }
+
+    if (session.step === 'WAITING_SITE_LOCATION_MISMATCH') {
+        if (buttonId === 'btn_site_fix_country' || normalizeText(trimmed) === 'corriger pays') {
+            session.siteCountry = session.detectedCountry || session.siteCountry;
+            session.step = 'WAITING_SITE_GPS_MODE';
+            await askSiteGpsMode(from, session, phoneNumberId);
+            return true;
+        }
+
+        if (buttonId === 'btn_site_use_location' || normalizeText(trimmed) === 'utiliser') {
+            session.step = 'WAITING_SITE_GPS_MODE';
+            await askSiteGpsMode(from, session, phoneNumberId);
+            return true;
+        }
+
+        if (buttonId === 'btn_site_no_gps' || parseGpsMode(trimmed) === 'DISABLED') {
+            await createFirstSiteFromWhatsApp(from, session, 'DISABLED', phoneNumberId);
+            await clearWhatsAppSignupSession(from, phoneNumberId);
+            return true;
+        }
+
+        await sendMessage(from, `Répondez avec un choix : *Corriger pays*, *Utiliser* ou *Sans GPS*.`, phoneNumberId);
+        return true;
+    }
+
+    if (session.step === 'WAITING_SITE_GPS_MODE') {
+        const modeFromButton = buttonId === 'btn_site_gps_warning'
+            ? 'WARNING'
+            : buttonId === 'btn_site_gps_strict'
+                ? 'STRICT'
+                : buttonId === 'btn_site_no_gps'
+                    ? 'DISABLED'
+                    : null;
+        const mode = modeFromButton || parseGpsMode(trimmed);
+
+        if (!mode) {
+            await sendMessage(from, `Choisissez le mode GPS : *Souple*, *Strict* ou *Sans GPS*.`, phoneNumberId);
+            return true;
+        }
+
+        await createFirstSiteFromWhatsApp(from, session, mode, phoneNumberId);
         await clearWhatsAppSignupSession(from, phoneNumberId);
         return true;
     }
@@ -1304,7 +1681,7 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                             console.log(`🧪 Reset test profile treated as unknown for replay: ${from}`);
                         }
 
-                        if (!employee && messageType === 'text' && await handleWhatsAppSignupSession(from, messageBody, phoneNumberId)) {
+                        if (await handleWhatsAppSignupSession(from, message, phoneNumberId)) {
                             continue;
                         }
 
