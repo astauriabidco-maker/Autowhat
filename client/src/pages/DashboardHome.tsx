@@ -16,7 +16,8 @@ import {
     Timer,
     CheckCircle,
     Circle,
-    UserPlus
+    UserPlus,
+    ShieldAlert
 } from 'lucide-react';
 import {
     BarChart,
@@ -111,7 +112,7 @@ interface OnboardingProgress {
 
 export default function DashboardHome() {
     const navigate = useNavigate();
-    const { selectedSiteId } = useSiteContext();
+    const { selectedSiteId, sites } = useSiteContext();
     const [kpis, setKpis] = useState<KPIData>({
         totalEmployees: 0,
         activeNow: 0,
@@ -173,6 +174,9 @@ export default function DashboardHome() {
 
     // Calculate absent (total - active)
     const absentToday = kpis.totalEmployees - kpis.activeNow;
+    const sitesWithoutGps = sites.filter(site => !site.latitude || !site.longitude);
+    const sitesNotStrict = sites.filter(site => site.latitude && site.longitude && site.gpsMode !== 'STRICT');
+    const sitesToSecure = sites.filter(site => !site.latitude || !site.longitude || site.gpsMode !== 'STRICT');
     const completedOnboardingSteps = onboarding?.steps.filter(step => step.done).length || 0;
     const adminStartUrl = `https://wa.me/${import.meta.env.VITE_BOT_PHONE_NUMBER || '33612345678'}?text=${encodeURIComponent("Admin Start")}`;
     const firstEmployeeName = onboarding?.firstEmployee?.name || 'le collaborateur invité';
@@ -426,6 +430,37 @@ export default function DashboardHome() {
                         ) : (
                             <span>Prochaine étape : invitez un premier collaborateur depuis WhatsApp ou depuis l'écran Employés.</span>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* GPS Trust Alert */}
+            {sitesToSecure.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm p-4 sm:p-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                            <div className="p-2 bg-amber-100 rounded-lg shrink-0">
+                                <ShieldAlert className="text-amber-700" size={22} />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-amber-950">Sécurisez vos sites de pointage</h3>
+                                <p className="text-sm text-amber-900 mt-1">
+                                    {sitesWithoutGps.length > 0 && (
+                                        <span>{sitesWithoutGps.length} site{sitesWithoutGps.length > 1 ? 's' : ''} sans coordonnées GPS. </span>
+                                    )}
+                                    {sitesNotStrict.length > 0 && (
+                                        <span>{sitesNotStrict.length} site{sitesNotStrict.length > 1 ? 's' : ''} configuré{sitesNotStrict.length > 1 ? 's' : ''} sans mode strict. </span>
+                                    )}
+                                    En mode strict, WhatsPoint bloque les pointages hors zone.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => navigate('/sites-gps')}
+                            className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 transition"
+                        >
+                            Configurer les sites GPS
+                        </button>
                     </div>
                 </div>
             )}
