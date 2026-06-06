@@ -25,6 +25,7 @@ import {
     BarChart3,
     RefreshCw,
     Map,
+    MapPin,
     Network
 } from 'lucide-react';
 import SiteSelector from './components/SiteSelector';
@@ -50,6 +51,7 @@ const navSections: NavSection[] = [
             { icon: <LayoutDashboard size={20} />, label: 'Vue d\'ensemble', path: '/dashboard' },
             { icon: <Users size={20} />, label: 'Collaborateurs', path: '/employees' },
             { icon: <Clock size={20} />, label: 'Pointage & présence', path: '/attendance' },
+            { icon: <MapPin size={20} />, label: 'Sites GPS', path: '/sites-gps' },
             { icon: <Receipt size={20} />, label: 'Notes de frais', path: '/expenses' },
             { icon: <FolderOpen size={20} />, label: 'Documents', path: '/documents' },
         ],

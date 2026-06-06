@@ -13,6 +13,7 @@ import EmployeeDetails from './pages/EmployeeDetails';
 import Expenses from './pages/Expenses';
 import Documents from './pages/Documents';
 import Settings from './pages/Settings';
+import SiteGpsCenter from './pages/SiteGpsCenter';
 import IntegrationWhatsApp from './pages/IntegrationWhatsApp';
 import IntegrationsManager from './pages/admin/IntegrationsManager';
 import PrivacyShield from './pages/admin/PrivacyShield';
@@ -123,6 +124,9 @@ function App() {
           } />
           <Route path="/settings" element={
             <ProtectedRoute><Settings /></ProtectedRoute>
+          } />
+          <Route path="/sites-gps" element={
+            <ProtectedRoute><SiteGpsCenter /></ProtectedRoute>
           } />
           <Route path="/privacy" element={
             <ProtectedRoute><PrivacyShield /></ProtectedRoute>
