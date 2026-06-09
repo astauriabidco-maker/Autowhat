@@ -52,6 +52,7 @@ router.get('/api/onboarding/progress', authenticateManager, dashboardController.
 
 // Site API Routes (Protected - Manager only)
 router.get('/api/sites', authenticateManager, siteController.getSites);
+router.get('/api/sites/gps-activity', authenticateManager, siteController.getSiteGpsActivity);
 router.post('/api/sites', authenticateManager, siteController.createSite);
 router.put('/api/sites/:id', authenticateManager, siteController.updateSite);
 router.delete('/api/sites/:id', authenticateManager, siteController.deleteSite);

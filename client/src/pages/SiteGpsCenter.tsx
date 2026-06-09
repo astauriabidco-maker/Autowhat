@@ -4,12 +4,14 @@ import {
     AlertTriangle,
     CheckCircle2,
     Compass,
+    History,
     Loader2,
     MapPin,
     Navigation,
     RefreshCw,
     Save,
-    ShieldCheck
+    ShieldCheck,
+    UserCheck
 } from 'lucide-react';
 
 interface Site {
@@ -38,6 +40,42 @@ interface MismatchWarning {
     detectedCountry?: string;
     detectedLabel?: string;
     selectedLabel?: string;
+}
+
+interface PendingGpsProposal {
+    managerId: string;
+    managerName: string | null;
+    siteId: string;
+    siteName: string;
+    siteCountry: string | null;
+    latitude: number;
+    longitude: number;
+    detectedCountry: string | null;
+    providerEmployeeId: string | null;
+    providerName: string | null;
+    providerPhone: string | null;
+    sharedAt: string | null;
+}
+
+interface GpsHistoryEvent {
+    id: string;
+    type: 'SITE_GPS_POSITION_SHARED' | 'SITE_GPS_UPDATED';
+    createdAt: string;
+    siteId: string | null;
+    siteName: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    siteCountry: string | null;
+    detectedCountry: string | null;
+    source: string | null;
+    actor: {
+        id: string;
+        name: string | null;
+        phoneNumber: string;
+        role: string;
+    } | null;
+    providerEmployeeId: string | null;
+    managerId: string | null;
 }
 
 const COUNTRY_OPTIONS = [
@@ -106,6 +144,30 @@ function gpsStatus(site: Site) {
     };
 }
 
+function countryLabel(country?: string | null): string {
+    if (!country) return 'Pays non renseigné';
+    return COUNTRY_OPTIONS.find(option => option.code === country)?.label || country;
+}
+
+function formatDate(value?: string | null): string {
+    if (!value) return 'Date non renseignée';
+    return new Intl.DateTimeFormat('fr-FR', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(new Date(value));
+}
+
+function mapsLink(latitude: number | string | null, longitude: number | string | null): string | null {
+    if (latitude === null || longitude === null || latitude === '' || longitude === '') return null;
+    return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+}
+
+function eventLabel(type: GpsHistoryEvent['type']): string {
+    return type === 'SITE_GPS_POSITION_SHARED' ? 'Position proposée' : 'Site mis à jour';
+}
+
 export default function SiteGpsCenter() {
     const [sites, setSites] = useState<Site[]>([]);
     const [forms, setForms] = useState<Record<string, SiteForm>>({});
@@ -115,6 +177,8 @@ export default function SiteGpsCenter() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [mismatch, setMismatch] = useState<MismatchWarning | null>(null);
+    const [pendingProposals, setPendingProposals] = useState<PendingGpsProposal[]>([]);
+    const [history, setHistory] = useState<GpsHistoryEvent[]>([]);
 
     const token = useMemo(() => localStorage.getItem('token'), []);
 
@@ -122,12 +186,16 @@ export default function SiteGpsCenter() {
         setLoading(true);
         setError('');
         try {
-            const response = await axios.get<{ sites: Site[] }>('/api/sites', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const nextSites = response.data.sites || [];
+            const headers = { Authorization: `Bearer ${token}` };
+            const [sitesResponse, activityResponse] = await Promise.all([
+                axios.get<{ sites: Site[] }>('/api/sites', { headers }),
+                axios.get<{ pendingProposals: PendingGpsProposal[]; history: GpsHistoryEvent[] }>('/api/sites/gps-activity', { headers })
+            ]);
+            const nextSites = sitesResponse.data.sites || [];
             setSites(nextSites);
             setForms(Object.fromEntries(nextSites.map(site => [site.id, formFromSite(site)])));
+            setPendingProposals(activityResponse.data.pendingProposals || []);
+            setHistory(activityResponse.data.history || []);
         } catch {
             setError("Impossible de charger les sites.");
         } finally {
@@ -223,6 +291,16 @@ export default function SiteGpsCenter() {
         updateForm(siteId, parsed);
     };
 
+    const applyProposal = (proposal: PendingGpsProposal) => {
+        updateForm(proposal.siteId, {
+            latitude: proposal.latitude.toFixed(6),
+            longitude: proposal.longitude.toFixed(6),
+            country: proposal.siteCountry || proposal.detectedCountry || forms[proposal.siteId]?.country || 'FR',
+            gpsMode: forms[proposal.siteId]?.gpsMode === 'DISABLED' ? 'WARNING' : forms[proposal.siteId]?.gpsMode
+        });
+        setSuccess(`Position proposée appliquée au formulaire du site "${proposal.siteName}". Vérifiez puis enregistrez.`);
+    };
+
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
             <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
@@ -272,6 +350,92 @@ export default function SiteGpsCenter() {
                 </div>
             )}
 
+            {pendingProposals.length > 0 && (
+                <section className="rounded-xl border border-blue-200 bg-blue-50 p-4 sm:p-5 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div>
+                            <div className="inline-flex items-center gap-2 text-blue-800 font-bold">
+                                <UserCheck size={18} />
+                                Positions proposées par collaborateur
+                            </div>
+                            <p className="text-sm text-blue-900/80 mt-1">
+                                Ces positions viennent du parcours WhatsApp. Vous pouvez les appliquer ici, puis enregistrer le site en mode GPS strict si tout est cohérent.
+                            </p>
+                        </div>
+                        <span className="inline-flex items-center justify-center rounded-full bg-white px-3 py-1 text-sm font-bold text-blue-700 border border-blue-200">
+                            {pendingProposals.length} en attente
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        {pendingProposals.map(proposal => {
+                            const hasCountryMismatch = proposal.siteCountry &&
+                                proposal.detectedCountry &&
+                                proposal.siteCountry !== proposal.detectedCountry;
+                            const proposalMapsLink = mapsLink(proposal.latitude, proposal.longitude);
+
+                            return (
+                                <article key={`${proposal.managerId}-${proposal.siteId}`} className="rounded-xl border border-blue-200 bg-white p-4 shadow-sm space-y-3">
+                                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                                        <div>
+                                            <h2 className="font-bold text-gray-900">{proposal.siteName}</h2>
+                                            <p className="text-sm text-gray-600">
+                                                Proposé par {proposal.providerName || proposal.providerPhone || 'collaborateur'} · {formatDate(proposal.sharedAt)}
+                                            </p>
+                                        </div>
+                                        <span className={`inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-bold border ${
+                                            hasCountryMismatch
+                                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                        }`}>
+                                            {hasCountryMismatch ? 'Pays à vérifier' : 'Cohérent'}
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                                        <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                                            <p className="text-gray-500">Coordonnées</p>
+                                            <p className="font-semibold text-gray-900">{proposal.latitude.toFixed(6)}, {proposal.longitude.toFixed(6)}</p>
+                                        </div>
+                                        <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                                            <p className="text-gray-500">Pays</p>
+                                            <p className="font-semibold text-gray-900">
+                                                Site: {countryLabel(proposal.siteCountry)} · GPS: {countryLabel(proposal.detectedCountry)}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <p className="text-sm text-gray-600">
+                                        Manager demandeur : <span className="font-semibold text-gray-800">{proposal.managerName || 'Manager'}</span>
+                                    </p>
+
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                        <button
+                                            onClick={() => applyProposal(proposal)}
+                                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+                                        >
+                                            <CheckCircle2 size={16} />
+                                            Appliquer au site
+                                        </button>
+                                        {proposalMapsLink && (
+                                            <a
+                                                href={proposalMapsLink}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-700 font-semibold hover:bg-gray-50"
+                                            >
+                                                <MapPin size={16} />
+                                                Voir carte
+                                            </a>
+                                        )}
+                                    </div>
+                                </article>
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
+
             {loading ? (
                 <div className="rounded-xl border border-gray-200 bg-white p-8 flex items-center justify-center gap-3 text-gray-500">
                     <Loader2 className="animate-spin" size={20} />
@@ -282,9 +446,7 @@ export default function SiteGpsCenter() {
                     {sites.map(site => {
                         const form = forms[site.id] || formFromSite(site);
                         const status = gpsStatus(site);
-                        const mapsUrl = form.latitude && form.longitude
-                            ? `https://www.google.com/maps/search/?api=1&query=${form.latitude},${form.longitude}`
-                            : null;
+                        const mapsUrl = mapsLink(form.latitude, form.longitude);
 
                         return (
                             <section key={site.id} className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm space-y-4">
@@ -434,6 +596,75 @@ export default function SiteGpsCenter() {
                     })}
                 </div>
             )}
+
+            <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <div className="inline-flex items-center gap-2 text-gray-900 font-bold">
+                            <History size={18} />
+                            Historique GPS récent
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">
+                            Dernières positions partagées et validations enregistrées par WhatsApp ou le dashboard.
+                        </p>
+                    </div>
+                </div>
+
+                {history.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+                        Aucun événement GPS récent pour le moment.
+                    </div>
+                ) : (
+                    <div className="divide-y divide-gray-100">
+                        {history.map(event => {
+                            const eventMapsLink = mapsLink(event.latitude, event.longitude);
+                            const hasCountryMismatch = event.siteCountry &&
+                                event.detectedCountry &&
+                                event.siteCountry !== event.detectedCountry;
+
+                            return (
+                                <article key={event.id} className="py-3 first:pt-0 last:pb-0 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="font-semibold text-gray-900">{eventLabel(event.type)}</span>
+                                            <span className="text-sm text-gray-500">· {event.siteName || 'Site non renseigné'}</span>
+                                            {hasCountryMismatch && (
+                                                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700 border border-amber-200">
+                                                    pays à vérifier
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-sm text-gray-600 mt-1">
+                                            {formatDate(event.createdAt)} · {event.actor?.name || event.actor?.phoneNumber || 'Système'}
+                                            {event.latitude !== null && event.longitude !== null && (
+                                                <> · {event.latitude.toFixed(6)}, {event.longitude.toFixed(6)}</>
+                                            )}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                        {event.source && (
+                                            <span className="inline-flex items-center justify-center rounded-lg bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700">
+                                                {event.source === 'employee_whatsapp' ? 'WhatsApp collaborateur' : event.source}
+                                            </span>
+                                        )}
+                                        {eventMapsLink && (
+                                            <a
+                                                href={eventMapsLink}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50"
+                                            >
+                                                <MapPin size={15} />
+                                                Carte
+                                            </a>
+                                        )}
+                                    </div>
+                                </article>
+                            );
+                        })}
+                    </div>
+                )}
+            </section>
 
             <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 flex gap-3 text-blue-900">
                 <ShieldCheck size={22} className="shrink-0 mt-0.5" />

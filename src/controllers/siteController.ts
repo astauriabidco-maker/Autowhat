@@ -83,6 +83,11 @@ function isAddressFriendlyCountry(country: string): boolean {
     return ['FR', 'BE', 'CH', 'US', 'CA', 'GB', 'DE', 'ES', 'IT', 'NL'].includes(country.toUpperCase());
 }
 
+function jsonObject(value: unknown): Record<string, unknown> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return value as Record<string, unknown>;
+}
+
 async function geocodeSiteAddress(address: string, country: string): Promise<{ latitude: number; longitude: number } | null> {
     if (!address.trim() || !isAddressFriendlyCountry(country)) return null;
 
@@ -148,6 +153,114 @@ export const getSites = async (req: Request, res: Response) => {
         res.json({ sites });
     } catch (error) {
         console.error('getSites error:', error);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+};
+
+/**
+ * GET /api/sites/gps-activity
+ * Positions proposées par collaborateurs + historique GPS récent.
+ */
+export const getSiteGpsActivity = async (req: Request, res: Response) => {
+    try {
+        const tenantId = req.user?.tenantId;
+        if (!tenantId) {
+            return res.status(401).json({ error: 'Non autorisé - tenantId manquant' });
+        }
+
+        const sites = await prisma.site.findMany({
+            where: { tenantId },
+            select: { id: true, name: true, country: true }
+        });
+        const siteMap = new Map(sites.map(site => [site.id, site]));
+
+        const managersWithPending = await prisma.employee.findMany({
+            where: {
+                tenantId,
+                role: 'MANAGER',
+                conversationState: 'WAITING_MANAGER_SITE_GPS_APPROVAL'
+            },
+            select: {
+                id: true,
+                name: true,
+                phoneNumber: true,
+                tempExpenseData: true
+            }
+        });
+
+        const pendingProposals = managersWithPending
+            .map(manager => {
+                const data = jsonObject(manager.tempExpenseData);
+                const siteId = data.siteId ? String(data.siteId) : null;
+                const site = siteId ? siteMap.get(siteId) : null;
+                const latitude = Number(data.latitude);
+                const longitude = Number(data.longitude);
+
+                if (!siteId || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+                    return null;
+                }
+
+                return {
+                    managerId: manager.id,
+                    managerName: manager.name,
+                    siteId,
+                    siteName: data.siteName || site?.name || 'Site',
+                    siteCountry: data.siteCountry || site?.country || null,
+                    latitude,
+                    longitude,
+                    detectedCountry: data.detectedCountry || null,
+                    providerEmployeeId: data.providerEmployeeId || null,
+                    providerName: data.providerName || null,
+                    providerPhone: data.providerPhone || null,
+                    sharedAt: data.sharedAt || null
+                };
+            })
+            .filter((proposal): proposal is NonNullable<typeof proposal> => Boolean(proposal));
+
+        const events = await prisma.onboardingEvent.findMany({
+            where: {
+                tenantId,
+                type: { in: ['SITE_GPS_POSITION_SHARED', 'SITE_GPS_UPDATED'] }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+            include: {
+                employee: { select: { id: true, name: true, phoneNumber: true, role: true } }
+            }
+        });
+
+        const history = events.map(event => {
+            const metadata = jsonObject(event.metadata);
+            const siteId = metadata.siteId ? String(metadata.siteId) : null;
+            const site = siteId ? siteMap.get(siteId) : null;
+
+            return {
+                id: event.id,
+                type: event.type,
+                createdAt: event.createdAt,
+                siteId,
+                siteName: metadata.siteName || site?.name || null,
+                latitude: typeof metadata.latitude === 'number' ? metadata.latitude : null,
+                longitude: typeof metadata.longitude === 'number' ? metadata.longitude : null,
+                siteCountry: metadata.siteCountry || metadata.country || site?.country || null,
+                detectedCountry: metadata.detectedCountry || null,
+                source: metadata.source || null,
+                actor: event.employee
+                    ? {
+                        id: event.employee.id,
+                        name: event.employee.name,
+                        phoneNumber: event.employee.phoneNumber,
+                        role: event.employee.role
+                    }
+                    : null,
+                providerEmployeeId: metadata.providerEmployeeId || null,
+                managerId: metadata.managerId || null
+            };
+        });
+
+        res.json({ pendingProposals, history });
+    } catch (error) {
+        console.error('getSiteGpsActivity error:', error);
         res.status(500).json({ error: 'Erreur serveur' });
     }
 };
@@ -272,6 +385,26 @@ export const updateSite = async (req: Request, res: Response) => {
                 gpsMode: gpsMode ? normalizeGpsMode(gpsMode) : existingSite.gpsMode
             }
         });
+
+        const gpsChanged = existingSite.latitude !== site.latitude || existingSite.longitude !== site.longitude;
+        if (gpsChanged && site.latitude !== null && site.longitude !== null) {
+            await prisma.onboardingEvent.create({
+                data: {
+                    tenantId,
+                    employeeId: req.user?.userId,
+                    type: 'SITE_GPS_UPDATED',
+                    metadata: {
+                        source: 'manager_dashboard',
+                        siteId: site.id,
+                        siteName: site.name,
+                        latitude: site.latitude,
+                        longitude: site.longitude,
+                        country: site.country,
+                        gpsMode: site.gpsMode
+                    }
+                }
+            });
+        }
 
         res.json({ site });
     } catch (error) {
