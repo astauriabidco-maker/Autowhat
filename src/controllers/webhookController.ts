@@ -827,6 +827,34 @@ async function promptManagerForSiteLocation(manager: any, site: any, from: strin
     );
 }
 
+async function promptManagerForSiteGpsSource(manager: any, site: any, from: string, phoneNumberId?: string) {
+    await prisma.employee.update({
+        where: { id: manager.id },
+        data: {
+            conversationState: 'WAITING_SITE_GPS_SOURCE',
+            tempExpenseData: {
+                siteId: site.id,
+                siteName: site.name,
+                siteCountry: site.country
+            }
+        }
+    });
+
+    await sendInteractiveButtons(
+        from,
+        `📍 *Configuration GPS du site*\n\n` +
+        `Site : *${site.name}*\n` +
+        `Pays : *${countryLabel(site.country)}*\n\n` +
+        `Qui va fournir la position exacte du site ?`,
+        [
+            { id: 'mgr_site_gps_my_location', title: 'Ma position' },
+            { id: 'mgr_site_gps_employee', title: 'Collaborateur' },
+            { id: 'mgr_site_gps_cancel', title: 'Annuler' }
+        ],
+        phoneNumberId
+    );
+}
+
 async function startManagerSiteGpsSetup(manager: any, from: string, phoneNumberId?: string): Promise<boolean> {
     if (manager.role !== 'MANAGER') {
         return false;
@@ -849,7 +877,7 @@ async function startManagerSiteGpsSetup(manager: any, from: string, phoneNumberI
     }
 
     if (sites.length === 1) {
-        await promptManagerForSiteLocation(manager, sites[0], from, phoneNumberId);
+        await promptManagerForSiteGpsSource(manager, sites[0], from, phoneNumberId);
         return true;
     }
 
@@ -928,7 +956,8 @@ async function handleManagerSiteGpsConversation(manager: any, message: any, from
     }
 
     const siteSelectionId = selectedId?.startsWith('mgr_site_gps_') &&
-        !['mgr_site_gps_fix_country', 'mgr_site_gps_use', 'mgr_site_gps_cancel'].includes(selectedId)
+        !selectedId.startsWith('mgr_site_gps_emp_') &&
+        !['mgr_site_gps_fix_country', 'mgr_site_gps_use', 'mgr_site_gps_cancel', 'mgr_site_gps_my_location', 'mgr_site_gps_employee'].includes(selectedId)
         ? selectedId
         : null;
 
@@ -943,11 +972,17 @@ async function handleManagerSiteGpsConversation(manager: any, message: any, from
             return true;
         }
 
-        await promptManagerForSiteLocation(manager, site, from, phoneNumberId);
+        await promptManagerForSiteGpsSource(manager, site, from, phoneNumberId);
         return true;
     }
 
-    if (!['WAITING_SITE_GPS_SELECTION', 'WAITING_SITE_GPS_LOCATION', 'WAITING_SITE_GPS_MISMATCH'].includes(manager.conversationState || '')) {
+    if (![
+        'WAITING_SITE_GPS_SELECTION',
+        'WAITING_SITE_GPS_SOURCE',
+        'WAITING_SITE_GPS_EMPLOYEE',
+        'WAITING_SITE_GPS_LOCATION',
+        'WAITING_SITE_GPS_MISMATCH'
+    ].includes(manager.conversationState || '')) {
         return false;
     }
 
@@ -963,6 +998,122 @@ async function handleManagerSiteGpsConversation(manager: any, message: any, from
     }
 
     const data = managerSiteGpsData(manager);
+
+    if (manager.conversationState === 'WAITING_SITE_GPS_SOURCE') {
+        if (selectedId === 'mgr_site_gps_my_location' || normalized === 'ma position') {
+            await promptManagerForSiteLocation(manager, {
+                id: data.siteId,
+                name: data.siteName,
+                country: data.siteCountry
+            }, from, phoneNumberId);
+            return true;
+        }
+
+        if (selectedId === 'mgr_site_gps_employee' || normalized === 'collaborateur') {
+            const employees = await prisma.employee.findMany({
+                where: {
+                    tenantId: manager.tenantId,
+                    role: 'EMPLOYEE'
+                },
+                orderBy: { name: 'asc' },
+                take: 10
+            });
+
+            if (employees.length === 0) {
+                await sendMessage(
+                    from,
+                    `Aucun collaborateur avec numéro WhatsApp n'est disponible.\n\n` +
+                    `Ajoutez d'abord un collaborateur, ou choisissez *Ma position*.`,
+                    phoneNumberId
+                );
+                return true;
+            }
+
+            await prisma.employee.update({
+                where: { id: manager.id },
+                data: {
+                    conversationState: 'WAITING_SITE_GPS_EMPLOYEE',
+                    tempExpenseData: data
+                }
+            });
+
+            await sendInteractiveList(
+                from,
+                `Quel collaborateur est physiquement sur le site *${data.siteName}* ?`,
+                'Choisir',
+                [
+                    {
+                        title: 'Collaborateurs',
+                        rows: employees.map(employee => ({
+                            id: `mgr_site_gps_emp_${employee.id}`,
+                            title: (employee.name || 'Collaborateur').slice(0, 24),
+                            description: `Demander la position`
+                        }))
+                    }
+                ],
+                phoneNumberId
+            );
+            return true;
+        }
+
+        await sendMessage(from, `Choisissez *Ma position*, *Collaborateur* ou *Annuler*.`, phoneNumberId);
+        return true;
+    }
+
+    if (manager.conversationState === 'WAITING_SITE_GPS_EMPLOYEE') {
+        if (!selectedId?.startsWith('mgr_site_gps_emp_')) {
+            await sendMessage(from, `Choisissez un collaborateur dans la liste, ou tapez *Annuler*.`, phoneNumberId);
+            return true;
+        }
+
+        const employeeId = selectedId.replace('mgr_site_gps_emp_', '');
+        const targetEmployee = await prisma.employee.findFirst({
+            where: {
+                id: employeeId,
+                tenantId: manager.tenantId,
+                role: 'EMPLOYEE'
+            }
+        });
+
+        if (!targetEmployee?.phoneNumber) {
+            await sendMessage(from, `Collaborateur introuvable ou sans numéro WhatsApp.`, phoneNumberId);
+            return true;
+        }
+
+        await prisma.employee.update({
+            where: { id: targetEmployee.id },
+            data: {
+                conversationState: 'WAITING_EMPLOYEE_SITE_GPS_LOCATION',
+                tempExpenseData: {
+                    siteId: data.siteId,
+                    siteName: data.siteName,
+                    siteCountry: data.siteCountry,
+                    managerId: manager.id,
+                    managerName: manager.name,
+                    requestedAt: new Date().toISOString()
+                }
+            }
+        });
+
+        await clearManagerSiteGpsState(manager.id);
+
+        await sendMessage(
+            targetEmployee.phoneNumber.replace(/^\+/, ''),
+            `📍 *Position demandée*\n\n` +
+            `Votre manager *${manager.name || 'Manager'}* demande la position exacte du site *${data.siteName}*.\n\n` +
+            `Si vous êtes bien sur place, partagez votre *position WhatsApp* dans cette conversation.\n\n` +
+            `Si vous n'êtes pas sur place, répondez *Annuler*.`,
+            phoneNumberId
+        );
+
+        await sendMessage(
+            from,
+            `✅ Demande envoyée à *${targetEmployee.name || 'ce collaborateur'}*.\n\n` +
+            `Vous serez notifié dès que la position sera partagée.`,
+            phoneNumberId
+        );
+        return true;
+    }
 
     if (manager.conversationState === 'WAITING_SITE_GPS_LOCATION') {
         if (message.type !== 'location' || !message.location) {
@@ -1060,6 +1211,119 @@ async function handleManagerSiteGpsConversation(manager: any, message: any, from
     }
 
     return false;
+}
+
+function employeeSiteGpsData(employee: any): Record<string, any> {
+    const data = employee.tempExpenseData;
+    return data && typeof data === 'object' && !Array.isArray(data) ? data as Record<string, any> : {};
+}
+
+async function handleEmployeeSiteGpsLocationRequest(employee: any, message: any, from: string, phoneNumberId?: string): Promise<boolean> {
+    if (employee.conversationState !== 'WAITING_EMPLOYEE_SITE_GPS_LOCATION') {
+        return false;
+    }
+
+    const messageBody = message.text?.body || '';
+    if (isCancellation(messageBody)) {
+        const data = employeeSiteGpsData(employee);
+        const manager = data.managerId
+            ? await prisma.employee.findFirst({
+                where: { id: String(data.managerId), tenantId: employee.tenantId, role: 'MANAGER' }
+            })
+            : null;
+
+        await prisma.employee.update({
+            where: { id: employee.id },
+            data: {
+                conversationState: null,
+                tempExpenseData: Prisma.DbNull
+            }
+        });
+
+        await sendMessage(from, `C'est noté, demande de position annulée.`, phoneNumberId);
+        if (manager?.phoneNumber) {
+            await sendMessage(
+                manager.phoneNumber.replace(/^\+/, ''),
+                `⚠️ *Position site non transmise*\n\n` +
+                `*${employee.name || 'Le collaborateur'}* a annulé la demande pour le site *${data.siteName || 'concerné'}*.`,
+                phoneNumberId
+            );
+        }
+        return true;
+    }
+
+    if (message.type !== 'location' || !message.location) {
+        const data = employeeSiteGpsData(employee);
+        await sendMessage(
+            from,
+            `Pour configurer le site *${data.siteName || ''}*, partagez votre *position WhatsApp* si vous êtes bien sur place.\n\n` +
+            `Vous pouvez répondre *Annuler* si vous n'êtes pas sur le site.`,
+            phoneNumberId
+        );
+        return true;
+    }
+
+    const data = employeeSiteGpsData(employee);
+    const manager = data.managerId
+        ? await prisma.employee.findFirst({
+            where: { id: String(data.managerId), tenantId: employee.tenantId, role: 'MANAGER' }
+        })
+        : null;
+
+    const latitude = Number(message.location.latitude);
+    const longitude = Number(message.location.longitude);
+    const siteCountry = String(data.siteCountry || employee.tenant?.country || 'FR');
+    const mismatch = getCountryMismatch(siteCountry, latitude, longitude);
+    const siteName = String(data.siteName || 'site');
+    const appUrl = (process.env.FRONTEND_URL || process.env.APP_URL || process.env.BASE_URL || 'https://app.whatspoint.com').replace(/\/$/, '');
+
+    await prisma.employee.update({
+        where: { id: employee.id },
+        data: {
+            conversationState: null,
+            tempExpenseData: Prisma.DbNull
+        }
+    });
+
+    await sendMessage(
+        from,
+        `✅ Position reçue pour *${siteName}*.\n\n` +
+        `Elle a été transmise à votre manager pour validation.`,
+        phoneNumberId
+    );
+
+    if (!manager?.phoneNumber) {
+        console.warn(`Site GPS employee location received but manager not found for employee ${employee.id}`);
+        return true;
+    }
+
+    const mismatchLine = mismatch
+        ? `\n⚠️ La position semble être en *${countryLabel(mismatch.detectedCountry)}*, alors que le site est déclaré en *${countryLabel(siteCountry)}*.\n`
+        : `\n✅ Pays/GPS cohérents avec *${countryLabel(siteCountry)}*.\n`;
+
+    await sendMessage(
+        manager.phoneNumber.replace(/^\+/, ''),
+        `📍 *Position site reçue*\n\n` +
+        `Site : *${siteName}*\n` +
+        `Envoyée par : *${employee.name || employee.phoneNumber}*\n` +
+        `Coordonnées : *${latitude.toFixed(6)}, ${longitude.toFixed(6)}*` +
+        mismatchLine +
+        `Ouvrez le Site GPS Center pour valider ou corriger :\n${appUrl}/sites-gps`,
+        phoneNumberId
+    );
+
+    await logOnboardingEvent(employee.tenantId, 'SITE_GPS_POSITION_SHARED', employee.id, {
+        source: 'WHATSAPP_EMPLOYEE',
+        siteId: data.siteId || null,
+        siteName,
+        managerId: manager.id,
+        latitude,
+        longitude,
+        siteCountry,
+        detectedCountry: mismatch?.detectedCountry || null
+    });
+
+    return true;
 }
 
 async function handleManagerAhaAction(selectedId: string, employee: any, from: string, phoneNumberId?: string): Promise<boolean> {
@@ -1987,6 +2251,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                         }
 
                         if (employee && await handleEmployeeFirstActivation(employee, messageType, messageBody, from, phoneNumberId)) {
+                            continue;
+                        }
+
+                        if (employee && await handleEmployeeSiteGpsLocationRequest(employee, message, from, phoneNumberId)) {
                             continue;
                         }
 
