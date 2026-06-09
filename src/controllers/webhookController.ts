@@ -913,7 +913,7 @@ async function updateSiteGpsFromManager(
     siteId: string,
     latitude: number,
     longitude: number,
-    options: { country?: string; forceWarningMode?: boolean } = {}
+    options: { country?: string; forceWarningMode?: boolean; source?: string; providerEmployeeId?: string | null } = {}
 ) {
     const site = await prisma.site.findFirst({
         where: { id: siteId, tenantId: manager.tenantId }
@@ -934,11 +934,12 @@ async function updateSiteGpsFromManager(
     });
 
     await logOnboardingEvent(manager.tenantId, 'SITE_GPS_UPDATED', manager.id, {
-        source: 'WHATSAPP_MANAGER',
+        source: options.source || 'WHATSAPP_MANAGER',
         siteId: site.id,
         latitude,
         longitude,
-        country: updated.country
+        country: updated.country,
+        providerEmployeeId: options.providerEmployeeId || null
     });
 
     return updated;
@@ -957,7 +958,16 @@ async function handleManagerSiteGpsConversation(manager: any, message: any, from
 
     const siteSelectionId = selectedId?.startsWith('mgr_site_gps_') &&
         !selectedId.startsWith('mgr_site_gps_emp_') &&
-        !['mgr_site_gps_fix_country', 'mgr_site_gps_use', 'mgr_site_gps_cancel', 'mgr_site_gps_my_location', 'mgr_site_gps_employee'].includes(selectedId)
+        ![
+            'mgr_site_gps_fix_country',
+            'mgr_site_gps_use',
+            'mgr_site_gps_cancel',
+            'mgr_site_gps_my_location',
+            'mgr_site_gps_employee',
+            'mgr_site_gps_approve_shared',
+            'mgr_site_gps_fix_shared_country',
+            'mgr_site_gps_reject_shared'
+        ].includes(selectedId)
         ? selectedId
         : null;
 
@@ -981,7 +991,8 @@ async function handleManagerSiteGpsConversation(manager: any, message: any, from
         'WAITING_SITE_GPS_SOURCE',
         'WAITING_SITE_GPS_EMPLOYEE',
         'WAITING_SITE_GPS_LOCATION',
-        'WAITING_SITE_GPS_MISMATCH'
+        'WAITING_SITE_GPS_MISMATCH',
+        'WAITING_MANAGER_SITE_GPS_APPROVAL'
     ].includes(manager.conversationState || '')) {
         return false;
     }
@@ -998,6 +1009,92 @@ async function handleManagerSiteGpsConversation(manager: any, message: any, from
     }
 
     const data = managerSiteGpsData(manager);
+
+    if (manager.conversationState === 'WAITING_MANAGER_SITE_GPS_APPROVAL') {
+        const latitude = Number(data.latitude);
+        const longitude = Number(data.longitude);
+        const siteId = String(data.siteId || '');
+
+        if (!siteId || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+            await clearManagerSiteGpsState(manager.id);
+            await sendMessage(from, `Session de validation expirée. Répondez *GPS site* pour recommencer.`, phoneNumberId);
+            return true;
+        }
+
+        if (selectedId === 'mgr_site_gps_approve_shared' || normalized === 'valider') {
+            const updated = await updateSiteGpsFromManager(manager, siteId, latitude, longitude, {
+                forceWarningMode: true,
+                source: 'WHATSAPP_EMPLOYEE_VALIDATED',
+                providerEmployeeId: data.providerEmployeeId ? String(data.providerEmployeeId) : null
+            });
+            await clearManagerSiteGpsState(manager.id);
+
+            await sendMessage(
+                from,
+                `✅ Position validée pour *${updated.name}*.\n\n` +
+                `Coordonnées : ${latitude.toFixed(6)}, ${longitude.toFixed(6)}\n` +
+                `Mode GPS : *${updated.gpsMode === 'STRICT' ? 'strict' : updated.gpsMode === 'DISABLED' ? 'désactivé' : 'souple'}*`,
+                phoneNumberId
+            );
+
+            if (data.providerPhone) {
+                await sendMessage(
+                    String(data.providerPhone).replace(/^\+/, ''),
+                    `✅ Votre position a été validée pour le site *${updated.name}*.`,
+                    phoneNumberId
+                );
+            }
+            return true;
+        }
+
+        if (selectedId === 'mgr_site_gps_fix_shared_country' || normalized === 'corriger pays') {
+            const updated = await updateSiteGpsFromManager(manager, siteId, latitude, longitude, {
+                country: String(data.detectedCountry || data.siteCountry || 'FR'),
+                forceWarningMode: true,
+                source: 'WHATSAPP_EMPLOYEE_VALIDATED',
+                providerEmployeeId: data.providerEmployeeId ? String(data.providerEmployeeId) : null
+            });
+            await clearManagerSiteGpsState(manager.id);
+
+            await sendMessage(
+                from,
+                `✅ Position validée et pays corrigé pour *${updated.name}*.\n\n` +
+                `Pays : *${countryLabel(updated.country)}*\n` +
+                `Coordonnées : ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+                phoneNumberId
+            );
+
+            if (data.providerPhone) {
+                await sendMessage(
+                    String(data.providerPhone).replace(/^\+/, ''),
+                    `✅ Votre position a été validée pour le site *${updated.name}*.`,
+                    phoneNumberId
+                );
+            }
+            return true;
+        }
+
+        if (selectedId === 'mgr_site_gps_reject_shared' || normalized === 'refuser') {
+            await clearManagerSiteGpsState(manager.id);
+            await sendMessage(
+                from,
+                `Position refusée. Le site *${data.siteName || 'concerné'}* n'a pas été modifié.`,
+                phoneNumberId
+            );
+
+            if (data.providerPhone) {
+                await sendMessage(
+                    String(data.providerPhone).replace(/^\+/, ''),
+                    `⚠️ Votre position n'a pas été retenue pour le site *${data.siteName || 'concerné'}*.`,
+                    phoneNumberId
+                );
+            }
+            return true;
+        }
+
+        await sendMessage(from, `Choisissez *Valider*, *Corriger pays* ou *Refuser*.`, phoneNumberId);
+        return true;
+    }
 
     if (manager.conversationState === 'WAITING_SITE_GPS_SOURCE') {
         if (selectedId === 'mgr_site_gps_my_location' || normalized === 'ma position') {
@@ -1297,18 +1394,42 @@ async function handleEmployeeSiteGpsLocationRequest(employee: any, message: any,
         return true;
     }
 
+    await prisma.employee.update({
+        where: { id: manager.id },
+        data: {
+            conversationState: 'WAITING_MANAGER_SITE_GPS_APPROVAL',
+            tempExpenseData: {
+                siteId: data.siteId || null,
+                siteName,
+                siteCountry,
+                latitude,
+                longitude,
+                detectedCountry: mismatch?.detectedCountry || null,
+                providerEmployeeId: employee.id,
+                providerName: employee.name || null,
+                providerPhone: employee.phoneNumber,
+                sharedAt: new Date().toISOString()
+            }
+        }
+    });
+
     const mismatchLine = mismatch
         ? `\n⚠️ La position semble être en *${countryLabel(mismatch.detectedCountry)}*, alors que le site est déclaré en *${countryLabel(siteCountry)}*.\n`
         : `\n✅ Pays/GPS cohérents avec *${countryLabel(siteCountry)}*.\n`;
 
-    await sendMessage(
+    await sendInteractiveButtons(
         manager.phoneNumber.replace(/^\+/, ''),
         `📍 *Position site reçue*\n\n` +
         `Site : *${siteName}*\n` +
         `Envoyée par : *${employee.name || employee.phoneNumber}*\n` +
         `Coordonnées : *${latitude.toFixed(6)}, ${longitude.toFixed(6)}*` +
         mismatchLine +
-        `Ouvrez le Site GPS Center pour valider ou corriger :\n${appUrl}/sites-gps`,
+        `Vous pouvez valider directement ici, ou ouvrir le Site GPS Center :\n${appUrl}/sites-gps`,
+        [
+            { id: 'mgr_site_gps_approve_shared', title: 'Valider' },
+            { id: 'mgr_site_gps_fix_shared_country', title: 'Corriger pays' },
+            { id: 'mgr_site_gps_reject_shared', title: 'Refuser' }
+        ],
         phoneNumberId
     );
 
