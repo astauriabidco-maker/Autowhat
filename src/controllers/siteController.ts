@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
+import { sendMessage } from '../services/whatsappService';
+import { getCredentialsForTenant } from '../services/whatsappConfigService';
 
 const GPS_MODES = ['STRICT', 'WARNING', 'DISABLED'] as const;
 type GpsMode = typeof GPS_MODES[number];
@@ -86,6 +89,84 @@ function isAddressFriendlyCountry(country: string): boolean {
 function jsonObject(value: unknown): Record<string, unknown> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
     return value as Record<string, unknown>;
+}
+
+function stringValue(value: unknown): string | null {
+    if (value === null || value === undefined || value === '') return null;
+    return String(value);
+}
+
+function cleanPhone(value: unknown): string | null {
+    const phone = stringValue(value);
+    return phone ? phone.replace(/^\+/, '') : null;
+}
+
+async function notifyGpsProvider(tenantId: string, providerPhone: unknown, message: string) {
+    const phone = cleanPhone(providerPhone);
+    if (!phone) return;
+
+    try {
+        const credentials = await getCredentialsForTenant(tenantId);
+        await sendMessage(phone, message, credentials);
+    } catch (error) {
+        console.warn('Site GPS provider notification skipped:', error);
+    }
+}
+
+async function getPendingGpsProposalOrNull(tenantId: string, managerId: string) {
+    const manager = await prisma.employee.findFirst({
+        where: {
+            id: managerId,
+            tenantId,
+            role: 'MANAGER',
+            conversationState: 'WAITING_MANAGER_SITE_GPS_APPROVAL'
+        },
+        select: {
+            id: true,
+            name: true,
+            tenantId: true,
+            tempExpenseData: true
+        }
+    });
+
+    if (!manager) return null;
+
+    const data = jsonObject(manager.tempExpenseData);
+    const siteId = stringValue(data.siteId);
+    const latitude = Number(data.latitude);
+    const longitude = Number(data.longitude);
+
+    if (!siteId || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return { manager, data, invalid: true as const };
+    }
+
+    const site = await prisma.site.findFirst({
+        where: { id: siteId, tenantId }
+    });
+
+    if (!site) {
+        return { manager, data, invalid: true as const };
+    }
+
+    return {
+        manager,
+        data,
+        site,
+        siteId,
+        latitude,
+        longitude,
+        invalid: false as const
+    };
+}
+
+async function clearManagerSiteGpsState(managerId: string) {
+    await prisma.employee.update({
+        where: { id: managerId },
+        data: {
+            conversationState: null,
+            tempExpenseData: Prisma.DbNull
+        }
+    });
 }
 
 async function geocodeSiteAddress(address: string, country: string): Promise<{ latitude: number; longitude: number } | null> {
@@ -220,7 +301,7 @@ export const getSiteGpsActivity = async (req: Request, res: Response) => {
         const events = await prisma.onboardingEvent.findMany({
             where: {
                 tenantId,
-                type: { in: ['SITE_GPS_POSITION_SHARED', 'SITE_GPS_UPDATED'] }
+                type: { in: ['SITE_GPS_POSITION_SHARED', 'SITE_GPS_UPDATED', 'SITE_GPS_REJECTED'] }
             },
             orderBy: { createdAt: 'desc' },
             take: 20,
@@ -261,6 +342,139 @@ export const getSiteGpsActivity = async (req: Request, res: Response) => {
         res.json({ pendingProposals, history });
     } catch (error) {
         console.error('getSiteGpsActivity error:', error);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+};
+
+/**
+ * POST /api/sites/gps-proposals/:managerId/approve
+ * Valider depuis le dashboard une position GPS proposée par collaborateur.
+ */
+export const approveSiteGpsProposal = async (req: Request, res: Response) => {
+    try {
+        const tenantId = req.user?.tenantId;
+        const managerId = req.params.managerId as string;
+        const correctCountry = req.body?.correctCountry === true;
+
+        if (!tenantId) {
+            return res.status(401).json({ error: 'Non autorisé - tenantId manquant' });
+        }
+
+        const proposal = await getPendingGpsProposalOrNull(tenantId, managerId);
+        if (!proposal) {
+            return res.status(404).json({ error: 'Position proposée introuvable ou déjà traitée' });
+        }
+
+        if (proposal.invalid) {
+            await clearManagerSiteGpsState(proposal.manager.id);
+            return res.status(409).json({ error: 'Position proposée expirée. La demande a été nettoyée.' });
+        }
+
+        const nextCountry = correctCountry
+            ? stringValue(proposal.data.detectedCountry) || stringValue(proposal.data.siteCountry) || proposal.site.country
+            : proposal.site.country;
+
+        const updated = await prisma.site.update({
+            where: { id: proposal.site.id },
+            data: {
+                latitude: proposal.latitude,
+                longitude: proposal.longitude,
+                country: nextCountry.toUpperCase(),
+                gpsMode: proposal.site.gpsMode === 'DISABLED' ? 'WARNING' : proposal.site.gpsMode
+            }
+        });
+
+        await prisma.onboardingEvent.create({
+            data: {
+                tenantId,
+                employeeId: req.user?.userId,
+                type: 'SITE_GPS_UPDATED',
+                metadata: {
+                    source: correctCountry ? 'manager_dashboard_corrected_country' : 'manager_dashboard_validated',
+                    siteId: updated.id,
+                    siteName: updated.name,
+                    latitude: updated.latitude,
+                    longitude: updated.longitude,
+                    country: updated.country,
+                    providerEmployeeId: stringValue(proposal.data.providerEmployeeId),
+                    managerId: proposal.manager.id
+                }
+            }
+        });
+
+        await clearManagerSiteGpsState(proposal.manager.id);
+        await notifyGpsProvider(
+            tenantId,
+            proposal.data.providerPhone,
+            `✅ Votre position a été validée pour le site *${updated.name}*.`
+        );
+
+        res.json({
+            success: true,
+            site: updated,
+            message: correctCountry
+                ? `Position validée et pays corrigé pour ${updated.name}.`
+                : `Position validée pour ${updated.name}.`
+        });
+    } catch (error) {
+        console.error('approveSiteGpsProposal error:', error);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+};
+
+/**
+ * POST /api/sites/gps-proposals/:managerId/reject
+ * Refuser depuis le dashboard une position GPS proposée par collaborateur.
+ */
+export const rejectSiteGpsProposal = async (req: Request, res: Response) => {
+    try {
+        const tenantId = req.user?.tenantId;
+        const managerId = req.params.managerId as string;
+
+        if (!tenantId) {
+            return res.status(401).json({ error: 'Non autorisé - tenantId manquant' });
+        }
+
+        const proposal = await getPendingGpsProposalOrNull(tenantId, managerId);
+        if (!proposal) {
+            return res.status(404).json({ error: 'Position proposée introuvable ou déjà traitée' });
+        }
+
+        const data = proposal.data;
+        const siteName = stringValue(data.siteName) || (proposal.invalid ? 'concerné' : proposal.site.name);
+
+        await prisma.onboardingEvent.create({
+            data: {
+                tenantId,
+                employeeId: req.user?.userId,
+                type: 'SITE_GPS_REJECTED',
+                metadata: {
+                    source: 'manager_dashboard_rejected',
+                    siteId: stringValue(data.siteId),
+                    siteName,
+                    latitude: Number.isFinite(Number(data.latitude)) ? Number(data.latitude) : null,
+                    longitude: Number.isFinite(Number(data.longitude)) ? Number(data.longitude) : null,
+                    siteCountry: stringValue(data.siteCountry),
+                    detectedCountry: stringValue(data.detectedCountry),
+                    providerEmployeeId: stringValue(data.providerEmployeeId),
+                    managerId: proposal.manager.id
+                }
+            }
+        });
+
+        await clearManagerSiteGpsState(proposal.manager.id);
+        await notifyGpsProvider(
+            tenantId,
+            data.providerPhone,
+            `⚠️ Votre position n'a pas été retenue pour le site *${siteName}*.`
+        );
+
+        res.json({
+            success: true,
+            message: `Position refusée pour ${siteName}. Le site n'a pas été modifié.`
+        });
+    } catch (error) {
+        console.error('rejectSiteGpsProposal error:', error);
         res.status(500).json({ error: 'Erreur serveur' });
     }
 };

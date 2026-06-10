@@ -11,7 +11,8 @@ import {
     RefreshCw,
     Save,
     ShieldCheck,
-    UserCheck
+    UserCheck,
+    XCircle
 } from 'lucide-react';
 
 interface Site {
@@ -59,7 +60,7 @@ interface PendingGpsProposal {
 
 interface GpsHistoryEvent {
     id: string;
-    type: 'SITE_GPS_POSITION_SHARED' | 'SITE_GPS_UPDATED';
+    type: 'SITE_GPS_POSITION_SHARED' | 'SITE_GPS_UPDATED' | 'SITE_GPS_REJECTED';
     createdAt: string;
     siteId: string | null;
     siteName: string | null;
@@ -165,7 +166,24 @@ function mapsLink(latitude: number | string | null, longitude: number | string |
 }
 
 function eventLabel(type: GpsHistoryEvent['type']): string {
-    return type === 'SITE_GPS_POSITION_SHARED' ? 'Position proposée' : 'Site mis à jour';
+    if (type === 'SITE_GPS_POSITION_SHARED') return 'Position proposée';
+    if (type === 'SITE_GPS_REJECTED') return 'Position refusée';
+    return 'Site mis à jour';
+}
+
+function sourceLabel(source?: string | null): string | null {
+    if (!source) return null;
+    const labels: Record<string, string> = {
+        WHATSAPP_MANAGER: 'WhatsApp manager',
+        WHATSAPP_EMPLOYEE: 'WhatsApp collaborateur',
+        WHATSAPP_EMPLOYEE_VALIDATED: 'WhatsApp validé',
+        employee_whatsapp: 'WhatsApp collaborateur',
+        manager_dashboard: 'Dashboard manager',
+        manager_dashboard_validated: 'Dashboard validé',
+        manager_dashboard_corrected_country: 'Dashboard pays corrigé',
+        manager_dashboard_rejected: 'Dashboard refusé'
+    };
+    return labels[source] || source;
 }
 
 export default function SiteGpsCenter() {
@@ -179,6 +197,7 @@ export default function SiteGpsCenter() {
     const [mismatch, setMismatch] = useState<MismatchWarning | null>(null);
     const [pendingProposals, setPendingProposals] = useState<PendingGpsProposal[]>([]);
     const [history, setHistory] = useState<GpsHistoryEvent[]>([]);
+    const [actingProposal, setActingProposal] = useState<string | null>(null);
 
     const token = useMemo(() => localStorage.getItem('token'), []);
 
@@ -301,6 +320,34 @@ export default function SiteGpsCenter() {
         setSuccess(`Position proposée appliquée au formulaire du site "${proposal.siteName}". Vérifiez puis enregistrez.`);
     };
 
+    const decideProposal = async (proposal: PendingGpsProposal, action: 'approve' | 'approve_correct_country' | 'reject') => {
+        const actionKey = `${proposal.managerId}-${proposal.siteId}-${action}`;
+        setActingProposal(actionKey);
+        setError('');
+        setSuccess('');
+
+        try {
+            const endpoint = action === 'reject'
+                ? `/api/sites/gps-proposals/${proposal.managerId}/reject`
+                : `/api/sites/gps-proposals/${proposal.managerId}/approve`;
+            const response = await axios.post<{ message?: string }>(endpoint, {
+                correctCountry: action === 'approve_correct_country'
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setSuccess(response.data.message || 'Décision enregistrée.');
+            await fetchSites();
+        } catch (err) {
+            if (axios.isAxiosError(err) && err.response?.data?.error) {
+                setError(err.response.data.error);
+            } else {
+                setError("Impossible de traiter cette position proposée.");
+            }
+        } finally {
+            setActingProposal(null);
+        }
+    };
+
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
             <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
@@ -359,7 +406,7 @@ export default function SiteGpsCenter() {
                                 Positions proposées par collaborateur
                             </div>
                             <p className="text-sm text-blue-900/80 mt-1">
-                                Ces positions viennent du parcours WhatsApp. Vous pouvez les appliquer ici, puis enregistrer le site en mode GPS strict si tout est cohérent.
+                                Ces positions viennent du parcours WhatsApp. Vous pouvez les valider directement ici, corriger le pays si nécessaire, ou refuser la proposition.
                             </p>
                         </div>
                         <span className="inline-flex items-center justify-center rounded-full bg-white px-3 py-1 text-sm font-bold text-blue-700 border border-blue-200">
@@ -373,6 +420,8 @@ export default function SiteGpsCenter() {
                                 proposal.detectedCountry &&
                                 proposal.siteCountry !== proposal.detectedCountry;
                             const proposalMapsLink = mapsLink(proposal.latitude, proposal.longitude);
+                            const baseActionKey = `${proposal.managerId}-${proposal.siteId}`;
+                            const isActing = actingProposal?.startsWith(baseActionKey);
 
                             return (
                                 <article key={`${proposal.managerId}-${proposal.siteId}`} className="rounded-xl border border-blue-200 bg-white p-4 shadow-sm space-y-3">
@@ -411,11 +460,38 @@ export default function SiteGpsCenter() {
 
                                     <div className="flex flex-col sm:flex-row gap-2">
                                         <button
-                                            onClick={() => applyProposal(proposal)}
-                                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+                                            onClick={() => decideProposal(proposal, 'approve')}
+                                            disabled={isActing}
+                                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-60"
                                         >
-                                            <CheckCircle2 size={16} />
-                                            Appliquer au site
+                                            {actingProposal === `${baseActionKey}-approve` ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+                                            Valider
+                                        </button>
+                                        {hasCountryMismatch && (
+                                            <button
+                                                onClick={() => decideProposal(proposal, 'approve_correct_country')}
+                                                disabled={isActing}
+                                                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500 text-white font-semibold hover:bg-amber-600 disabled:opacity-60"
+                                            >
+                                                {actingProposal === `${baseActionKey}-approve_correct_country` ? <Loader2 className="animate-spin" size={16} /> : <AlertTriangle size={16} />}
+                                                Corriger pays
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => decideProposal(proposal, 'reject')}
+                                            disabled={isActing}
+                                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-red-200 bg-red-50 text-red-700 font-semibold hover:bg-red-100 disabled:opacity-60"
+                                        >
+                                            {actingProposal === `${baseActionKey}-reject` ? <Loader2 className="animate-spin" size={16} /> : <XCircle size={16} />}
+                                            Refuser
+                                        </button>
+                                        <button
+                                            onClick={() => applyProposal(proposal)}
+                                            disabled={isActing}
+                                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-700 font-semibold hover:bg-gray-50 disabled:opacity-60"
+                                        >
+                                            <Save size={16} />
+                                            Préremplir
                                         </button>
                                         {proposalMapsLink && (
                                             <a
@@ -621,6 +697,7 @@ export default function SiteGpsCenter() {
                             const hasCountryMismatch = event.siteCountry &&
                                 event.detectedCountry &&
                                 event.siteCountry !== event.detectedCountry;
+                            const isRejected = event.type === 'SITE_GPS_REJECTED';
 
                             return (
                                 <article key={event.id} className="py-3 first:pt-0 last:pb-0 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
@@ -628,6 +705,11 @@ export default function SiteGpsCenter() {
                                         <div className="flex flex-wrap items-center gap-2">
                                             <span className="font-semibold text-gray-900">{eventLabel(event.type)}</span>
                                             <span className="text-sm text-gray-500">· {event.siteName || 'Site non renseigné'}</span>
+                                            {isRejected && (
+                                                <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700 border border-red-200">
+                                                    refusée
+                                                </span>
+                                            )}
                                             {hasCountryMismatch && (
                                                 <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700 border border-amber-200">
                                                     pays à vérifier
@@ -642,9 +724,9 @@ export default function SiteGpsCenter() {
                                         </p>
                                     </div>
                                     <div className="flex flex-col sm:flex-row gap-2">
-                                        {event.source && (
+                                        {sourceLabel(event.source) && (
                                             <span className="inline-flex items-center justify-center rounded-lg bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700">
-                                                {event.source === 'employee_whatsapp' ? 'WhatsApp collaborateur' : event.source}
+                                                {sourceLabel(event.source)}
                                             </span>
                                         )}
                                         {eventMapsLink && (
