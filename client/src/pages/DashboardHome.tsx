@@ -98,6 +98,7 @@ interface GpsSupervision {
         pendingProposals: number;
         rejectedLast7Days: number;
         validatedLast7Days: number;
+        expiredLast7Days: number;
     };
     riskSites: Array<{
         id: string;
@@ -116,7 +117,7 @@ interface GpsSupervision {
     }>;
     recentEvents: Array<{
         id: string;
-        type: 'SITE_GPS_POSITION_SHARED' | 'SITE_GPS_UPDATED' | 'SITE_GPS_REJECTED' | 'SITE_GPS_APPROVAL_REMINDER_SENT';
+        type: 'SITE_GPS_POSITION_SHARED' | 'SITE_GPS_UPDATED' | 'SITE_GPS_REJECTED' | 'SITE_GPS_APPROVAL_REMINDER_SENT' | 'SITE_GPS_EXPIRED';
         createdAt: string;
         siteId: string | null;
         siteName: string;
@@ -359,6 +360,7 @@ export default function DashboardHome() {
         if (type === 'SITE_GPS_POSITION_SHARED') return 'Position proposée';
         if (type === 'SITE_GPS_REJECTED') return 'Position refusée';
         if (type === 'SITE_GPS_APPROVAL_REMINDER_SENT') return 'Relance validation';
+        if (type === 'SITE_GPS_EXPIRED') return 'Position expirée';
         return 'Position validée';
     };
 
@@ -596,9 +598,9 @@ export default function DashboardHome() {
                                 icon: <Clock size={18} />
                             },
                             {
-                                label: 'Refus 7 jours',
-                                value: gpsSupervision.summary.rejectedLast7Days,
-                                tone: gpsSupervision.summary.rejectedLast7Days > 0 ? 'red' : 'gray',
+                                label: 'Refus/expirées',
+                                value: gpsSupervision.summary.rejectedLast7Days + gpsSupervision.summary.expiredLast7Days,
+                                tone: gpsSupervision.summary.rejectedLast7Days + gpsSupervision.summary.expiredLast7Days > 0 ? 'red' : 'gray',
                                 icon: <XCircle size={18} />
                             }
                         ].map((item) => (

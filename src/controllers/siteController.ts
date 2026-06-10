@@ -301,7 +301,7 @@ export const getSiteGpsActivity = async (req: Request, res: Response) => {
         const events = await prisma.onboardingEvent.findMany({
             where: {
                 tenantId,
-                type: { in: ['SITE_GPS_POSITION_SHARED', 'SITE_GPS_UPDATED', 'SITE_GPS_REJECTED'] }
+                type: { in: ['SITE_GPS_POSITION_SHARED', 'SITE_GPS_UPDATED', 'SITE_GPS_REJECTED', 'SITE_GPS_EXPIRED'] }
             },
             orderBy: { createdAt: 'desc' },
             take: 20,

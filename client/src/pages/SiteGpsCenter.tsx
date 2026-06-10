@@ -60,7 +60,7 @@ interface PendingGpsProposal {
 
 interface GpsHistoryEvent {
     id: string;
-    type: 'SITE_GPS_POSITION_SHARED' | 'SITE_GPS_UPDATED' | 'SITE_GPS_REJECTED';
+    type: 'SITE_GPS_POSITION_SHARED' | 'SITE_GPS_UPDATED' | 'SITE_GPS_REJECTED' | 'SITE_GPS_EXPIRED';
     createdAt: string;
     siteId: string | null;
     siteName: string | null;
@@ -168,6 +168,7 @@ function mapsLink(latitude: number | string | null, longitude: number | string |
 function eventLabel(type: GpsHistoryEvent['type']): string {
     if (type === 'SITE_GPS_POSITION_SHARED') return 'Position proposée';
     if (type === 'SITE_GPS_REJECTED') return 'Position refusée';
+    if (type === 'SITE_GPS_EXPIRED') return 'Position expirée';
     return 'Site mis à jour';
 }
 
@@ -698,6 +699,7 @@ export default function SiteGpsCenter() {
                                 event.detectedCountry &&
                                 event.siteCountry !== event.detectedCountry;
                             const isRejected = event.type === 'SITE_GPS_REJECTED';
+                            const isExpired = event.type === 'SITE_GPS_EXPIRED';
 
                             return (
                                 <article key={event.id} className="py-3 first:pt-0 last:pb-0 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
@@ -708,6 +710,11 @@ export default function SiteGpsCenter() {
                                             {isRejected && (
                                                 <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700 border border-red-200">
                                                     refusée
+                                                </span>
+                                            )}
+                                            {isExpired && (
+                                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-700 border border-gray-200">
+                                                    expirée
                                                 </span>
                                             )}
                                             {hasCountryMismatch && (

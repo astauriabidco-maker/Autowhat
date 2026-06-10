@@ -499,7 +499,7 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
         const gpsEventsRaw = await prisma.onboardingEvent.findMany({
             where: {
                 tenantId,
-                type: { in: ['SITE_GPS_POSITION_SHARED', 'SITE_GPS_UPDATED', 'SITE_GPS_REJECTED', 'SITE_GPS_APPROVAL_REMINDER_SENT'] }
+                type: { in: ['SITE_GPS_POSITION_SHARED', 'SITE_GPS_UPDATED', 'SITE_GPS_REJECTED', 'SITE_GPS_APPROVAL_REMINDER_SENT', 'SITE_GPS_EXPIRED'] }
             },
             include: {
                 employee: { select: { id: true, name: true, phoneNumber: true, role: true } }
@@ -537,6 +537,7 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
         const disabledGpsSites = gpsSites.filter(site => site.gpsMode === 'DISABLED');
         const recentlyRejected = gpsEvents.filter(event => event.type === 'SITE_GPS_REJECTED' && new Date(event.createdAt) >= gpsSevenDaysAgo);
         const recentlyValidated = gpsEvents.filter(event => event.type === 'SITE_GPS_UPDATED' && new Date(event.createdAt) >= gpsSevenDaysAgo);
+        const recentlyExpired = gpsEvents.filter(event => event.type === 'SITE_GPS_EXPIRED' && new Date(event.createdAt) >= gpsSevenDaysAgo);
         const riskLevel = missingGpsSites.length > 0 || disabledGpsSites.length > 0
             ? 'high'
             : pendingGpsProposals.length > 0 || nonStrictSites.length > 0 || recentlyRejected.length > 0
@@ -581,7 +582,8 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
                     disabledGpsSites: disabledGpsSites.length,
                     pendingProposals: pendingGpsProposals.length,
                     rejectedLast7Days: recentlyRejected.length,
-                    validatedLast7Days: recentlyValidated.length
+                    validatedLast7Days: recentlyValidated.length,
+                    expiredLast7Days: recentlyExpired.length
                 },
                 riskSites: [
                     ...missingGpsSites.map(site => ({

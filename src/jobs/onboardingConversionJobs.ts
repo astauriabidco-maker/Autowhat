@@ -1,4 +1,5 @@
 import cron from 'node-cron';
+import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { createManagerMagicLoginLink } from '../services/managerMagicLoginService';
 import { sendMessage } from '../services/whatsappService';
@@ -8,6 +9,7 @@ const LINK_REMINDER_DELAY_MS = 20 * 60 * 1000;
 const INVITE_REMINDER_DELAY_MS = 30 * 60 * 1000;
 const EMPLOYEE_ACTIVATION_REMINDER_DELAY_MS = 2 * 60 * 60 * 1000;
 const SITE_GPS_APPROVAL_REMINDER_DELAY_MS = 60 * 60 * 1000;
+const SITE_GPS_APPROVAL_EXPIRATION_MS = 24 * 60 * 60 * 1000;
 const LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 
 function cleanWhatsAppNumber(phoneNumber: string): string {
@@ -325,14 +327,91 @@ async function sendSiteGpsApprovalReminders(now: Date): Promise<number> {
     return sent;
 }
 
+async function expireSiteGpsApprovalProposals(now: Date): Promise<number> {
+    const expiresBefore = new Date(now.getTime() - SITE_GPS_APPROVAL_EXPIRATION_MS);
+
+    const managers = await prisma.employee.findMany({
+        where: {
+            role: 'MANAGER',
+            conversationState: 'WAITING_MANAGER_SITE_GPS_APPROVAL'
+        },
+        take: 100,
+        orderBy: { updatedAt: 'asc' },
+        include: { tenant: { select: { id: true, status: true } } }
+    });
+
+    let expired = 0;
+
+    for (const manager of managers) {
+        const data = jsonObject(manager.tempExpenseData);
+        const sharedAt = data.sharedAt ? new Date(String(data.sharedAt)) : manager.updatedAt;
+        if (Number.isNaN(sharedAt.getTime()) || sharedAt > expiresBefore) continue;
+
+        const siteId = data.siteId ? String(data.siteId) : null;
+        const siteName = data.siteName ? String(data.siteName) : 'le site concerné';
+        const providerPhone = data.providerPhone ? String(data.providerPhone) : null;
+
+        await prisma.$transaction([
+            prisma.onboardingEvent.create({
+                data: {
+                    tenantId: manager.tenantId,
+                    employeeId: manager.id,
+                    type: 'SITE_GPS_EXPIRED',
+                    metadata: {
+                        source: 'CRON',
+                        siteId,
+                        siteName,
+                        providerEmployeeId: data.providerEmployeeId || null,
+                        providerPhone,
+                        sharedAt: sharedAt.toISOString(),
+                        expirationHours: Math.round(SITE_GPS_APPROVAL_EXPIRATION_MS / 3600000)
+                    }
+                }
+            }),
+            prisma.employee.update({
+                where: { id: manager.id },
+                data: {
+                    conversationState: null,
+                    tempExpenseData: Prisma.DbNull
+                }
+            })
+        ]);
+
+        if (manager.tenant.status !== 'SUSPENDED') {
+            const credentials = await getCredentialsForTenant(manager.tenantId);
+            await sendMessage(
+                cleanWhatsAppNumber(manager.phoneNumber),
+                `⌛ La proposition GPS pour *${siteName}* a expiré après 24h sans validation.\n\n` +
+                `Vous pouvez relancer une demande depuis WhatsApp ou depuis le GPS Center.`,
+                credentials
+            );
+
+            if (providerPhone) {
+                await sendMessage(
+                    cleanWhatsAppNumber(providerPhone),
+                    `⌛ Votre position partagée pour le site *${siteName}* n'a pas été validée dans les 24h et a expiré.`,
+                    credentials
+                );
+            }
+        }
+
+        expired += 1;
+    }
+
+    return expired;
+}
+
 export async function runOnboardingConversionJobs(): Promise<{
     magicLinkReminders: number;
     employeeInviteReminders: number;
     employeeActivationReminders: number;
     siteGpsApprovalReminders: number;
+    siteGpsExpired: number;
 }> {
     const now = new Date();
     console.log(`🧭 [Onboarding Conversion] Running check at ${now.toISOString()}`);
+
+    const siteGpsExpired = await expireSiteGpsApprovalProposals(now);
 
     const [magicLinkReminders, employeeInviteReminders, employeeActivationReminders, siteGpsApprovalReminders] = await Promise.all([
         sendMagicLinkOpenReminders(now),
@@ -345,10 +424,11 @@ export async function runOnboardingConversionJobs(): Promise<{
         `🧭 [Onboarding Conversion] Complete: ${magicLinkReminders} magic link reminder(s), ` +
         `${employeeInviteReminders} employee invite reminder(s), ` +
         `${employeeActivationReminders} employee activation reminder(s), ` +
-        `${siteGpsApprovalReminders} site GPS approval reminder(s).`
+        `${siteGpsApprovalReminders} site GPS approval reminder(s), ` +
+        `${siteGpsExpired} site GPS expired proposal(s).`
     );
 
-    return { magicLinkReminders, employeeInviteReminders, employeeActivationReminders, siteGpsApprovalReminders };
+    return { magicLinkReminders, employeeInviteReminders, employeeActivationReminders, siteGpsApprovalReminders, siteGpsExpired };
 }
 
 export function initOnboardingConversionJobs(): void {
