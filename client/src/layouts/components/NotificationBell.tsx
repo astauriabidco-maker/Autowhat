@@ -21,7 +21,11 @@ const typeConfig: Record<string, { icon: LucideIcon; color: string; bgColor: str
     EXPENSE: { icon: DollarSign, color: 'text-green-600', bgColor: 'bg-green-100' }
 };
 
-export default function NotificationBell() {
+interface NotificationBellProps {
+    gpsPendingCount?: number;
+}
+
+export default function NotificationBell({ gpsPendingCount = 0 }: NotificationBellProps) {
     const navigate = useNavigate();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -141,7 +145,8 @@ export default function NotificationBell() {
         return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
     };
 
-    const recentNotifications = notifications.slice(0, 5);
+    const totalBadgeCount = unreadCount + gpsPendingCount;
+    const recentNotifications = notifications.slice(0, gpsPendingCount > 0 ? 4 : 5);
 
     return (
         <div className="relative" ref={dropdownRef}>
@@ -153,9 +158,9 @@ export default function NotificationBell() {
                 <Bell size={22} />
 
                 {/* Unread Badge */}
-                {unreadCount > 0 && (
+                {totalBadgeCount > 0 && (
                     <span className="absolute -top-1 -right-1 min-w-[20px] h-5 flex items-center justify-center bg-red-500 text-white text-xs font-bold rounded-full px-1 animate-pulse">
-                        {unreadCount > 9 ? '9+' : unreadCount}
+                        {totalBadgeCount > 9 ? '9+' : totalBadgeCount}
                     </span>
                 )}
             </button>
@@ -188,7 +193,37 @@ export default function NotificationBell() {
 
                     {/* Notifications List */}
                     <div className="max-h-80 overflow-y-auto">
-                        {recentNotifications.length === 0 ? (
+                        {gpsPendingCount > 0 && (
+                            <button
+                                onClick={() => {
+                                    setIsOpen(false);
+                                    navigate('/sites-gps');
+                                }}
+                                className="w-full text-left px-4 py-3 border-b border-amber-100 bg-amber-50 hover:bg-amber-100 transition flex items-start gap-3"
+                            >
+                                <div className="p-2 rounded-lg bg-amber-100">
+                                    <MapPin size={16} className="text-amber-700" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-sm font-semibold text-amber-950 truncate">
+                                            GPS à valider
+                                        </span>
+                                        <span className="min-w-[20px] h-5 flex items-center justify-center bg-amber-500 text-white text-xs font-bold rounded-full px-1">
+                                            {gpsPendingCount}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-amber-800 truncate mt-0.5">
+                                        {gpsPendingCount} position{gpsPendingCount > 1 ? 's' : ''} collaborateur en attente.
+                                    </p>
+                                    <p className="text-xs text-amber-700 mt-1">
+                                        Ouvrir le GPS Center
+                                    </p>
+                                </div>
+                            </button>
+                        )}
+
+                        {recentNotifications.length === 0 && gpsPendingCount === 0 ? (
                             <div className="py-8 text-center text-gray-500">
                                 <Bell size={32} className="mx-auto mb-2 opacity-30" />
                                 <p className="text-sm">Aucune notification</p>

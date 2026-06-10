@@ -104,6 +104,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     const [user, setUser] = useState<{ name: string; tenant: string } | null>(null);
     const [tenantInfo, setTenantInfo] = useState<{ plan?: string; trialEndsAt?: string | null; maxEmployees?: number } | null>(null);
     const [pendingRequests, setPendingRequests] = useState(0);
+    const [pendingGpsProposals, setPendingGpsProposals] = useState(0);
 
     // Support Mode - SuperAdmin Impersonation
     const [isImpersonating, setIsImpersonating] = useState(false);
@@ -149,18 +150,26 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         checkOnboarding();
 
         // Fetch pending intervention requests count
-        const fetchPendingRequests = async () => {
+        const fetchPendingBadges = async () => {
             try {
                 const token = localStorage.getItem('token');
                 if (!token) return;
-                const res = await axios.get('/api/intervention-requests/stats', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setPendingRequests(res.data.pending || 0);
+                const headers = { Authorization: `Bearer ${token}` };
+                const [requestsRes, gpsRes] = await Promise.allSettled([
+                    axios.get('/api/intervention-requests/stats', { headers }),
+                    axios.get('/api/sites/gps-activity', { headers })
+                ]);
+
+                if (requestsRes.status === 'fulfilled') {
+                    setPendingRequests(requestsRes.value.data.pending || 0);
+                }
+                if (gpsRes.status === 'fulfilled') {
+                    setPendingGpsProposals(gpsRes.value.data.pendingProposals?.length || 0);
+                }
             } catch (e) { /* ignore if ops not enabled */ }
         };
-        fetchPendingRequests();
-        const interval = setInterval(fetchPendingRequests, 30000);
+        fetchPendingBadges();
+        const interval = setInterval(fetchPendingBadges, 30000);
         return () => clearInterval(interval);
     }, [navigate]);
 
@@ -328,11 +337,21 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                                                                 {pendingRequests}
                                                             </span>
                                                         )}
+                                                        {item.path === '/sites-gps' && pendingGpsProposals > 0 && (
+                                                            <span className="ml-auto px-2 py-0.5 bg-amber-500 text-white text-[10px] font-bold rounded-full min-w-[20px] text-center animate-pulse">
+                                                                {pendingGpsProposals}
+                                                            </span>
+                                                        )}
                                                     </>
                                                 )}
                                                 {collapsed && (item.path === '/operations/requests' || item.path === '/inbox') && pendingRequests > 0 && (
                                                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
                                                         {pendingRequests}
+                                                    </span>
+                                                )}
+                                                {collapsed && item.path === '/sites-gps' && pendingGpsProposals > 0 && (
+                                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                                                        {pendingGpsProposals}
                                                     </span>
                                                 )}
                                             </Link>
@@ -444,7 +463,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                         </div>
                         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
                             {/* Notification Bell */}
-                            <NotificationBell />
+                            <NotificationBell gpsPendingCount={pendingGpsProposals} />
 
                             {/* Language Switcher */}
                             <LanguageSwitcher />
