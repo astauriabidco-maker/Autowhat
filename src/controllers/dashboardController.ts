@@ -499,7 +499,7 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
         const gpsEventsRaw = await prisma.onboardingEvent.findMany({
             where: {
                 tenantId,
-                type: { in: ['SITE_GPS_POSITION_SHARED', 'SITE_GPS_UPDATED', 'SITE_GPS_REJECTED'] }
+                type: { in: ['SITE_GPS_POSITION_SHARED', 'SITE_GPS_UPDATED', 'SITE_GPS_REJECTED', 'SITE_GPS_APPROVAL_REMINDER_SENT'] }
             },
             include: {
                 employee: { select: { id: true, name: true, phoneNumber: true, role: true } }

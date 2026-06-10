@@ -116,7 +116,7 @@ interface GpsSupervision {
     }>;
     recentEvents: Array<{
         id: string;
-        type: 'SITE_GPS_POSITION_SHARED' | 'SITE_GPS_UPDATED' | 'SITE_GPS_REJECTED';
+        type: 'SITE_GPS_POSITION_SHARED' | 'SITE_GPS_UPDATED' | 'SITE_GPS_REJECTED' | 'SITE_GPS_APPROVAL_REMINDER_SENT';
         createdAt: string;
         siteId: string | null;
         siteName: string;
@@ -358,6 +358,7 @@ export default function DashboardHome() {
     const gpsEventLabel = (type: GpsSupervision['recentEvents'][number]['type']) => {
         if (type === 'SITE_GPS_POSITION_SHARED') return 'Position proposée';
         if (type === 'SITE_GPS_REJECTED') return 'Position refusée';
+        if (type === 'SITE_GPS_APPROVAL_REMINDER_SENT') return 'Relance validation';
         return 'Position validée';
     };
 

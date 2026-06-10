@@ -2,10 +2,12 @@ import cron from 'node-cron';
 import prisma from '../lib/prisma';
 import { createManagerMagicLoginLink } from '../services/managerMagicLoginService';
 import { sendMessage } from '../services/whatsappService';
+import { getCredentialsForTenant } from '../services/whatsappConfigService';
 
 const LINK_REMINDER_DELAY_MS = 20 * 60 * 1000;
 const INVITE_REMINDER_DELAY_MS = 30 * 60 * 1000;
 const EMPLOYEE_ACTIVATION_REMINDER_DELAY_MS = 2 * 60 * 60 * 1000;
+const SITE_GPS_APPROVAL_REMINDER_DELAY_MS = 60 * 60 * 1000;
 const LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 
 function cleanWhatsAppNumber(phoneNumber: string): string {
@@ -23,6 +25,35 @@ async function hasEvent(tenantId: string, type: string, employeeId?: string): Pr
     });
 
     return Boolean(event);
+}
+
+function jsonObject(value: unknown): Record<string, any> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return value as Record<string, any>;
+}
+
+async function hasGpsApprovalReminderAfter(
+    tenantId: string,
+    managerId: string,
+    siteId: string | null,
+    sharedAt: Date
+): Promise<boolean> {
+    const reminders = await prisma.onboardingEvent.findMany({
+        where: {
+            tenantId,
+            employeeId: managerId,
+            type: 'SITE_GPS_APPROVAL_REMINDER_SENT',
+            createdAt: { gte: sharedAt }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        select: { metadata: true }
+    });
+
+    return reminders.some(reminder => {
+        const metadata = jsonObject(reminder.metadata);
+        return !siteId || metadata.siteId === siteId;
+    });
 }
 
 async function sendMagicLinkOpenReminders(now: Date): Promise<number> {
@@ -230,23 +261,94 @@ async function sendFirstEmployeeActivationReminders(now: Date): Promise<number> 
     return sent;
 }
 
-export async function runOnboardingConversionJobs(): Promise<{ magicLinkReminders: number; employeeInviteReminders: number; employeeActivationReminders: number }> {
+async function sendSiteGpsApprovalReminders(now: Date): Promise<number> {
+    const olderThan = new Date(now.getTime() - SITE_GPS_APPROVAL_REMINDER_DELAY_MS);
+    const since = new Date(now.getTime() - LOOKBACK_MS);
+
+    const managers = await prisma.employee.findMany({
+        where: {
+            role: 'MANAGER',
+            conversationState: 'WAITING_MANAGER_SITE_GPS_APPROVAL',
+            tenant: { status: { not: 'SUSPENDED' } }
+        },
+        take: 50,
+        orderBy: { updatedAt: 'asc' },
+        include: { tenant: { select: { id: true, name: true, status: true } } }
+    });
+
+    let sent = 0;
+
+    for (const manager of managers) {
+        const data = jsonObject(manager.tempExpenseData);
+        const sharedAt = data.sharedAt ? new Date(String(data.sharedAt)) : manager.updatedAt;
+        if (Number.isNaN(sharedAt.getTime()) || sharedAt < since || sharedAt > olderThan) continue;
+
+        const siteId = data.siteId ? String(data.siteId) : null;
+        const alreadyReminded = await hasGpsApprovalReminderAfter(manager.tenantId, manager.id, siteId, sharedAt);
+        if (alreadyReminded) continue;
+
+        const siteName = data.siteName ? String(data.siteName) : 'le site concerné';
+        const providerName = data.providerName || data.providerPhone || 'un collaborateur';
+        const { url } = await createManagerMagicLoginLink(manager.id, {
+            redirectTo: '/sites-gps',
+            source: 'REMINDER_SITE_GPS_APPROVAL'
+        });
+        const credentials = await getCredentialsForTenant(manager.tenantId);
+
+        await sendMessage(
+            cleanWhatsAppNumber(manager.phoneNumber),
+            `⏳ Une position GPS attend votre validation.\n\n` +
+            `Site : *${siteName}*\n` +
+            `Envoyée par : *${providerName}*\n\n` +
+            `Validez, corrigez le pays ou refusez depuis le GPS Center :\n${url}`,
+            credentials
+        );
+
+        await prisma.onboardingEvent.create({
+            data: {
+                tenantId: manager.tenantId,
+                employeeId: manager.id,
+                type: 'SITE_GPS_APPROVAL_REMINDER_SENT',
+                metadata: {
+                    source: 'CRON',
+                    siteId,
+                    siteName,
+                    providerEmployeeId: data.providerEmployeeId || null,
+                    sharedAt: sharedAt.toISOString(),
+                    delayMinutes: Math.round(SITE_GPS_APPROVAL_REMINDER_DELAY_MS / 60000)
+                }
+            }
+        });
+        sent += 1;
+    }
+
+    return sent;
+}
+
+export async function runOnboardingConversionJobs(): Promise<{
+    magicLinkReminders: number;
+    employeeInviteReminders: number;
+    employeeActivationReminders: number;
+    siteGpsApprovalReminders: number;
+}> {
     const now = new Date();
     console.log(`🧭 [Onboarding Conversion] Running check at ${now.toISOString()}`);
 
-    const [magicLinkReminders, employeeInviteReminders, employeeActivationReminders] = await Promise.all([
+    const [magicLinkReminders, employeeInviteReminders, employeeActivationReminders, siteGpsApprovalReminders] = await Promise.all([
         sendMagicLinkOpenReminders(now),
         sendFirstEmployeeInviteReminders(now),
-        sendFirstEmployeeActivationReminders(now)
+        sendFirstEmployeeActivationReminders(now),
+        sendSiteGpsApprovalReminders(now)
     ]);
 
     console.log(
         `🧭 [Onboarding Conversion] Complete: ${magicLinkReminders} magic link reminder(s), ` +
         `${employeeInviteReminders} employee invite reminder(s), ` +
-        `${employeeActivationReminders} employee activation reminder(s).`
+        `${employeeActivationReminders} employee activation reminder(s), ` +
+        `${siteGpsApprovalReminders} site GPS approval reminder(s).`
     );
 
-    return { magicLinkReminders, employeeInviteReminders, employeeActivationReminders };
+    return { magicLinkReminders, employeeInviteReminders, employeeActivationReminders, siteGpsApprovalReminders };
 }
 
 export function initOnboardingConversionJobs(): void {
