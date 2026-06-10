@@ -450,6 +450,99 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
                 timeAgo: getTimeAgo(new Date(act.time))
             }));
 
+        // === Supervision GPS ===
+        const siteWhere = siteId ? { tenantId, id: siteId } : { tenantId };
+        const gpsSites = await prisma.site.findMany({
+            where: siteWhere,
+            select: {
+                id: true,
+                name: true,
+                latitude: true,
+                longitude: true,
+                gpsMode: true,
+                country: true
+            },
+            orderBy: { name: 'asc' }
+        });
+        const gpsSiteMap = new Map(gpsSites.map(site => [site.id, site]));
+
+        const pendingGpsManagers = await prisma.employee.findMany({
+            where: {
+                tenantId,
+                role: 'MANAGER',
+                conversationState: 'WAITING_MANAGER_SITE_GPS_APPROVAL'
+            },
+            select: { id: true, name: true, tempExpenseData: true }
+        });
+
+        const pendingGpsProposals = pendingGpsManagers
+            .map(manager => {
+                const data = typeof manager.tempExpenseData === 'object' && manager.tempExpenseData && !Array.isArray(manager.tempExpenseData)
+                    ? manager.tempExpenseData as Record<string, any>
+                    : {};
+                const proposalSiteId = data.siteId ? String(data.siteId) : null;
+                if (siteId && proposalSiteId !== siteId) return null;
+                const site = proposalSiteId ? gpsSiteMap.get(proposalSiteId) : null;
+
+                return {
+                    managerId: manager.id,
+                    managerName: manager.name,
+                    siteId: proposalSiteId,
+                    siteName: data.siteName || site?.name || 'Site',
+                    providerName: data.providerName || data.providerPhone || null,
+                    sharedAt: data.sharedAt || null,
+                    countryMismatch: Boolean(data.siteCountry && data.detectedCountry && data.siteCountry !== data.detectedCountry)
+                };
+            })
+            .filter((proposal): proposal is NonNullable<typeof proposal> => Boolean(proposal));
+
+        const gpsEventsRaw = await prisma.onboardingEvent.findMany({
+            where: {
+                tenantId,
+                type: { in: ['SITE_GPS_POSITION_SHARED', 'SITE_GPS_UPDATED', 'SITE_GPS_REJECTED'] }
+            },
+            include: {
+                employee: { select: { id: true, name: true, phoneNumber: true, role: true } }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 50
+        });
+
+        const gpsEvents = gpsEventsRaw
+            .map(event => {
+                const metadata = typeof event.metadata === 'object' && event.metadata && !Array.isArray(event.metadata)
+                    ? event.metadata as Record<string, any>
+                    : {};
+                const eventSiteId = metadata.siteId ? String(metadata.siteId) : null;
+                if (siteId && eventSiteId !== siteId) return null;
+                const site = eventSiteId ? gpsSiteMap.get(eventSiteId) : null;
+
+                return {
+                    id: event.id,
+                    type: event.type,
+                    createdAt: event.createdAt,
+                    siteId: eventSiteId,
+                    siteName: metadata.siteName || site?.name || 'Site',
+                    source: metadata.source || null,
+                    actor: event.employee?.name || event.employee?.phoneNumber || null,
+                    countryMismatch: Boolean(metadata.siteCountry && metadata.detectedCountry && metadata.siteCountry !== metadata.detectedCountry)
+                };
+            })
+            .filter((event): event is NonNullable<typeof event> => Boolean(event));
+
+        const gpsSevenDaysAgo = new Date(now);
+        gpsSevenDaysAgo.setDate(now.getDate() - 7);
+        const missingGpsSites = gpsSites.filter(site => !site.latitude || !site.longitude);
+        const nonStrictSites = gpsSites.filter(site => site.latitude && site.longitude && site.gpsMode !== 'STRICT');
+        const disabledGpsSites = gpsSites.filter(site => site.gpsMode === 'DISABLED');
+        const recentlyRejected = gpsEvents.filter(event => event.type === 'SITE_GPS_REJECTED' && new Date(event.createdAt) >= gpsSevenDaysAgo);
+        const recentlyValidated = gpsEvents.filter(event => event.type === 'SITE_GPS_UPDATED' && new Date(event.createdAt) >= gpsSevenDaysAgo);
+        const riskLevel = missingGpsSites.length > 0 || disabledGpsSites.length > 0
+            ? 'high'
+            : pendingGpsProposals.length > 0 || nonStrictSites.length > 0 || recentlyRejected.length > 0
+                ? 'medium'
+                : 'low';
+
         res.status(200).json({
             // KPIs de base
             totalEmployees,
@@ -477,6 +570,35 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
                     formatted: `${avgDailyHours}h${avgDailyMins.toString().padStart(2, '0')}`
                 },
                 fillRate
+            },
+            gpsSupervision: {
+                riskLevel,
+                summary: {
+                    totalSites: gpsSites.length,
+                    strictSites: gpsSites.filter(site => site.latitude && site.longitude && site.gpsMode === 'STRICT').length,
+                    missingGpsSites: missingGpsSites.length,
+                    nonStrictSites: nonStrictSites.length,
+                    disabledGpsSites: disabledGpsSites.length,
+                    pendingProposals: pendingGpsProposals.length,
+                    rejectedLast7Days: recentlyRejected.length,
+                    validatedLast7Days: recentlyValidated.length
+                },
+                riskSites: [
+                    ...missingGpsSites.map(site => ({
+                        id: site.id,
+                        name: site.name,
+                        reason: 'Coordonnées GPS manquantes',
+                        severity: 'high'
+                    })),
+                    ...nonStrictSites.map(site => ({
+                        id: site.id,
+                        name: site.name,
+                        reason: site.gpsMode === 'DISABLED' ? 'Contrôle GPS désactivé' : 'Mode strict non activé',
+                        severity: site.gpsMode === 'DISABLED' ? 'high' : 'medium'
+                    }))
+                ].slice(0, 5),
+                pendingProposals: pendingGpsProposals.slice(0, 5),
+                recentEvents: gpsEvents.slice(0, 6)
             }
         });
     } catch (error) {

@@ -17,7 +17,9 @@ import {
     CheckCircle,
     Circle,
     UserPlus,
-    ShieldAlert
+    ShieldAlert,
+    AlertTriangle,
+    XCircle
 } from 'lucide-react';
 import {
     BarChart,
@@ -82,6 +84,46 @@ interface DashboardStats {
     weeklyActivity: WeeklyData[];
     recentActivity: ActivityItem[];
     analytics?: AnalyticsData;
+    gpsSupervision?: GpsSupervision;
+}
+
+interface GpsSupervision {
+    riskLevel: 'low' | 'medium' | 'high';
+    summary: {
+        totalSites: number;
+        strictSites: number;
+        missingGpsSites: number;
+        nonStrictSites: number;
+        disabledGpsSites: number;
+        pendingProposals: number;
+        rejectedLast7Days: number;
+        validatedLast7Days: number;
+    };
+    riskSites: Array<{
+        id: string;
+        name: string;
+        reason: string;
+        severity: 'medium' | 'high';
+    }>;
+    pendingProposals: Array<{
+        managerId: string;
+        managerName: string | null;
+        siteId: string | null;
+        siteName: string;
+        providerName: string | null;
+        sharedAt: string | null;
+        countryMismatch: boolean;
+    }>;
+    recentEvents: Array<{
+        id: string;
+        type: 'SITE_GPS_POSITION_SHARED' | 'SITE_GPS_UPDATED' | 'SITE_GPS_REJECTED';
+        createdAt: string;
+        siteId: string | null;
+        siteName: string;
+        source: string | null;
+        actor: string | null;
+        countryMismatch: boolean;
+    }>;
 }
 
 interface OnboardingStep {
@@ -122,6 +164,7 @@ export default function DashboardHome() {
     const [activities, setActivities] = useState<ActivityItem[]>([]);
     const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
     const [onboarding, setOnboarding] = useState<OnboardingProgress | null>(null);
+    const [gpsSupervision, setGpsSupervision] = useState<GpsSupervision | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -146,7 +189,7 @@ export default function DashboardHome() {
                 axios.get<OnboardingProgress>('/api/onboarding/progress', { headers })
             ]);
 
-            const { totalEmployees, activeNow, pendingExpenses, weeklyActivity, recentActivity, analytics: analyticsData } = response.data;
+            const { totalEmployees, activeNow, pendingExpenses, weeklyActivity, recentActivity, analytics: analyticsData, gpsSupervision: gpsData } = response.data;
 
             setKpis({
                 totalEmployees,
@@ -159,6 +202,7 @@ export default function DashboardHome() {
             if (analyticsData) {
                 setAnalytics(analyticsData);
             }
+            setGpsSupervision(gpsData || null);
             setOnboarding(onboardingResponse.data);
 
         } catch (err: unknown) {
@@ -299,6 +343,35 @@ export default function DashboardHome() {
             default:
                 return <Clock size={16} className="text-gray-500" />;
         }
+    };
+
+    const formatShortDate = (value: string | null | undefined) =>
+        value
+            ? new Date(value).toLocaleString('fr-FR', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            })
+            : 'Date inconnue';
+
+    const gpsEventLabel = (type: GpsSupervision['recentEvents'][number]['type']) => {
+        if (type === 'SITE_GPS_POSITION_SHARED') return 'Position proposée';
+        if (type === 'SITE_GPS_REJECTED') return 'Position refusée';
+        return 'Position validée';
+    };
+
+    const gpsSourceLabel = (source: string | null) => {
+        if (!source) return null;
+        const labels: Record<string, string> = {
+            WHATSAPP_EMPLOYEE: 'WhatsApp collaborateur',
+            WHATSAPP_EMPLOYEE_VALIDATED: 'WhatsApp validé',
+            manager_dashboard: 'Dashboard',
+            manager_dashboard_validated: 'Dashboard validé',
+            manager_dashboard_corrected_country: 'Pays corrigé',
+            manager_dashboard_rejected: 'Dashboard refusé'
+        };
+        return labels[source] || source;
     };
 
     if (loading) {
@@ -463,6 +536,171 @@ export default function DashboardHome() {
                         </button>
                     </div>
                 </div>
+            )}
+
+            {gpsSupervision && (
+                <section className={clsx(
+                    'bg-white border rounded-xl shadow-sm p-4 sm:p-6 space-y-5',
+                    gpsSupervision.riskLevel === 'high'
+                        ? 'border-red-200'
+                        : gpsSupervision.riskLevel === 'medium'
+                            ? 'border-amber-200'
+                            : 'border-emerald-200'
+                )}>
+                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                            <div className={clsx(
+                                'p-2 rounded-lg shrink-0',
+                                gpsSupervision.riskLevel === 'high'
+                                    ? 'bg-red-100 text-red-700'
+                                    : gpsSupervision.riskLevel === 'medium'
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-emerald-100 text-emerald-700'
+                            )}>
+                                {gpsSupervision.riskLevel === 'low' ? <CheckCircle size={22} /> : <ShieldAlert size={22} />}
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-gray-900">Supervision GPS</h3>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    Suivez les sites sans GPS strict, les positions refusées et les validations récentes.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => navigate('/sites-gps')}
+                            className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-lg bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition"
+                        >
+                            Ouvrir le GPS Center
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                        {[
+                            {
+                                label: 'Sites stricts',
+                                value: `${gpsSupervision.summary.strictSites}/${gpsSupervision.summary.totalSites}`,
+                                tone: 'emerald',
+                                icon: <CheckCircle size={18} />
+                            },
+                            {
+                                label: 'À sécuriser',
+                                value: gpsSupervision.summary.missingGpsSites + gpsSupervision.summary.nonStrictSites,
+                                tone: gpsSupervision.summary.missingGpsSites > 0 ? 'red' : 'amber',
+                                icon: <AlertTriangle size={18} />
+                            },
+                            {
+                                label: 'En attente',
+                                value: gpsSupervision.summary.pendingProposals,
+                                tone: 'blue',
+                                icon: <Clock size={18} />
+                            },
+                            {
+                                label: 'Refus 7 jours',
+                                value: gpsSupervision.summary.rejectedLast7Days,
+                                tone: gpsSupervision.summary.rejectedLast7Days > 0 ? 'red' : 'gray',
+                                icon: <XCircle size={18} />
+                            }
+                        ].map((item) => (
+                            <div key={item.label} className={clsx(
+                                'rounded-lg border p-3 sm:p-4',
+                                item.tone === 'emerald' && 'bg-emerald-50 border-emerald-200 text-emerald-800',
+                                item.tone === 'red' && 'bg-red-50 border-red-200 text-red-800',
+                                item.tone === 'amber' && 'bg-amber-50 border-amber-200 text-amber-800',
+                                item.tone === 'blue' && 'bg-blue-50 border-blue-200 text-blue-800',
+                                item.tone === 'gray' && 'bg-gray-50 border-gray-200 text-gray-700'
+                            )}>
+                                <div className="flex items-center justify-between gap-2">
+                                    <p className="text-xs font-semibold">{item.label}</p>
+                                    {item.icon}
+                                </div>
+                                <p className="text-2xl font-bold mt-2">{item.value}</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                            <h4 className="text-sm font-bold text-gray-900">Risques à traiter</h4>
+                            <div className="mt-3 space-y-2">
+                                {gpsSupervision.riskSites.length === 0 ? (
+                                    <p className="text-sm text-gray-500">Aucun site à risque immédiat.</p>
+                                ) : (
+                                    gpsSupervision.riskSites.map(site => (
+                                        <div key={`${site.id}-${site.reason}`} className="flex items-start justify-between gap-3 rounded-lg bg-white border border-gray-200 p-3">
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-semibold text-gray-900 truncate">{site.name}</p>
+                                                <p className="text-xs text-gray-500 mt-0.5">{site.reason}</p>
+                                            </div>
+                                            <span className={clsx(
+                                                'rounded-full px-2 py-0.5 text-xs font-semibold shrink-0',
+                                                site.severity === 'high' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                                            )}>
+                                                {site.severity === 'high' ? 'haut' : 'moyen'}
+                                            </span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                            <h4 className="text-sm font-bold text-gray-900">Positions en attente</h4>
+                            <div className="mt-3 space-y-2">
+                                {gpsSupervision.pendingProposals.length === 0 ? (
+                                    <p className="text-sm text-gray-500">Aucune proposition à valider.</p>
+                                ) : (
+                                    gpsSupervision.pendingProposals.map(proposal => (
+                                        <div key={`${proposal.managerId}-${proposal.siteId}`} className="rounded-lg bg-white border border-gray-200 p-3">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold text-gray-900 truncate">{proposal.siteName}</p>
+                                                    <p className="text-xs text-gray-500 mt-0.5">
+                                                        {proposal.providerName || 'Collaborateur'} · {formatShortDate(proposal.sharedAt)}
+                                                    </p>
+                                                </div>
+                                                {proposal.countryMismatch && (
+                                                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 shrink-0">
+                                                        pays
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                            <h4 className="text-sm font-bold text-gray-900">Historique GPS</h4>
+                            <div className="mt-3 space-y-2">
+                                {gpsSupervision.recentEvents.length === 0 ? (
+                                    <p className="text-sm text-gray-500">Aucun événement GPS récent.</p>
+                                ) : (
+                                    gpsSupervision.recentEvents.map(event => (
+                                        <div key={event.id} className="rounded-lg bg-white border border-gray-200 p-3">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold text-gray-900 truncate">
+                                                        {gpsEventLabel(event.type)} · {event.siteName}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 mt-0.5">
+                                                        {formatShortDate(event.createdAt)}
+                                                        {event.actor ? ` · ${event.actor}` : ''}
+                                                    </p>
+                                                </div>
+                                                {gpsSourceLabel(event.source) && (
+                                                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600 shrink-0">
+                                                        {gpsSourceLabel(event.source)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </section>
             )}
 
             {/* KPI Cards */}
