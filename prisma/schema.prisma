@@ -14,90 +14,91 @@ model Tenant {
   name      String
   createdAt DateTime   @default(now())
   employees Employee[]
-  sites     Site[]     // Multi-sites support
-  
+  sites     Site[] // Multi-sites support
+
   // === SaaS Plan & Trial ===
-  plan          String    @default("TRIAL")  // TRIAL, PRO, ENTERPRISE
-  status        String    @default("ACTIVE") // ACTIVE, SUSPENDED
-  trialEndsAt   DateTime?                     // Date de fin d'essai
-  maxEmployees  Int       @default(5)         // Limite technique
-  
+  plan         String    @default("TRIAL") // TRIAL, PRO, ENTERPRISE
+  status       String    @default("ACTIVE") // ACTIVE, SUSPENDED
+  trialEndsAt  DateTime? // Date de fin d'essai
+  maxEmployees Int       @default(5) // Limite technique
+
   // === Stripe Billing ===
-  stripeCustomerId      String?   // ID Client Stripe
-  stripeSubscriptionId  String?   // ID Subscription Stripe
-  subscriptionStatus    String?   // active, past_due, canceled
-  
+  stripeCustomerId     String? // ID Client Stripe
+  stripeSubscriptionId String? // ID Subscription Stripe
+  subscriptionStatus   String? // active, past_due, canceled
+
   // Identification légale internationale
-  country    String  @default("FR")  // Code ISO : FR, CM, US, CA
-  legalName  String?                  // Raison sociale officielle
-  legalId    String?                  // SIRET (FR), NIU (CM), EIN (US)
-  taxId      String?                  // Numéro TVA ou équivalent
-  address    String?
-  city       String?
-  
+  country   String  @default("FR") // Code ISO : FR, CM, US, CA
+  legalName String? // Raison sociale officielle
+  legalId   String? // SIRET (FR), NIU (CM), EIN (US)
+  taxId     String? // Numéro TVA ou équivalent
+  address   String?
+  city      String?
+
   // Géolocalisation par défaut du site
   defaultLatitude  Float?
   defaultLongitude Float?
-  
+
   // Paramètres horaires pour rappels
   workStartTime String @default("09:00") // HH:MM format
-  maxWorkHours  Int    @default(12)       // Seuil alerte session fantôme
-  
+  maxWorkHours  Int    @default(12) // Seuil alerte session fantôme
+
   // Configuration sectorielle
-  industry   String  @default("BTP") // Flexible - peut être personnalisé
-  config     Json?   // { enableGps: true, enablePhotos: true, enableExpenses: true }
-  vocabulary Json?   // { workplace: "Chantier", manager: "Chef" } - surcharges personnalisées
-  
+  industry   String @default("BTP") // Flexible - peut être personnalisé
+  config     Json? // { enableGps: true, enablePhotos: true, enableExpenses: true }
+  vocabulary Json? // { workplace: "Chantier", manager: "Chef" } - surcharges personnalisées
+
   // === Privacy Suite ===
-  isPrivacyModeEnabled Boolean  @default(false)  // Anonymise les données envoyées à WhatsApp
-  dataRetentionDays    Int      @default(365)    // 0 = Illimité, sinon jours avant purge
-  lastPurgeDate        DateTime?                  // Date de la dernière purge automatique
-  
+  isPrivacyModeEnabled Boolean   @default(false) // Anonymise les données envoyées à WhatsApp
+  dataRetentionDays    Int       @default(365) // 0 = Illimité, sinon jours avant purge
+  lastPurgeDate        DateTime? // Date de la dernière purge automatique
+
   // === CRM / Sales ===
-  lastLoginAt          DateTime?                  // Dernière connexion admin
-  
+  lastLoginAt DateTime? // Dernière connexion admin
+
   // Langue par défaut de l'entreprise (fr, en, es)
-  language   String  @default("fr")
-  
+  language String @default("fr")
+
   // === Assigned System Number (from Pool) ===
   assignedSystemNumberId String?
   assignedSystemNumber   SystemPhoneNumber? @relation(fields: [assignedSystemNumberId], references: [id])
-  
+
   // Relations
-  tickets        Ticket[]
-  leadNotes      LeadNote[]
-  expenses       Expense[]
-  whatsAppConfig WhatsAppConfig?  // BYON - Marque blanche WhatsApp
-  customers          Customer[]         // FSM - Clients
-  interventions      Intervention[]     // FSM - Interventions
-  interventionTypes  InterventionType[] // FSM - Types d'interventions personnalisés
-  recurringInterventions RecurringIntervention[] // FSM - Récurrences
-  parts              Part[]             // FSM - Pièces & Matériel
-  quotes             Quote[]            // FSM - Devis
-  interventionRequests InterventionRequest[] // FSM - Demandes WhatsApp
-  variations         TimeVariation[]
-  onboardingEvents   OnboardingEvent[]
+  tickets                      Ticket[]
+  leadNotes                    LeadNote[]
+  expenses                     Expense[]
+  whatsAppConfig               WhatsAppConfig? // BYON - Marque blanche WhatsApp
+  customers                    Customer[] // FSM - Clients
+  interventions                Intervention[] // FSM - Interventions
+  interventionTypes            InterventionType[] // FSM - Types d'interventions personnalisés
+  recurringInterventions       RecurringIntervention[] // FSM - Récurrences
+  parts                        Part[] // FSM - Pièces & Matériel
+  quotes                       Quote[] // FSM - Devis
+  interventionRequests         InterventionRequest[] // FSM - Demandes WhatsApp
+  variations                   TimeVariation[]
+  onboardingEvents             OnboardingEvent[]
   whatsAppConversationSessions WhatsAppConversationSession[]
-  managerMagicLoginTokens ManagerMagicLoginToken[]
+  managerMagicLoginTokens      ManagerMagicLoginToken[]
+  attendanceDecisionEvents     AttendanceDecisionEvent[]
 }
 
 // --- MODÈLE NUMBER POOL (Numéros Système Partagés) ---
 
 model SystemPhoneNumber {
   id            String   @id @default(uuid())
-  phoneNumberId String   @unique  // Meta Phone Number ID
-  displayNumber String             // Human readable: "+33612345678"
-  countryCode   String             // ISO: "FR", "US", "ES", "DEFAULT"
-  accessToken   String   @db.Text  // System User Token (sensitive)
-  wabaId        String             // WhatsApp Business Account ID
+  phoneNumberId String   @unique // Meta Phone Number ID
+  displayNumber String // Human readable: "+33612345678"
+  countryCode   String // ISO: "FR", "US", "ES", "DEFAULT"
+  accessToken   String   @db.Text // System User Token (sensitive)
+  wabaId        String // WhatsApp Business Account ID
   isActive      Boolean  @default(true)
-  tenantCount   Int      @default(0)  // For load balancing
+  tenantCount   Int      @default(0) // For load balancing
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  
+
   // Tenants assigned to this number
-  tenants       Tenant[]
-  
+  tenants Tenant[]
+
   @@index([countryCode, isActive])
 }
 
@@ -105,30 +106,30 @@ model SystemPhoneNumber {
 
 model WhatsAppConfig {
   id            String   @id @default(uuid())
-  phoneNumberId String   @unique  // ID Meta du numéro de téléphone
+  phoneNumberId String   @unique // ID Meta du numéro de téléphone
   accessToken   String   @db.Text // Token System User (sensible)
-  wabaId        String?           // WhatsApp Business Account ID
-  displayName   String?           // Nom affiché (ex: "Vinci RH")
+  wabaId        String? // WhatsApp Business Account ID
+  displayName   String? // Nom affiché (ex: "Vinci RH")
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  
-  tenantId      String   @unique
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 // --- MODÈLE NOTES CRM (SuperAdmin) ---
 
 model LeadNote {
-  id        String   @id @default(uuid())
-  tenantId  String?
-  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id             String        @id @default(uuid())
+  tenantId       String?
+  tenant         Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   externalLeadId String?
-  externalLead  ExternalLead? @relation(fields: [externalLeadId], references: [id], onDelete: Cascade)
-  content   String
-  createdAt DateTime @default(now())
-  createdBy String   // SuperAdmin ID
-  
+  externalLead   ExternalLead? @relation(fields: [externalLeadId], references: [id], onDelete: Cascade)
+  content        String
+  createdAt      DateTime      @default(now())
+  createdBy      String // SuperAdmin ID
+
   @@index([tenantId])
   @@index([externalLeadId])
 }
@@ -136,28 +137,28 @@ model LeadNote {
 // --- MODÈLE LEADS MANUELS (Prospects non inscrits) ---
 
 model ExternalLead {
-  id           String   @id @default(uuid())
-  companyName  String
-  contactName  String
-  email        String?
-  phone        String?
-  source       String   @default("MANUAL") // MANUAL, SALON, REFERRAL, INBOUND, OUTBOUND
-  status       String   @default("NEW")     // NEW, CONTACTED, QUALIFIED, WON, LOST
-  temperature  String   @default("COLD")    // HOT, WARM, COLD
-  notes        LeadNote[]
-  
+  id          String     @id @default(uuid())
+  companyName String
+  contactName String
+  email       String?
+  phone       String?
+  source      String     @default("MANUAL") // MANUAL, SALON, REFERRAL, INBOUND, OUTBOUND
+  status      String     @default("NEW") // NEW, CONTACTED, QUALIFIED, WON, LOST
+  temperature String     @default("COLD") // HOT, WARM, COLD
+  notes       LeadNote[]
+
   // Suivi commercial
-  nextAction   String?               // "Rappeler", "Envoyer démo", etc.
+  nextAction   String? // "Rappeler", "Envoyer démo", etc.
   nextActionAt DateTime?
-  assignedTo   String?               // SuperAdmin ID assigné
-  
+  assignedTo   String? // SuperAdmin ID assigné
+
   // Conversion
-  convertedToTenantId String?        // Si converti en client
+  convertedToTenantId String? // Si converti en client
   convertedAt         DateTime?
-  
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([status])
   @@index([temperature])
 }
@@ -165,38 +166,38 @@ model ExternalLead {
 // --- MODÈLE AUTOMATISATION CRM ---
 
 model AutomationRule {
-  id              String   @id @default(uuid())
-  name            String   // "Relance J+1"
+  id              String    @id @default(uuid())
+  name            String // "Relance J+1"
   description     String?
-  trigger         String   // DAYS_SINCE_SIGNUP, TRIAL_EXPIRES_IN, TRIAL_EXPIRED_DAYS, NO_ACTIVITY_DAYS
-  triggerValue    Int      // Nombre de jours
-  channel         String   @default("EMAIL") // EMAIL, WHATSAPP
+  trigger         String // DAYS_SINCE_SIGNUP, TRIAL_EXPIRES_IN, TRIAL_EXPIRED_DAYS, NO_ACTIVITY_DAYS
+  triggerValue    Int // Nombre de jours
+  channel         String    @default("EMAIL") // EMAIL, WHATSAPP
   templateSubject String?
-  templateBody    String   @db.Text
-  isActive        Boolean  @default(true)
-  executionTime   String   @default("10:00")
+  templateBody    String    @db.Text
+  isActive        Boolean   @default(true)
+  executionTime   String    @default("10:00")
   lastExecutedAt  DateTime?
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  executions      AutomationExecution[]
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  executions AutomationExecution[]
+
   @@index([isActive])
 }
 
 model AutomationExecution {
-  id        String   @id @default(uuid())
+  id        String         @id @default(uuid())
   ruleId    String
   rule      AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
   tenantId  String?
   leadId    String?
-  recipient String?  // Email ou téléphone
-  status    String   // SUCCESS, FAILED
+  recipient String? // Email ou téléphone
+  status    String // SUCCESS, FAILED
   error     String?
-  
+
   createdAt DateTime @default(now())
-  
+
   @@index([ruleId])
   @@index([createdAt])
 }
@@ -204,74 +205,75 @@ model AutomationExecution {
 // --- MODÈLE SITE (Multi-Sites) ---
 
 model Site {
-  id        String   @id @default(uuid())
-  name      String   // "Paris", "Lyon", "Marseille"
+  id        String  @id @default(uuid())
+  name      String // "Paris", "Lyon", "Marseille"
   address   String?
-  country   String   @default("FR") // Pays réel du site, distinct du pays du tenant
+  country   String  @default("FR") // Pays réel du site, distinct du pays du tenant
   latitude  Float?
   longitude Float?
-  radius    Int      @default(200) // Rayon de tolérance en mètres pour géofencing
-  gpsMode   String   @default("WARNING") // STRICT, WARNING, DISABLED
-  
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  
+  radius    Int     @default(200) // Rayon de tolérance en mètres pour géofencing
+  gpsMode   String  @default("WARNING") // STRICT, WARNING, DISABLED
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
   employees Employee[]
-  
+
   @@index([tenantId])
 }
 
 model Employee {
-  id          String   @id @default(uuid())
-  phoneNumber String   // Format E.164 (ex: +33612345678)
-  name        String?
-  role        String   @default("EMPLOYEE") // EMPLOYEE, MANAGER
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt @default(now())
-  password    String?  // Hashé, uniquement pour les MANAGER
-  resetToken       String?   // Token de réinitialisation de mot de passe (UUID)
-  resetTokenExpiry DateTime? // Date d'expiration du token (1h)
-  hasCompletedOnboarding Boolean @default(false) // For MANAGER: track wizard completion
-  otpCode        String?   // Code envoyé via WhatsApp (6 chiffres)
-  otpExpiresAt   DateTime? // Expiration du code OTP
-  
+  id                     String    @id @default(uuid())
+  phoneNumber            String // Format E.164 (ex: +33612345678)
+  name                   String?
+  role                   String    @default("EMPLOYEE") // EMPLOYEE, MANAGER
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt @default(now())
+  password               String? // Hashé, uniquement pour les MANAGER
+  resetToken             String? // Token de réinitialisation de mot de passe (UUID)
+  resetTokenExpiry       DateTime? // Date d'expiration du token (1h)
+  hasCompletedOnboarding Boolean   @default(false) // For MANAGER: track wizard completion
+  otpCode                String? // Code envoyé via WhatsApp (6 chiffres)
+  otpExpiresAt           DateTime? // Expiration du code OTP
+
   // Profil de poste pour géofencing
-  workProfile String   @default("MOBILE") // MOBILE = pas de restriction, SEDENTARY = doit être sur site
-  
+  workProfile String @default("MOBILE") // MOBILE = pas de restriction, SEDENTARY = doit être sur site
+
   // Leave balance (default 25 days for MVP)
-  leaveBalance Int     @default(25)
-  
+  leaveBalance Int @default(25)
+
   // Conversational state machine
-  conversationState String?  // WAITING_EXPENSE_PHOTO, WAITING_EXPENSE_AMOUNT, WAITING_EXPENSE_CATEGORY
-  tempExpenseData   Json?    // Temporary data during expense creation workflow
-  tempLeaveData     Json?    // Temporary data during NLP leave creation workflow
-  
+  conversationState String? // WAITING_EXPENSE_PHOTO, WAITING_EXPENSE_AMOUNT, WAITING_EXPENSE_CATEGORY
+  tempExpenseData   Json? // Temporary data during expense creation workflow
+  tempLeaveData     Json? // Temporary data during NLP leave creation workflow
+
   // Langue des messages WhatsApp (fr, en, es)
-  language   String  @default("fr")
-  
+  language String @default("fr")
+
   // Opt-out WhatsApp (STOP command)
   isOptedOut Boolean @default(false)
-  
+
   // Relation Tenant (CRITIQUE)
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
   // Multi-Sites: optionnel, si null = tous les sites
-  siteId      String?
-  site        Site?    @relation(fields: [siteId], references: [id])
-  
-  attendances Attendance[]
-  leaves      LeaveRequest[]
-  expenses    Expense[]
-  variations  TimeVariation[]
-  documents      Document[]
-  tickets        Ticket[]
-  interventions  Intervention[]   // FSM - Interventions assignées
-  recurringInterventions RecurringIntervention[] // FSM - Récurrences assignées
-  assignedInterventionRequests InterventionRequest[] @relation("InterventionRequestAssignee")
-  onboardingEvents OnboardingEvent[]
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id])
+
+  attendances                  Attendance[]
+  leaves                       LeaveRequest[]
+  expenses                     Expense[]
+  variations                   TimeVariation[]
+  documents                    Document[]
+  tickets                      Ticket[]
+  interventions                Intervention[] // FSM - Interventions assignées
+  recurringInterventions       RecurringIntervention[] // FSM - Récurrences assignées
+  assignedInterventionRequests InterventionRequest[]         @relation("InterventionRequestAssignee")
+  onboardingEvents             OnboardingEvent[]
   whatsAppConversationSessions WhatsAppConversationSession[]
-  managerMagicLoginTokens ManagerMagicLoginToken[]
+  managerMagicLoginTokens      ManagerMagicLoginToken[]
+  attendanceDecisionEvents     AttendanceDecisionEvent[]     @relation("AttendanceDecisionManager")
 
   // Un numéro est unique pour un tenant donné
   @@unique([phoneNumber, tenantId])
@@ -280,98 +282,123 @@ model Employee {
 
 model TimeVariation {
   id          String   @id @default(uuid())
-  type        String   // HS25, HS50, NIGHT, SUNDAY, HOLIDAY, COMPLEMENTARY, OTHER
-  quantity    Float    // Nombre d'heures (ou jours selon contexte)
+  type        String // HS25, HS50, NIGHT, SUNDAY, HOLIDAY, COMPLEMENTARY, OTHER
+  quantity    Float // Nombre d'heures (ou jours selon contexte)
   date        DateTime @default(now())
   description String?
   status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([employeeId])
 }
 
 model Attendance {
-  id         String    @id @default(uuid())
-  checkIn    DateTime
-  checkOut   DateTime?
-  status     String    @default("PRESENT")
-  photoUrl   String?   // URL de la photo de pointage
-  verdictReason  String?   // Raison durable du verdict de pointage
-  gpsVerdict     String?   // PENDING, APPROVED, WARNING, REJECTED, NOT_REQUIRED, NOT_CONFIGURED
-  gpsCheckedAt   DateTime? // Date de contrôle GPS
+  id              String    @id @default(uuid())
+  checkIn         DateTime
+  checkOut        DateTime?
+  status          String    @default("PRESENT")
+  photoUrl        String? // URL de la photo de pointage
+  verdictReason   String? // Raison durable du verdict de pointage
+  gpsVerdict      String? // PENDING, APPROVED, WARNING, REJECTED, NOT_REQUIRED, NOT_CONFIGURED
+  gpsCheckedAt    DateTime? // Date de contrôle GPS
   proofReceivedAt DateTime? // Dernière preuve reçue (position ou photo)
-  
+
   // Géolocalisation au pointage
-  latitude       Float?
-  longitude      Float?
-  distanceFromSite Int?   // Distance en mètres
+  latitude         Float?
+  longitude        Float?
+  distanceFromSite Int? // Distance en mètres
   locationWarning  Boolean @default(false) // true si sédentaire hors zone
-  
+
   // Anti-spam pour rappels
-  lastReminderSentAt DateTime?  // Dernière notification envoyée
-  
-  employeeId String
-  employee   Employee  @relation(fields: [employeeId], references: [id])
-  
+  lastReminderSentAt DateTime? // Dernière notification envoyée
+
+  employeeId     String
+  employee       Employee                  @relation(fields: [employeeId], references: [id])
+  decisionEvents AttendanceDecisionEvent[]
+
   // Dénormalisation pour sécurité (Row Level Security logicielle)
-  tenantId   String
-  siteId     String?   // Multi-sites filter
-  
+  tenantId String
+  siteId   String? // Multi-sites filter
+
   @@index([tenantId])
   @@index([siteId])
 }
 
+model AttendanceDecisionEvent {
+  id                 String   @id @default(uuid())
+  action             String
+  previousStatus     String
+  nextStatus         String
+  previousGpsVerdict String?
+  nextGpsVerdict     String?
+  reason             String?
+  createdAt          DateTime @default(now())
+
+  attendanceId String
+  attendance   Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  managerId String?
+  manager   Employee? @relation("AttendanceDecisionManager", fields: [managerId], references: [id], onDelete: SetNull)
+
+  @@index([attendanceId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([managerId, createdAt])
+}
+
 model LeaveRequest {
-  id         String   @id @default(uuid())
-  startDate  DateTime
-  endDate  DateTime
-  isHalfDayStart Boolean @default(false) // Si true: Commence l'après-midi (matin travaillé)
-  isHalfDayEnd   Boolean @default(false) // Si true: Se termine le matin (après-midi travaillé)
-  status     String   @default("PENDING")
-  type       String   @default("PAID") // PAID, SICK, UNPAID
-  documentUrl String? // For medical certificates
-  
+  id             String   @id @default(uuid())
+  startDate      DateTime
+  endDate        DateTime
+  isHalfDayStart Boolean  @default(false) // Si true: Commence l'après-midi (matin travaillé)
+  isHalfDayEnd   Boolean  @default(false) // Si true: Se termine le matin (après-midi travaillé)
+  status         String   @default("PENDING")
+  type           String   @default("PAID") // PAID, SICK, UNPAID
+  documentUrl    String? // For medical certificates
+
   // Validation tracking (Phase 4)
-  validatedBy String?  // Employee ID of the manager who validated
+  validatedBy String? // Employee ID of the manager who validated
   validatedAt DateTime?
-  
+
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id])
-  
-  tenantId   String
+
+  tenantId String
 }
 
 model Expense {
   id          String   @id @default(uuid())
   date        DateTime @default(now())
-  amount      Float?   // Peut être vide au début (extraction depuis légende)
-  tva         Float?   // Taxe sur la valeur ajoutée (TVA) extraite par l'IA
+  amount      Float? // Peut être vide au début (extraction depuis légende)
+  tva         Float? // Taxe sur la valeur ajoutée (TVA) extraite par l'IA
   currency    String   @default("EUR")
-  merchant    String?  // Marchand ou fournisseur (ex: Total, Relais)
+  merchant    String? // Marchand ou fournisseur (ex: Total, Relais)
   category    String   @default("OTHER") // MEAL, FUEL, PARKING, TRANSPORT, HOTEL, OTHER
-  description String?  // Légende originale de l'image
+  description String? // Légende originale de l'image
   photoUrl    String
   status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  
+
   validatedAt DateTime?
-  validatedBy String?  // User ID du manager qui valide
-  
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  siteId      String?   // Multi-sites filter
-  
+  validatedBy String? // User ID du manager qui valide
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId   String? // Multi-sites filter
+
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([siteId])
@@ -380,19 +407,19 @@ model Expense {
 // --- DOCUMENTS RH ---
 
 model Document {
-  id          String    @id @default(uuid())
-  name        String    // ex: "Permis Poids Lourd", "Contrat de travail"
-  type        String    // CONTRACT, CERTIFICATE, IDENTITY, OTHER
-  url         String    // Chemin du fichier
-  expiryDate  DateTime? // Date d'expiration pour alertes
-  createdAt   DateTime  @default(now())
-  
+  id         String    @id @default(uuid())
+  name       String // ex: "Permis Poids Lourd", "Contrat de travail"
+  type       String // CONTRACT, CERTIFICATE, IDENTITY, OTHER
+  url        String // Chemin du fichier
+  expiryDate DateTime? // Date d'expiration pour alertes
+  createdAt  DateTime  @default(now())
+
   // Si null, c'est un document global (ex: Règlement Intérieur)
-  employeeId  String?
-  employee    Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  
-  tenantId    String
-  
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  tenantId String
+
   @@index([tenantId])
   @@index([employeeId])
   @@index([expiryDate])
@@ -401,30 +428,30 @@ model Document {
 // --- SUPER ADMIN (Accès global) ---
 
 model SuperAdmin {
-  id          String   @id @default(uuid())
-  email       String   @unique
-  password    String   // Hashé avec bcrypt
-  name        String
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String // Hashé avec bcrypt
+  name      String
+  createdAt DateTime @default(now())
 }
 
 // --- NOTIFICATIONS (Alertes Manager) ---
 
 model Notification {
-  id          String   @id @default(uuid())
-  managerId   String   // Le Manager destinataire (Employee avec role=MANAGER)
-  type        String   // LATE, ABSENCE, GEOFENCE, EXPENSE
-  title       String
-  message     String
-  isRead      Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  
+  id        String   @id @default(uuid())
+  managerId String // Le Manager destinataire (Employee avec role=MANAGER)
+  type      String // LATE, ABSENCE, GEOFENCE, EXPENSE
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
   // Référence optionnelle à l'employé concerné
-  employeeId  String?
-  
+  employeeId String?
+
   // Isolation multi-tenant
-  tenantId    String
-  
+  tenantId String
+
   @@index([managerId])
   @@index([tenantId])
   @@index([createdAt])
@@ -433,15 +460,15 @@ model Notification {
 // --- ADMIN ACTION LOGS (Traçabilité SuperAdmin) ---
 
 model AdminActionLog {
-  id            String   @id @default(uuid())
-  superAdminId  String
-  action        String   // IMPERSONATE, EXTEND_TRIAL, CHANGE_PLAN, SUSPEND, DELETE
-  targetType    String   // TENANT, EMPLOYEE
-  targetId      String
-  targetName    String?
-  details       String?  // JSON details (old plan, new plan, days extended, etc.)
-  createdAt     DateTime @default(now())
-  
+  id           String   @id @default(uuid())
+  superAdminId String
+  action       String // IMPERSONATE, EXTEND_TRIAL, CHANGE_PLAN, SUSPEND, DELETE
+  targetType   String // TENANT, EMPLOYEE
+  targetId     String
+  targetName   String?
+  details      String? // JSON details (old plan, new plan, days extended, etc.)
+  createdAt    DateTime @default(now())
+
   @@index([superAdminId])
   @@index([action])
   @@index([createdAt])
@@ -450,34 +477,34 @@ model AdminActionLog {
 // --- MESSAGE LOGS (WhatsApp Stats) ---
 
 model MessageLog {
-  id            String   @id @default(uuid())
-  tenantId      String?  // null for system messages
-  employeeId    String?  // Employee involved (if any)
-  direction     String   // INBOUND, OUTBOUND
-  messageType   String   @default("TEXT") // TEXT, IMAGE, DOCUMENT, LOCATION
-  status        String   @default("SENT") // SENT, DELIVERED, READ, FAILED
-  waMessageId   String?  // WhatsApp message ID for tracking
-  createdAt     DateTime @default(now())
-  
+  id          String   @id @default(uuid())
+  tenantId    String? // null for system messages
+  employeeId  String? // Employee involved (if any)
+  direction   String // INBOUND, OUTBOUND
+  messageType String   @default("TEXT") // TEXT, IMAGE, DOCUMENT, LOCATION
+  status      String   @default("SENT") // SENT, DELIVERED, READ, FAILED
+  waMessageId String? // WhatsApp message ID for tracking
+  createdAt   DateTime @default(now())
+
   @@index([tenantId])
   @@index([direction])
   @@index([createdAt])
 }
 
 model WhatsAppConversationSession {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   phoneNumber   String
-  phoneNumberId String   @default("default")
+  phoneNumberId String    @default("default")
   kind          String
   state         String
   data          Json?
   tenantId      String?
-  tenant        Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant        Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employeeId    String?
   employee      Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   expiresAt     DateTime
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([phoneNumberId, phoneNumber, kind])
   @@index([expiresAt])
@@ -486,14 +513,14 @@ model WhatsAppConversationSession {
 }
 
 model OnboardingEvent {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   type       String
   metadata   Json?
   tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employeeId String?
   employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([tenantId, type])
   @@index([employeeId, type])
@@ -526,22 +553,22 @@ model PlatformConfig {
   supportEmail       String   @default("support@whatspoint.com")
   defaultTrialDays   Int      @default(14)
   maintenanceMode    Boolean  @default(false) // If true, blocks normal user login
-  allowRegistrations Boolean  @default(true)  // If false, hides registration button
+  allowRegistrations Boolean  @default(true) // If false, hides registration button
   updatedAt          DateTime @updatedAt
 
   // Legal Content (CMS)
-  termsOfService     String?  @db.Text
-  privacyPolicy      String?  @db.Text
-  legalNotices       String?  @db.Text
+  termsOfService String? @db.Text
+  privacyPolicy  String? @db.Text
+  legalNotices   String? @db.Text
 
   // === Bot WhatsApp Configuration ===
-  botWelcomeText       String  @default("Je ne reconnais pas ce numéro. Que voulez-vous faire ?")
-  botBtn1Label         String  @default("Créer un compte")
-  botBtn2Label         String  @default("En savoir plus")
-  whatsappPhoneNumber  String?  // Numéro du bot sans +, ex: "33612345678"
-  
+  botWelcomeText      String  @default("Je ne reconnais pas ce numéro. Que voulez-vous faire ?")
+  botBtn1Label        String  @default("Créer un compte")
+  botBtn2Label        String  @default("En savoir plus")
+  whatsappPhoneNumber String? // Numéro du bot sans +, ex: "33612345678"
+
   // === WhatsApp Quality Monitoring ===
-  whatsappQualityScore String?   // GREEN, YELLOW, RED (from Meta webhook)
+  whatsappQualityScore String? // GREEN, YELLOW, RED (from Meta webhook)
   whatsappQualityAlert DateTime? // Last quality alert timestamp
 }
 
@@ -549,9 +576,9 @@ model PlatformConfig {
 
 model Integration {
   id        String   @id @default(uuid())
-  provider  String   // "STRIPE", "SMTP", "WHATSAPP", "GOOGLE_MAPS"
-  key       String   // "SECRET_KEY", "WEBHOOK_SECRET", "API_KEY"
-  value     String   // Encrypted value (AES-256-CBC)
+  provider  String // "STRIPE", "SMTP", "WHATSAPP", "GOOGLE_MAPS"
+  key       String // "SECRET_KEY", "WEBHOOK_SECRET", "API_KEY"
+  value     String // Encrypted value (AES-256-CBC)
   isEnabled Boolean  @default(true)
   updatedAt DateTime @updatedAt
 
@@ -562,60 +589,60 @@ model Integration {
 // --- OUTGOING WEBHOOKS ---
 
 model WebhookConfig {
-  id          String   @id @default(uuid())
-  name        String   // Human-readable name
-  url         String   // Target URL
-  secret      String?  // HMAC secret for signature verification
-  events      String[] // Array of event types: ["check_in", "check_out", "expense.submitted"]
-  isActive    Boolean  @default(true)
-  
+  id       String   @id @default(uuid())
+  name     String // Human-readable name
+  url      String // Target URL
+  secret   String? // HMAC secret for signature verification
+  events   String[] // Array of event types: ["check_in", "check_out", "expense.submitted"]
+  isActive Boolean  @default(true)
+
   // Scope: null = global (SuperAdmin), tenantId = per-tenant
-  tenantId    String?
-  
+  tenantId String?
+
   // Custom Mapping for External APIs (e.g. KPaie, MediPlan)
-  payloadMapping Json?  // Stores transformation rules/templates
+  payloadMapping Json? // Stores transformation rules/templates
 
   // Integration Specific Settings
-  headers     Json?    // Stores custom headers (e.g., {"Authorization": "Bearer token"})
-  httpMethod  String   @default("POST") // POST, PUT, PATCH
-  
+  headers    Json? // Stores custom headers (e.g., {"Authorization": "Bearer token"})
+  httpMethod String @default("POST") // POST, PUT, PATCH
+
   // Metadata
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   lastTriggeredAt DateTime?
-  
+
   // Stats
   successCount Int @default(0)
   failureCount Int @default(0)
-  
-  logs        WebhookLog[]
-  
+
+  logs WebhookLog[]
+
   @@index([tenantId])
   @@index([isActive])
 }
 
 model WebhookLog {
-  id            String   @id @default(uuid())
-  webhookId     String
-  webhook       WebhookConfig @relation(fields: [webhookId], references: [id], onDelete: Cascade)
-  
-  eventType     String   // "check_in", "expense.submitted", etc.
-  payload       Json     // The sent payload
-  
+  id        String        @id @default(uuid())
+  webhookId String
+  webhook   WebhookConfig @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  eventType String // "check_in", "expense.submitted", etc.
+  payload   Json // The sent payload
+
   // Response
-  statusCode    Int?
-  responseBody  String?  @db.Text
-  error         String?
-  
+  statusCode   Int?
+  responseBody String? @db.Text
+  error        String?
+
   // Queue & Delivery (Phase 3)
-  status        String   @default("SUCCESS") // SUCCESS, PENDING (Queue), FAILED (Dead Letter)
-  retryCount    Int      @default(0)
-  nextRetryAt   DateTime?
-  
+  status      String    @default("SUCCESS") // SUCCESS, PENDING (Queue), FAILED (Dead Letter)
+  retryCount  Int       @default(0)
+  nextRetryAt DateTime?
+
   // Timing
-  duration      Int?     // Response time in ms
-  createdAt     DateTime @default(now())
-  
+  duration  Int? // Response time in ms
+  createdAt DateTime @default(now())
+
   @@index([webhookId])
   @@index([eventType])
   @@index([createdAt])
@@ -625,41 +652,41 @@ model WebhookLog {
 // --- SUPPORT TICKETING ---
 
 model Ticket {
-  id        String   @id @default(uuid())
-  subject   String
-  status    String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
-  priority  String   @default("NORMAL") // LOW, NORMAL, URGENT
-  
+  id       String @id @default(uuid())
+  subject  String
+  status   String @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  priority String @default("NORMAL") // LOW, NORMAL, URGENT
+
   // Author (Manager who created ticket)
-  userId    String
-  user      Employee @relation(fields: [userId], references: [id])
-  
+  userId String
+  user   Employee @relation(fields: [userId], references: [id])
+
   // Tenant scope
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  
-  messages  TicketMessage[]
-  
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  messages TicketMessage[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@index([tenantId])
   @@index([status])
   @@index([userId])
 }
 
 model TicketMessage {
-  id        String   @id @default(uuid())
-  content   String   @db.Text
-  
-  ticketId  String
-  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  
-  senderId  String   // ID of Employee or SuperAdmin
-  isAdmin   Boolean  @default(false) // True if response from support
-  
+  id      String @id @default(uuid())
+  content String @db.Text
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  senderId String // ID of Employee or SuperAdmin
+  isAdmin  Boolean @default(false) // True if response from support
+
   createdAt DateTime @default(now())
-  
+
   @@index([ticketId])
 }
 
@@ -668,18 +695,18 @@ model TicketMessage {
 model SubscriptionPlan {
   id            String   @id @default(uuid())
   stripePriceId String   @unique // L'ID par défaut (EUR) - price_...
-  name          String   // ex: "Medium"
-  description   String?  // ex: "Pour les PME en croissance"
-  price         Float    // Prix par défaut (EUR)
+  name          String // ex: "Medium"
+  description   String? // ex: "Pour les PME en croissance"
+  price         Float // Prix par défaut (EUR)
   currency      String   @default("EUR")
-  maxEmployees  Int      // ex: 30
-  features      String   // Liste des features séparées par des virgules ou JSON string
+  maxEmployees  Int // ex: 30
+  features      String // Liste des features séparées par des virgules ou JSON string
   isPopular     Boolean  @default(false) // Pour mettre en avant (Badge)
-  isActive      Boolean  @default(true)  // Si false, n'apparait plus sur le site
-  sortOrder     Int      @default(0)     // Pour gérer l'ordre d'affichage
+  isActive      Boolean  @default(true) // Si false, n'apparait plus sur le site
+  sortOrder     Int      @default(0) // Pour gérer l'ordre d'affichage
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  
+
   // Prix régionaux pour différentes zones géographiques
   regionalPricing RegionalPricing[]
 }
@@ -687,17 +714,17 @@ model SubscriptionPlan {
 // --- REGIONAL PRICING (Geo-PPP) ---
 
 model RegionalPricing {
-  id            String   @id @default(uuid())
+  id            String           @id @default(uuid())
   planId        String
   plan          SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
-  countryCode   String   // "FR", "US", "SN" ou zone "*AFRICA_WEST", "DEFAULT"
-  currency      String   // "EUR", "USD", "XOF"
-  price         Float    // Prix adapté (ex: 15000 pour XOF)
-  stripePriceId String   // ID Stripe correspondant à cette devise
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  countryCode   String // "FR", "US", "SN" ou zone "*AFRICA_WEST", "DEFAULT"
+  currency      String // "EUR", "USD", "XOF"
+  price         Float // Prix adapté (ex: 15000 pour XOF)
+  stripePriceId String // ID Stripe correspondant à cette devise
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
   @@unique([planId, countryCode])
   @@index([countryCode])
 }
@@ -713,77 +740,77 @@ enum InterventionStatus {
 }
 
 model InterventionType {
-  id              String   @id @default(uuid())
-  name            String   // Ex: "Dépannage plomberie", "Installation électrique"
-  description     String?  @db.Text // Description détaillée du type
-  color           String   @default("#3b82f6") // Couleur HEX pour le calendrier
-  icon            String?  // Nom d'icône lucide (ex: "wrench", "zap", "thermometer")
-  defaultDuration Int      @default(60) // Durée par défaut en minutes
-  isActive        Boolean  @default(true) // Permet d'archiver sans supprimer
-  sortOrder       Int      @default(0) // Ordre d'affichage
+  id              String  @id @default(uuid())
+  name            String // Ex: "Dépannage plomberie", "Installation électrique"
+  description     String? @db.Text // Description détaillée du type
+  color           String  @default("#3b82f6") // Couleur HEX pour le calendrier
+  icon            String? // Nom d'icône lucide (ex: "wrench", "zap", "thermometer")
+  defaultDuration Int     @default(60) // Durée par défaut en minutes
+  isActive        Boolean @default(true) // Permet d'archiver sans supprimer
+  sortOrder       Int     @default(0) // Ordre d'affichage
 
   // Champs métier optionnels
   requiresReport    Boolean @default(false) // Rapport obligatoire ?
-  requiresSignature Boolean @default(true)  // Signature client obligatoire ?
+  requiresSignature Boolean @default(true) // Signature client obligatoire ?
   requiresPhotos    Boolean @default(false) // Photos obligatoires ?
 
   // Relations
-  tenantId      String
-  tenant        Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  interventions Intervention[]
+  interventions          Intervention[]
   recurringInterventions RecurringIntervention[]
-  quotes         Quote[]
-  interventionRequests InterventionRequest[]
+  quotes                 Quote[]
+  interventionRequests   InterventionRequest[]
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([tenantId, isActive])
 }
 
 model Customer {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   companyName String
   contactName String
   email       String?
   phone       String?
-  address     String?   // Adresse principale (legacy / affichage rapide)
-  country     String?   @default("FR") // Code pays ISO
-  accessCode  String?   // Code d'accès global
-  notes       String?   @db.Text // Instructions permanentes
+  address     String? // Adresse principale (legacy / affichage rapide)
+  country     String? @default("FR") // Code pays ISO
+  accessCode  String? // Code d'accès global
+  notes       String? @db.Text // Instructions permanentes
 
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  sites         CustomerSite[]
-  interventions Intervention[]
+  sites                  CustomerSite[]
+  interventions          Intervention[]
   recurringInterventions RecurringIntervention[]
-  quotes        Quote[]
-  interventionRequests InterventionRequest[]
+  quotes                 Quote[]
+  interventionRequests   InterventionRequest[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId])
 }
 
 model CustomerSite {
-  id          String   @id @default(uuid())
-  name        String   // Ex: "Siège social", "Entrepôt Nord", "Agence Lyon"
-  isMainSite  Boolean  @default(false)
+  id         String  @id @default(uuid())
+  name       String // Ex: "Siège social", "Entrepôt Nord", "Agence Lyon"
+  isMainSite Boolean @default(false)
 
   // Adresse complète
-  address     String   // Numéro + Rue
-  address2    String?  // Complément (bâtiment, étage, code porte…)
-  city        String
-  postalCode  String
-  country     String   @default("FR")
+  address    String // Numéro + Rue
+  address2   String? // Complément (bâtiment, étage, code porte…)
+  city       String
+  postalCode String
+  country    String  @default("FR")
 
   // Coordonnées GPS (pour carte & validation)
-  latitude    Float?
-  longitude   Float?
+  latitude  Float?
+  longitude Float?
 
   // Contact local sur site
   contactName  String?
@@ -791,70 +818,70 @@ model CustomerSite {
   contactEmail String?
 
   // Accès
-  accessCode   String?  // Digicode, badge, parking…
-  accessNotes  String?  @db.Text // Instructions détaillées pour accéder au site
+  accessCode  String? // Digicode, badge, parking…
+  accessNotes String? @db.Text // Instructions détaillées pour accéder au site
 
   // Relation
-  customerId  String
-  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  interventions Intervention[]
+  interventions          Intervention[]
   recurringInterventions RecurringIntervention[]
-  quotes        Quote[]
-  interventionRequests InterventionRequest[]
+  quotes                 Quote[]
+  interventionRequests   InterventionRequest[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([customerId])
 }
 
 model Intervention {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   title       String
-  description String?  @db.Text
+  description String? @db.Text
 
   // Type d'intervention (dynamique, défini par le partenaire)
   interventionTypeId String?
   interventionType   InterventionType? @relation(fields: [interventionTypeId], references: [id])
 
-  status      InterventionStatus @default(SCHEDULED)
+  status InterventionStatus @default(SCHEDULED)
 
   scheduledStart DateTime
   scheduledEnd   DateTime
   realStart      DateTime?
   realEnd        DateTime?
 
-  reportContent  String?   @db.Text
-  reportPhotos   Json?     // String[] - URLs des photos
+  reportContent  String? @db.Text
+  reportPhotos   Json? // String[] - URLs des photos
   signatureUrl   String?
-  pdfUrl         String?   // Lien vers le rapport final généré
-  signatureToken String?   @unique // Token unique pour la page de signature publique
+  pdfUrl         String? // Lien vers le rapport final généré
+  signatureToken String? @unique // Token unique pour la page de signature publique
 
   // Récurrence
   recurringInterventionId String?
   recurringIntervention   RecurringIntervention? @relation(fields: [recurringInterventionId], references: [id])
 
   // Relations
-  customerId  String
-  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  customerSiteId String?  // Site spécifique d'intervention (optionnel)
+  customerSiteId String? // Site spécifique d'intervention (optionnel)
   customerSite   CustomerSite? @relation(fields: [customerSiteId], references: [id])
 
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id])
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
 
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   // Relations pièces & devis
-  parts       InterventionPart[]
-  quoteId     String?  // Lien vers le devis parent (si créé depuis un devis)
-  interventionRequest InterventionRequest?  // Demande WhatsApp source
+  parts               InterventionPart[]
+  quoteId             String? // Lien vers le devis parent (si créé depuis un devis)
+  interventionRequest InterventionRequest? // Demande WhatsApp source
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([customerId])
@@ -870,48 +897,48 @@ model Intervention {
 // =============================================
 
 model RecurringIntervention {
-  id              String   @id @default(uuid())
-  title           String   // Ex: "Maintenance climatisation"
-  description     String?  @db.Text
+  id          String  @id @default(uuid())
+  title       String // Ex: "Maintenance climatisation"
+  description String? @db.Text
 
   // Récurrence
-  frequency       String   // DAILY, WEEKLY, BIWEEKLY, MONTHLY, QUARTERLY, BIANNUAL, ANNUAL
-  intervalValue   Int      @default(1) // ex: tous les 2 mois si frequency=MONTHLY et interval=2
-  dayOfWeek       Int?     // 0–6 (dimanche–samedi) pour WEEKLY  
-  dayOfMonth      Int?     // 1–31 pour MONTHLY/QUARTERLY  
-  preferredTime   String   @default("09:00") // HH:mm
+  frequency     String // DAILY, WEEKLY, BIWEEKLY, MONTHLY, QUARTERLY, BIANNUAL, ANNUAL
+  intervalValue Int    @default(1) // ex: tous les 2 mois si frequency=MONTHLY et interval=2
+  dayOfWeek     Int? // 0–6 (dimanche–samedi) pour WEEKLY
+  dayOfMonth    Int? // 1–31 pour MONTHLY/QUARTERLY
+  preferredTime String @default("09:00") // HH:mm
 
   // Dates
-  startDate       DateTime // Date de première occurrence
-  endDate         DateTime? // Date de fin (null = infini)
-  nextOccurrence  DateTime? // Prochaine occurrence calculée
-  lastGenerated   DateTime? // Dernière génération d'intervention
+  startDate      DateTime // Date de première occurrence
+  endDate        DateTime? // Date de fin (null = infini)
+  nextOccurrence DateTime? // Prochaine occurrence calculée
+  lastGenerated  DateTime? // Dernière génération d'intervention
 
   // Configuration
-  isActive        Boolean  @default(true)
-  autoAssign      Boolean  @default(true) // Assigner auto au même technicien
+  isActive   Boolean @default(true)
+  autoAssign Boolean @default(true) // Assigner auto au même technicien
 
   // Relations
   interventionTypeId String?
   interventionType   InterventionType? @relation(fields: [interventionTypeId], references: [id])
 
-  customerId    String
-  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   customerSiteId String?
   customerSite   CustomerSite? @relation(fields: [customerSiteId], references: [id])
 
-  employeeId    String
-  employee      Employee @relation(fields: [employeeId], references: [id])
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
 
-  tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   // Interventions générées
   interventions Intervention[]
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([isActive, nextOccurrence])
@@ -923,30 +950,30 @@ model RecurringIntervention {
 // =============================================
 
 model Part {
-  id            String   @id @default(uuid())
-  reference     String   // Référence/code article (ex: "PLB-001")
-  name          String   // Ex: "Joint torique 32mm"
-  description   String?  @db.Text
-  category      String   @default("GENERAL") // PLUMBING, ELECTRICAL, HVAC, GENERAL, OTHER
+  id          String  @id @default(uuid())
+  reference   String // Référence/code article (ex: "PLB-001")
+  name        String // Ex: "Joint torique 32mm"
+  description String? @db.Text
+  category    String  @default("GENERAL") // PLUMBING, ELECTRICAL, HVAC, GENERAL, OTHER
 
   // Stock & tarification
-  unitPrice     Float    @default(0)    // Prix unitaire HT
-  costPrice     Float    @default(0)    // Prix d'achat / prix de revient
-  stockQuantity Int      @default(0)    // Stock actuel
-  minStock      Int      @default(0)    // Seuil d'alerte stock bas
-  unit          String   @default("pce") // pce, m, m², kg, L, forfait
+  unitPrice     Float  @default(0) // Prix unitaire HT
+  costPrice     Float  @default(0) // Prix d'achat / prix de revient
+  stockQuantity Int    @default(0) // Stock actuel
+  minStock      Int    @default(0) // Seuil d'alerte stock bas
+  unit          String @default("pce") // pce, m, m², kg, L, forfait
 
-  isActive      Boolean  @default(true)
+  isActive Boolean @default(true)
 
   // Relations
-  tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   interventionParts InterventionPart[]
   quoteLineItems    QuoteLineItem[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([tenantId, isActive])
@@ -955,18 +982,18 @@ model Part {
 }
 
 model InterventionPart {
-  id             String   @id @default(uuid())
-  quantity       Int      @default(1)
-  unitPrice      Float    // Prix unitaire au moment de l'utilisation (snapshot)
-  totalPrice     Float    // quantity × unitPrice
+  id         String @id @default(uuid())
+  quantity   Int    @default(1)
+  unitPrice  Float // Prix unitaire au moment de l'utilisation (snapshot)
+  totalPrice Float // quantity × unitPrice
 
   interventionId String
   intervention   Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
 
-  partId         String
-  part           Part @relation(fields: [partId], references: [id])
+  partId String
+  part   Part   @relation(fields: [partId], references: [id])
 
-  createdAt      DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([interventionId])
   @@index([partId])
@@ -977,33 +1004,33 @@ model InterventionPart {
 // =============================================
 
 model Quote {
-  id            String   @id @default(uuid())
-  reference     String   // Ex: "DEV-2026-001"
-  status        String   @default("DRAFT") // DRAFT, SENT, ACCEPTED, REJECTED, CONVERTED, EXPIRED
+  id        String @id @default(uuid())
+  reference String // Ex: "DEV-2026-001"
+  status    String @default("DRAFT") // DRAFT, SENT, ACCEPTED, REJECTED, CONVERTED, EXPIRED
 
   // Dates
-  issueDate     DateTime @default(now())
-  validUntil    DateTime?  // Date d'expiration du devis
-  acceptedAt    DateTime?
-  convertedAt   DateTime?  // Quand converti en intervention
+  issueDate   DateTime  @default(now())
+  validUntil  DateTime? // Date d'expiration du devis
+  acceptedAt  DateTime?
+  convertedAt DateTime? // Quand converti en intervention
 
   // Montants
-  subtotal      Float    @default(0) // Total HT
-  taxRate       Float    @default(20) // Taux TVA en %
-  taxAmount     Float    @default(0) // Montant TVA
-  totalAmount   Float    @default(0) // Total TTC
-  discount      Float    @default(0) // Remise en €
+  subtotal    Float @default(0) // Total HT
+  taxRate     Float @default(20) // Taux TVA en %
+  taxAmount   Float @default(0) // Montant TVA
+  totalAmount Float @default(0) // Total TTC
+  discount    Float @default(0) // Remise en €
 
   // Contenu
-  notes         String?  @db.Text // Conditions, remarques
-  pdfUrl        String?  // URL du PDF généré
+  notes  String? @db.Text // Conditions, remarques
+  pdfUrl String? // URL du PDF généré
 
   // Conversion tracking
   convertedInterventionId String? // ID de l'intervention créée
 
   // Relations
-  customerId    String
-  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   customerSiteId String?
   customerSite   CustomerSite? @relation(fields: [customerSiteId], references: [id])
@@ -1011,14 +1038,14 @@ model Quote {
   interventionTypeId String?
   interventionType   InterventionType? @relation(fields: [interventionTypeId], references: [id])
 
-  tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   // Lignes du devis
-  lineItems     QuoteLineItem[]
+  lineItems QuoteLineItem[]
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([customerId])
@@ -1027,21 +1054,21 @@ model Quote {
 }
 
 model QuoteLineItem {
-  id          String  @id @default(uuid())
-  description String  // Libellé de la ligne
-  quantity    Float   @default(1)
-  unitPrice   Float   @default(0)
-  totalPrice  Float   @default(0) // quantity × unitPrice
-  type        String  @default("SERVICE") // SERVICE, PART, LABOR, TRAVEL, OTHER
+  id          String @id @default(uuid())
+  description String // Libellé de la ligne
+  quantity    Float  @default(1)
+  unitPrice   Float  @default(0)
+  totalPrice  Float  @default(0) // quantity × unitPrice
+  type        String @default("SERVICE") // SERVICE, PART, LABOR, TRAVEL, OTHER
 
   // Lien optionnel vers une pièce
-  partId      String?
-  part        Part?   @relation(fields: [partId], references: [id])
+  partId String?
+  part   Part?   @relation(fields: [partId], references: [id])
 
-  quoteId     String
-  quote       Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  quoteId String
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
-  sortOrder   Int     @default(0)
+  sortOrder Int @default(0)
 
   @@index([quoteId])
 }
@@ -1051,23 +1078,23 @@ model QuoteLineItem {
 // =============================================
 
 enum InterventionRequestStatus {
-  PENDING    // Reçue, en attente de traitement
-  APPROVED   // Validée par le manager, prête à planifier
-  PLANNED    // Convertie en intervention planifiée
-  REJECTED   // Refusée par le manager
+  PENDING // Reçue, en attente de traitement
+  APPROVED // Validée par le manager, prête à planifier
+  PLANNED // Convertie en intervention planifiée
+  REJECTED // Refusée par le manager
 }
 
 model InterventionRequest {
-  id          String   @id @default(uuid())
+  id String @id @default(uuid())
 
   // Contenu de la demande
-  message     String   @db.Text   // Message original du client
-  photoUrl    String?              // Photo jointe (si envoyée)
-  urgency     String   @default("NORMAL")  // NORMAL, URGENT
+  message  String  @db.Text // Message original du client
+  photoUrl String? // Photo jointe (si envoyée)
+  urgency  String  @default("NORMAL") // NORMAL, URGENT
 
   // Infos contact WhatsApp
-  senderPhone String               // Numéro WhatsApp du demandeur
-  senderName  String?              // Nom du contact WhatsApp (profil)
+  senderPhone String // Numéro WhatsApp du demandeur
+  senderName  String? // Nom du contact WhatsApp (profil)
 
   // Matching client (auto ou manuel)
   customerId     String?
@@ -1080,31 +1107,31 @@ model InterventionRequest {
   interventionType   InterventionType? @relation(fields: [interventionTypeId], references: [id])
 
   // Statut & workflow
-  status         InterventionRequestStatus @default(PENDING)
-  managerNotes   String?   @db.Text   // Notes du manager lors du traitement
-  rejectionReason String?              // Motif de refus
+  status          InterventionRequestStatus @default(PENDING)
+  managerNotes    String?                   @db.Text // Notes du manager lors du traitement
+  rejectionReason String? // Motif de refus
 
   // Coordination inbox (sans remplacer le workflow métier)
-  assignedToId String?
-  assignedTo   Employee? @relation("InterventionRequestAssignee", fields: [assignedToId], references: [id])
-  slaDueAt     DateTime?
-  slaBreachedAt DateTime?
+  assignedToId          String?
+  assignedTo            Employee? @relation("InterventionRequestAssignee", fields: [assignedToId], references: [id])
+  slaDueAt              DateTime?
+  slaBreachedAt         DateTime?
   lastInternalCommentAt DateTime?
-  lastEventAt  DateTime?
+  lastEventAt           DateTime?
 
   // Lien vers l'intervention créée (quand PLANNED)
-  interventionId String?  @unique
+  interventionId String?       @unique
   intervention   Intervention? @relation(fields: [interventionId], references: [id])
 
   // Traitement
-  processedAt    DateTime?              // Date de traitement
-  processedById  String?                // Manager qui a traité
+  processedAt   DateTime? // Date de traitement
+  processedById String? // Manager qui a traité
 
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -1115,17 +1142,17 @@ model InterventionRequest {
 }
 
 model RequestEvent {
-  id          String   @id @default(uuid())
-  tenantId    String
-  entityType  String
-  entityId    String
-  type        String
-  actorType   String
-  actorId     String?
-  visibility  String   @default("INTERNAL")
-  message     String?  @db.Text
-  metadata    Json?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  tenantId   String
+  entityType String
+  entityId   String
+  type       String
+  actorType  String
+  actorId    String?
+  visibility String   @default("INTERNAL")
+  message    String?  @db.Text
+  metadata   Json?
+  createdAt  DateTime @default(now())
 
   @@index([tenantId, entityType, entityId, createdAt])
   @@index([tenantId, type, createdAt])

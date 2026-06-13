@@ -17,6 +17,7 @@ import {
     XCircle,
     AlertTriangle,
     ChevronRight,
+    History,
     ShieldCheck
 } from 'lucide-react';
 import { useSiteContext } from '../context/SiteContext';
@@ -56,6 +57,41 @@ interface AttendanceRecord {
     verdictReason?: string | null;
     statusReason?: string | null;
     managerComment?: string | null;
+    managerDecisionHistory?: ManagerDecisionHistoryEntry[];
+    decisionHistory?: ManagerDecisionHistoryEntry[];
+    managerDecisions?: ManagerDecisionHistoryEntry[];
+    history?: ManagerDecisionHistoryEntry[];
+}
+
+interface ManagerDecisionActor {
+    name?: string | null;
+    phoneNumber?: string | null;
+    email?: string | null;
+}
+
+interface ManagerDecisionHistoryEntry {
+    id?: string | number | null;
+    decidedBy?: string | ManagerDecisionActor | null;
+    manager?: ManagerDecisionActor | null;
+    actor?: ManagerDecisionActor | null;
+    user?: ManagerDecisionActor | null;
+    decidedAt?: string | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+    action?: string | null;
+    decision?: string | null;
+    reason?: string | null;
+    verdictReason?: string | null;
+    comment?: string | null;
+    managerComment?: string | null;
+    previousStatus?: string | null;
+    statusBefore?: string | null;
+    fromStatus?: string | null;
+    oldStatus?: string | null;
+    currentStatus?: string | null;
+    statusAfter?: string | null;
+    toStatus?: string | null;
+    newStatus?: string | null;
 }
 
 interface DetailModalProps {
@@ -163,6 +199,56 @@ function getReadableReason(record: AttendanceRecord): string {
     return getStatusReason(record) || getProofExplanation(record);
 }
 
+function getManagerDecisionHistory(record: AttendanceRecord): ManagerDecisionHistoryEntry[] {
+    const possibleHistory = [
+        record.managerDecisionHistory,
+        record.decisionHistory,
+        record.managerDecisions,
+        record.history
+    ];
+
+    return possibleHistory.find((history): history is ManagerDecisionHistoryEntry[] => Array.isArray(history)) || [];
+}
+
+function getActorLabel(entry: ManagerDecisionHistoryEntry): string {
+    const actor = entry.decidedBy || entry.manager || entry.actor || entry.user;
+    if (!actor) return 'Manager';
+    if (typeof actor === 'string') return actor;
+    return actor.name || actor.email || actor.phoneNumber || 'Manager';
+}
+
+function getDecisionDate(entry: ManagerDecisionHistoryEntry): string {
+    return formatDateTime(entry.decidedAt || entry.createdAt || entry.updatedAt);
+}
+
+function getDecisionActionLabel(action?: string | null): string {
+    const normalizedAction = (action || '').toUpperCase();
+    const labels: Record<string, string> = {
+        APPROVE_EXCEPTION: 'Validation exception',
+        APPROVE: 'Validation',
+        APPROVED: 'Validation',
+        ACCEPT: 'Acceptation',
+        ACCEPTED: 'Acceptation',
+        REJECT: 'Refus',
+        REJECTED: 'Refus',
+        CONFIRM: 'Confirmation',
+        CONFIRMED: 'Confirmation'
+    };
+    return labels[normalizedAction] || action || 'Décision';
+}
+
+function getDecisionReason(entry: ManagerDecisionHistoryEntry): string {
+    return entry.reason || entry.verdictReason || entry.managerComment || entry.comment || 'Raison non renseignée';
+}
+
+function getPreviousDecisionStatus(entry: ManagerDecisionHistoryEntry): string {
+    return entry.previousStatus || entry.statusBefore || entry.fromStatus || entry.oldStatus || 'Non précisé';
+}
+
+function getCurrentDecisionStatus(entry: ManagerDecisionHistoryEntry): string {
+    return entry.currentStatus || entry.statusAfter || entry.toStatus || entry.newStatus || 'Non précisé';
+}
+
 function getSiteLabel(record: AttendanceRecord): string {
     return record.siteName || 'Site non précisé';
 }
@@ -221,6 +307,7 @@ function DetailModal({ record, onClose, onDecision, decidingAction }: DetailModa
     const recordHasLocation = hasLocation(record);
     const proofUrl = getProofUrl(record);
     const status = getDecisionStatus(record);
+    const managerDecisionHistory = getManagerDecisionHistory(record);
     const canApprove = ['PENDING_GPS', 'WARNING', 'REJECTED'].includes(status);
     const canReject = status !== 'REJECTED';
     const canConfirm = status !== 'PENDING_GPS';
@@ -231,7 +318,7 @@ function DetailModal({ record, onClose, onDecision, decidingAction }: DetailModa
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div
-                className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl"
+                className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
@@ -262,6 +349,9 @@ function DetailModal({ record, onClose, onDecision, decidingAction }: DetailModa
                             )}
                             {record.siteName && (
                                 <ProofPill icon={<MapPin size={14} />} label={record.siteName} active />
+                            )}
+                            {managerDecisionHistory.length > 0 && (
+                                <ManagerDecisionBadge count={managerDecisionHistory.length} />
                             )}
                         </div>
                         <p className="mt-2 text-sm text-gray-700">{getReadableReason(record)}</p>
@@ -347,6 +437,10 @@ function DetailModal({ record, onClose, onDecision, decidingAction }: DetailModa
                             </div>
                         )}
                     </div>
+                </div>
+
+                <div className="px-4 pb-4 sm:px-6">
+                    <ManagerDecisionHistoryTimeline history={managerDecisionHistory} />
                 </div>
 
                 {/* Footer */}
@@ -440,6 +534,62 @@ function ProofPill({ icon, label, active }: { icon: ReactNode; label: string; ac
             {icon}
             {label}
         </span>
+    );
+}
+
+function ManagerDecisionBadge({ count }: { count?: number }) {
+    return (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-700">
+            <History size={14} />
+            Décision manager{count && count > 1 ? ` · ${count}` : ''}
+        </span>
+    );
+}
+
+function ManagerDecisionHistoryTimeline({ history }: { history: ManagerDecisionHistoryEntry[] }) {
+    if (history.length === 0) {
+        return null;
+    }
+
+    return (
+        <section className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 sm:p-4">
+            <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                <History size={17} className="text-indigo-600" />
+                Historique des décisions manager
+            </div>
+            <div className="mt-3 space-y-3">
+                {history.map((entry, index) => (
+                    <article
+                        key={entry.id || `${entry.action || entry.decision || 'decision'}-${entry.decidedAt || entry.createdAt || index}`}
+                        className="rounded-lg border border-white bg-white p-3 shadow-sm"
+                    >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-sm font-bold text-gray-900">
+                                        {getDecisionActionLabel(entry.action || entry.decision)}
+                                    </span>
+                                    <span className="text-xs font-medium text-gray-500">
+                                        par {getActorLabel(entry)}
+                                    </span>
+                                </div>
+                                <p className="mt-1 text-xs font-medium text-gray-500">
+                                    {getDecisionDate(entry)}
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <StatusBadge status={getPreviousDecisionStatus(entry)} />
+                                <ChevronRight size={15} className="text-gray-400" />
+                                <StatusBadge status={getCurrentDecisionStatus(entry)} />
+                            </div>
+                        </div>
+                        <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm leading-relaxed text-gray-700">
+                            {getDecisionReason(entry)}
+                        </p>
+                    </article>
+                ))}
+            </div>
+        </section>
     );
 }
 
@@ -714,6 +864,7 @@ export default function Attendance() {
                             const status = getDecisionStatus(record);
                             const distanceTone = getDistanceTone(record);
                             const readableReason = getReadableReason(record);
+                            const managerDecisionCount = getManagerDecisionHistory(record).length;
 
                             return (
                                 <button
@@ -722,7 +873,12 @@ export default function Attendance() {
                                     className="w-full p-4 text-left hover:bg-gray-50 transition"
                                 >
                                     <div className="flex items-start justify-between gap-3">
-                                        <StatusBadge status={status} />
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <StatusBadge status={status} />
+                                            {managerDecisionCount > 0 && (
+                                                <ManagerDecisionBadge count={managerDecisionCount} />
+                                            )}
+                                        </div>
                                         <span className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600">
                                             Détails
                                             <ChevronRight size={15} />
@@ -837,6 +993,7 @@ export default function Attendance() {
                                     const proofUrl = getProofUrl(record);
                                     const status = getDecisionStatus(record);
                                     const distanceTone = getDistanceTone(record);
+                                    const managerDecisionCount = getManagerDecisionHistory(record).length;
 
                                     return (
                                         <tr
@@ -846,7 +1003,12 @@ export default function Attendance() {
                                         >
                                             {/* Décision */}
                                             <td className="px-6 py-4 align-top">
-                                                <StatusBadge status={status} />
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <StatusBadge status={status} />
+                                                    {managerDecisionCount > 0 && (
+                                                        <ManagerDecisionBadge count={managerDecisionCount} />
+                                                    )}
+                                                </div>
                                                 <p className="mt-2 max-w-[260px] text-xs leading-relaxed text-gray-600">
                                                     {getReadableReason(record)}
                                                 </p>

@@ -4,7 +4,6 @@ import { fr } from 'date-fns/locale';
 import prisma from '../lib/prisma';
 import { signUploadUrlIfNeeded } from '../utils/signedFileUrl';
 
-
 /**
  * Formate une date en heure locale (Europe/Paris)
  */
@@ -112,6 +111,26 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
                             }
                         }
                     }
+                },
+                decisionEvents: {
+                    orderBy: { createdAt: 'asc' },
+                    select: {
+                        id: true,
+                        action: true,
+                        reason: true,
+                        previousStatus: true,
+                        nextStatus: true,
+                        previousGpsVerdict: true,
+                        nextGpsVerdict: true,
+                        createdAt: true,
+                        manager: {
+                            select: {
+                                id: true,
+                                name: true,
+                                phoneNumber: true
+                            }
+                        }
+                    }
                 }
             },
             orderBy: {
@@ -190,6 +209,22 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
                 siteRadius: radius,
                 gpsMode: site?.gpsMode || null,
                 siteGpsMode: site?.gpsMode || null,
+                decisionHistory: a.decisionEvents.map(event => ({
+                    id: event.id,
+                    action: event.action,
+                    reason: event.reason,
+                    previousStatus: event.previousStatus,
+                    nextStatus: event.nextStatus,
+                    previousGpsVerdict: event.previousGpsVerdict,
+                    nextGpsVerdict: event.nextGpsVerdict,
+                    createdAt: event.createdAt,
+                    managerName: event.manager?.name || null,
+                    manager: event.manager ? {
+                        id: event.manager.id,
+                        name: event.manager.name,
+                        phoneNumber: event.manager.phoneNumber
+                    } : null
+                })),
                 gps: {
                     verdict: a.gpsVerdict,
                     reason: statusReason,

@@ -45,6 +45,7 @@ function gpsVerdictFromStatus(status: string): string {
 export const updateAttendanceVerdict = async (req: Request, res: Response): Promise<void> => {
     try {
         const tenantId = req.user?.tenantId;
+        const managerId = req.user?.userId;
         const attendanceId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
         const action = req.body?.action;
         const reason = normalizeReason(req.body?.reason);
@@ -61,19 +62,27 @@ export const updateAttendanceVerdict = async (req: Request, res: Response): Prom
             return;
         }
 
-        const attendance = await prisma.attendance.findFirst({
-            where: { id: attendanceId, tenantId },
-            include: {
-                employee: {
-                    select: {
-                        id: true,
-                        name: true,
-                        phoneNumber: true,
-                        workProfile: true
+        const [attendance, manager] = await Promise.all([
+            prisma.attendance.findFirst({
+                where: { id: attendanceId, tenantId },
+                include: {
+                    employee: {
+                        select: {
+                            id: true,
+                            name: true,
+                            phoneNumber: true,
+                            workProfile: true
+                        }
                     }
                 }
-            }
-        });
+            }),
+            managerId
+                ? prisma.employee.findFirst({
+                    where: { id: managerId, tenantId, role: 'MANAGER' },
+                    select: { id: true }
+                })
+                : Promise.resolve(null)
+        ]);
 
         if (!attendance) {
             res.status(404).json({ error: 'Pointage non trouvé' });
@@ -130,9 +139,28 @@ export const updateAttendanceVerdict = async (req: Request, res: Response): Prom
             };
         })();
 
-        const updated = await prisma.attendance.update({
-            where: { id: attendance.id },
-            data
+        const updated = await prisma.$transaction(async (tx) => {
+            const updatedAttendance = await tx.attendance.update({
+                where: { id: attendance.id },
+                data
+            });
+
+            await tx.attendanceDecisionEvent.create({
+                data: {
+                    action,
+                    previousStatus: attendance.status,
+                    nextStatus: updatedAttendance.status,
+                    previousGpsVerdict: attendance.gpsVerdict,
+                    nextGpsVerdict: updatedAttendance.gpsVerdict,
+                    reason: reason || data.verdictReason,
+                    managerId: manager?.id || null,
+                    tenantId,
+                    attendanceId: attendance.id,
+                    createdAt: decidedAt
+                }
+            });
+
+            return updatedAttendance;
         });
 
         res.status(200).json({
