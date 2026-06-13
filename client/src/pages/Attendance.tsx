@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
@@ -12,7 +12,10 @@ import {
     Filter,
     X,
     ExternalLink,
-    Loader2
+    Loader2,
+    CheckCircle,
+    XCircle,
+    AlertTriangle
 } from 'lucide-react';
 import { useSiteContext } from '../context/SiteContext';
 import ExportModal from '../components/ExportModal';
@@ -22,6 +25,7 @@ interface Employee {
     name: string;
     phoneNumber: string;
     role: string;
+    workProfile?: string | null;
 }
 
 interface AttendanceRecord {
@@ -32,10 +36,20 @@ interface AttendanceRecord {
     checkOut: string | null;
     status: string;
     photoUrl: string | null;
+    proofUrl?: string | null;
+    evidenceUrl?: string | null;
     latitude: number | null;
     longitude: number | null;
     distanceFromSite: number | null;
+    locationWarning?: boolean;
+    siteId?: string | null;
+    siteName?: string | null;
+    siteRadius?: number | null;
+    gpsMode?: string | null;
     duration: string;
+    rejectionReason?: string | null;
+    statusReason?: string | null;
+    managerComment?: string | null;
 }
 
 interface DetailModalProps {
@@ -45,9 +59,80 @@ interface DetailModalProps {
 
 type AttendancePeriod = 'today' | 'week' | 'month';
 
+function hasNumber(value: number | null | undefined): value is number {
+    return typeof value === 'number' && Number.isFinite(value);
+}
+
+function hasLocation(record: AttendanceRecord): boolean {
+    return hasNumber(record.latitude) && hasNumber(record.longitude);
+}
+
+function hasDistance(record: AttendanceRecord): boolean {
+    return hasNumber(record.distanceFromSite);
+}
+
+function getProofUrl(record: AttendanceRecord): string | null {
+    return record.photoUrl || record.proofUrl || record.evidenceUrl || null;
+}
+
+function getRecordStatus(record: AttendanceRecord): string {
+    return record.status || (record.checkOut ? 'COMPLETE' : 'IN_PROGRESS');
+}
+
+function formatDistance(distance: number): string {
+    if (Math.abs(distance) >= 1000) {
+        return `${(distance / 1000).toFixed(1)} km`;
+    }
+    return `${distance.toFixed(0)} m`;
+}
+
+function formatCoordinates(record: AttendanceRecord): string {
+    if (!hasLocation(record)) return 'Coordonnées non fournies';
+    return `${record.latitude!.toFixed(6)}, ${record.longitude!.toFixed(6)}`;
+}
+
+function isAcceptedStatus(status: string): boolean {
+    return ['ACCEPTED', 'APPROVED', 'VALIDATED', 'PRESENT', 'COMPLETE', 'COMPLETED'].includes(status.toUpperCase());
+}
+
+function isRejectedStatus(status: string): boolean {
+    return ['REJECTED', 'REFUSED', 'DECLINED', 'ABSENT', 'INVALID'].includes(status.toUpperCase());
+}
+
+function getStatusReason(record: AttendanceRecord): string | null {
+    return record.rejectionReason || record.statusReason || record.managerComment || null;
+}
+
+function getProofExplanation(record: AttendanceRecord): string {
+    const status = getRecordStatus(record);
+    const reason = getStatusReason(record);
+    const proofCount = [getProofUrl(record), hasLocation(record), hasDistance(record)].filter(Boolean).length;
+
+    if (isRejectedStatus(status)) {
+        return reason || 'Pointage refusé. Vérifiez la photo, la position GPS ou la distance au site.';
+    }
+    if (status.toUpperCase() === 'PENDING_GPS') {
+        return reason || 'Position GPS attendue avant validation définitive du pointage.';
+    }
+    if (status.toUpperCase() === 'WARNING' || record.locationWarning) {
+        return reason || 'Pointage enregistré sous réserve: contrôle GPS à vérifier.';
+    }
+    if (isAcceptedStatus(status)) {
+        return proofCount > 0
+            ? 'Pointage accepté avec les preuves disponibles ci-dessous.'
+            : 'Pointage accepté. Aucune preuve complémentaire fournie par l’API.';
+    }
+    if (proofCount > 0) {
+        return 'Pointage en cours ou à contrôler avec les preuves disponibles.';
+    }
+    return 'Aucune preuve complémentaire fournie pour ce pointage.';
+}
+
 function DetailModal({ record, onClose }: DetailModalProps) {
-    const hasLocation = record.latitude && record.longitude;
-    const mapUrl = hasLocation
+    const recordHasLocation = hasLocation(record);
+    const proofUrl = getProofUrl(record);
+    const status = getRecordStatus(record);
+    const mapUrl = recordHasLocation
         ? `https://www.google.com/maps?q=${record.latitude},${record.longitude}`
         : null;
 
@@ -58,14 +143,14 @@ function DetailModal({ record, onClose }: DetailModalProps) {
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-gray-200">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
                             {record.employee.name?.charAt(0) || '?'}
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-gray-900">{record.employee.name}</h2>
-                            <p className="text-gray-500">{record.date} • {record.checkIn} - {record.checkOut || 'En cours'}</p>
+                            <p className="text-gray-500 text-sm sm:text-base">{record.date} • {record.checkIn} - {record.checkOut || 'En cours'}</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition">
@@ -74,17 +159,34 @@ function DetailModal({ record, onClose }: DetailModalProps) {
                 </div>
 
                 {/* Content */}
-                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="px-4 pt-4 sm:px-6">
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <StatusBadge status={status} />
+                            <ProofPill icon={<Camera size={14} />} label={proofUrl ? 'Photo reçue' : 'Photo absente'} active={Boolean(proofUrl)} />
+                            <ProofPill icon={<MapPin size={14} />} label={recordHasLocation ? 'GPS reçu' : 'GPS absent'} active={recordHasLocation} />
+                            {hasDistance(record) && (
+                                <ProofPill icon={<MapPin size={14} />} label={`${formatDistance(record.distanceFromSite!)} du site`} active />
+                            )}
+                            {record.siteName && (
+                                <ProofPill icon={<MapPin size={14} />} label={record.siteName} active />
+                            )}
+                        </div>
+                        <p className="mt-2 text-sm text-gray-600">{getProofExplanation(record)}</p>
+                    </div>
+                </div>
+
+                <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
                     {/* Photo */}
                     <div className="space-y-3">
                         <h3 className="font-semibold text-gray-700 flex items-center gap-2">
                             <Camera size={18} />
                             Preuve Photo
                         </h3>
-                        {record.photoUrl ? (
+                        {proofUrl ? (
                             <div className="relative aspect-video bg-gray-100 rounded-xl overflow-hidden">
                                 <img
-                                    src={record.photoUrl}
+                                    src={proofUrl}
                                     alt="Preuve de présence"
                                     className="w-full h-full object-cover"
                                 />
@@ -105,7 +207,7 @@ function DetailModal({ record, onClose }: DetailModalProps) {
                             <MapPin size={18} />
                             Localisation
                         </h3>
-                        {hasLocation ? (
+                        {recordHasLocation ? (
                             <div className="space-y-3">
                                 <div className="aspect-video bg-gray-100 rounded-xl overflow-hidden relative">
                                     <iframe
@@ -116,7 +218,7 @@ function DetailModal({ record, onClose }: DetailModalProps) {
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm text-gray-500">
-                                        {record.latitude?.toFixed(6)}, {record.longitude?.toFixed(6)}
+                                        {formatCoordinates(record)}
                                     </span>
                                     <a
                                         href={mapUrl!}
@@ -128,9 +230,15 @@ function DetailModal({ record, onClose }: DetailModalProps) {
                                         <ExternalLink size={14} />
                                     </a>
                                 </div>
-                                {record.distanceFromSite && (
+                                {hasDistance(record) && (
                                     <div className="bg-amber-50 text-amber-700 px-3 py-2 rounded-lg text-sm">
-                                        📍 Distance du site : {record.distanceFromSite.toFixed(0)} mètres
+                                        Distance du site : {formatDistance(record.distanceFromSite!)}
+                                        {record.siteRadius ? ` · rayon autorisé ${record.siteRadius} m` : ''}
+                                    </div>
+                                )}
+                                {(record.siteName || record.gpsMode) && (
+                                    <div className="bg-blue-50 text-blue-700 px-3 py-2 rounded-lg text-sm">
+                                        {record.siteName || 'Site'}{record.gpsMode ? ` · mode GPS ${record.gpsMode}` : ''}
                                     </div>
                                 )}
                             </div>
@@ -153,25 +261,58 @@ function DetailModal({ record, onClose }: DetailModalProps) {
                             Durée : <strong>{record.duration}</strong>
                         </span>
                     </div>
-                    <StatusBadge status={record.checkOut ? 'COMPLETE' : (record.status || 'IN_PROGRESS')} />
+                    <StatusBadge status={status} />
                 </div>
             </div>
         </div>
     );
 }
 
-function StatusBadge({ status }: { status: string }) {
-    const config: Record<string, { bg: string; text: string; label: string }> = {
+function StatusBadge({ status }: { status?: string | null }) {
+    const normalizedStatus = (status || '').toUpperCase();
+    const config: Record<string, { bg: string; text: string; label: string; icon?: 'check' | 'x' | 'warning' }> = {
         COMPLETE: { bg: 'bg-green-100', text: 'text-green-800', label: 'Complet' },
+        COMPLETED: { bg: 'bg-green-100', text: 'text-green-800', label: 'Complet' },
+        PRESENT: { bg: 'bg-green-100', text: 'text-green-800', label: 'Présent' },
+        ACCEPTED: { bg: 'bg-green-100', text: 'text-green-800', label: 'Accepté', icon: 'check' },
+        APPROVED: { bg: 'bg-green-100', text: 'text-green-800', label: 'Accepté', icon: 'check' },
+        VALIDATED: { bg: 'bg-green-100', text: 'text-green-800', label: 'Validé', icon: 'check' },
         IN_PROGRESS: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'En cours' },
         INCOMPLETE: { bg: 'bg-red-100', text: 'text-red-800', label: 'Incomplet' },
-        CHECKED_IN: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'En cours' }
+        CHECKED_IN: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'En cours' },
+        PENDING_GPS: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'GPS attendu', icon: 'warning' },
+        WARNING: { bg: 'bg-amber-100', text: 'text-amber-800', label: 'Sous réserve', icon: 'warning' },
+        LATE: { bg: 'bg-amber-100', text: 'text-amber-800', label: 'En retard', icon: 'warning' },
+        ABSENT: { bg: 'bg-red-100', text: 'text-red-800', label: 'Absent', icon: 'x' },
+        REJECTED: { bg: 'bg-red-100', text: 'text-red-800', label: 'Refusé', icon: 'x' },
+        REFUSED: { bg: 'bg-red-100', text: 'text-red-800', label: 'Refusé', icon: 'x' },
+        DECLINED: { bg: 'bg-red-100', text: 'text-red-800', label: 'Refusé', icon: 'x' },
+        INVALID: { bg: 'bg-red-100', text: 'text-red-800', label: 'Refusé', icon: 'x' }
     };
 
-    const { bg, text, label } = config[status] || config.IN_PROGRESS;
+    const { bg, text, label, icon } = config[normalizedStatus] || {
+        bg: 'bg-gray-100',
+        text: 'text-gray-700',
+        label: status || 'Non précisé'
+    };
 
     return (
-        <span className={`${bg} ${text} px-3 py-1 rounded-full text-sm font-medium`}>
+        <span className={`${bg} ${text} inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap`}>
+            {icon === 'check' && <CheckCircle size={14} />}
+            {icon === 'x' && <XCircle size={14} />}
+            {icon === 'warning' && <AlertTriangle size={14} />}
+            {label}
+        </span>
+    );
+}
+
+function ProofPill({ icon, label, active }: { icon: ReactNode; label: string; active: boolean }) {
+    return (
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${active
+            ? 'bg-white text-gray-800 border border-gray-200'
+            : 'bg-gray-100 text-gray-500 border border-gray-200'
+            }`}>
+            {icon}
             {label}
         </span>
     );
@@ -347,33 +488,46 @@ export default function Attendance() {
                 ) : (
                     <>
                     <div className="md:hidden divide-y divide-gray-100">
-                        {filteredRecords.map((record) => (
-                            <button
-                                key={record.id}
-                                onClick={() => setSelectedRecord(record)}
-                                className="w-full p-4 text-left hover:bg-gray-50 transition"
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${getAvatarColor(record.employee.name)} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
-                                            {getInitials(record.employee.name)}
+                        {filteredRecords.map((record) => {
+                            const recordHasLocation = hasLocation(record);
+                            const proofUrl = getProofUrl(record);
+                            const status = getRecordStatus(record);
+
+                            return (
+                                <button
+                                    key={record.id}
+                                    onClick={() => setSelectedRecord(record)}
+                                    className="w-full p-4 text-left hover:bg-gray-50 transition"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${getAvatarColor(record.employee.name)} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
+                                                {getInitials(record.employee.name)}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="font-semibold text-gray-900 truncate">{record.employee.name || 'Sans nom'}</p>
+                                                <p className="text-sm text-gray-500">{record.date} · {record.checkIn} → {record.checkOut || '...'}</p>
+                                            </div>
                                         </div>
-                                        <div className="min-w-0">
-                                            <p className="font-semibold text-gray-900 truncate">{record.employee.name || 'Sans nom'}</p>
-                                            <p className="text-sm text-gray-500">{record.date} · {record.checkIn} → {record.checkOut || '...'}</p>
-                                        </div>
+                                        <StatusBadge status={status} />
                                     </div>
-                                    <StatusBadge status={record.checkOut ? 'COMPLETE' : 'IN_PROGRESS'} />
-                                </div>
-                                <div className="mt-3 flex items-center justify-between gap-2 text-sm">
-                                    <span className="font-medium text-gray-900">Durée : {record.duration}</span>
-                                    <span className="text-indigo-600 flex items-center gap-1">
-                                        {record.latitude && record.longitude ? <MapPin size={15} /> : <Camera size={15} />}
-                                        Détails
-                                    </span>
-                                </div>
-                            </button>
-                        ))}
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        <ProofPill icon={<Camera size={14} />} label={proofUrl ? 'Photo' : 'Sans photo'} active={Boolean(proofUrl)} />
+                                        <ProofPill icon={<MapPin size={14} />} label={recordHasLocation ? 'GPS' : 'Sans GPS'} active={recordHasLocation} />
+                                        {hasDistance(record) && (
+                                            <ProofPill icon={<MapPin size={14} />} label={formatDistance(record.distanceFromSite!)} active />
+                                        )}
+                                    </div>
+                                    <div className="mt-3 flex items-center justify-between gap-2 text-sm">
+                                        <span className="font-medium text-gray-900">Durée : {record.duration}</span>
+                                        <span className="text-indigo-600 flex items-center gap-1">
+                                            Détails
+                                        </span>
+                                    </div>
+                                    <p className="mt-2 line-clamp-2 text-xs text-gray-500">{getProofExplanation(record)}</p>
+                                </button>
+                            );
+                        })}
                     </div>
                     <div className="hidden md:block overflow-x-auto">
                         <table className="w-full">
@@ -415,85 +569,101 @@ export default function Attendance() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {filteredRecords.map((record) => (
-                                    <tr
-                                        key={record.id}
-                                        onClick={() => setSelectedRecord(record)}
-                                        className="hover:bg-gray-50 cursor-pointer transition"
-                                    >
-                                        {/* Date/Heure */}
-                                        <td className="px-6 py-4">
-                                            <div className="font-medium text-gray-900">
-                                                {record.date}
-                                            </div>
-                                            <div className="text-sm text-gray-500">
-                                                {record.checkIn} → {record.checkOut || '...'}
-                                            </div>
-                                        </td>
+                                {filteredRecords.map((record) => {
+                                    const recordHasLocation = hasLocation(record);
+                                    const proofUrl = getProofUrl(record);
+                                    const status = getRecordStatus(record);
 
-                                        {/* Employé */}
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${getAvatarColor(record.employee.name)} flex items-center justify-center text-white font-bold text-sm`}>
-                                                    {getInitials(record.employee.name)}
+                                    return (
+                                        <tr
+                                            key={record.id}
+                                            onClick={() => setSelectedRecord(record)}
+                                            className="hover:bg-gray-50 cursor-pointer transition"
+                                        >
+                                            {/* Date/Heure */}
+                                            <td className="px-6 py-4">
+                                                <div className="font-medium text-gray-900">
+                                                    {record.date}
                                                 </div>
-                                                <div>
-                                                    <div className="font-medium text-gray-900">
-                                                        {record.employee.name || 'Sans nom'}
+                                                <div className="text-sm text-gray-500">
+                                                    {record.checkIn} → {record.checkOut || '...'}
+                                                </div>
+                                            </td>
+
+                                            {/* Employé */}
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${getAvatarColor(record.employee.name)} flex items-center justify-center text-white font-bold text-sm`}>
+                                                        {getInitials(record.employee.name)}
                                                     </div>
-                                                    <div className="text-sm text-gray-500">
-                                                        {record.employee.role}
+                                                    <div>
+                                                        <div className="font-medium text-gray-900">
+                                                            {record.employee.name || 'Sans nom'}
+                                                        </div>
+                                                        <div className="text-sm text-gray-500">
+                                                            {record.employee.role}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </td>
+                                            </td>
 
-                                        {/* Lieu */}
-                                        <td className="px-6 py-4">
-                                            {record.latitude && record.longitude ? (
-                                                <a
-                                                    href={`https://www.google.com/maps?q=${record.latitude},${record.longitude}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-700"
-                                                >
-                                                    <MapPin size={16} />
-                                                    Voir carte
-                                                </a>
-                                            ) : (
-                                                <span className="text-gray-400">—</span>
-                                            )}
-                                        </td>
+                                            {/* Lieu */}
+                                            <td className="px-6 py-4">
+                                                {recordHasLocation ? (
+                                                    <div className="space-y-1">
+                                                        <a
+                                                            href={`https://www.google.com/maps?q=${record.latitude},${record.longitude}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-700"
+                                                        >
+                                                            <MapPin size={16} />
+                                                            Voir carte
+                                                        </a>
+                                                        <div className="text-xs text-gray-500">{formatCoordinates(record)}</div>
+                                                        {hasDistance(record) && (
+                                                            <div className="text-xs font-medium text-amber-700">{formatDistance(record.distanceFromSite!)} du site</div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-400">GPS non fourni</span>
+                                                )}
+                                            </td>
 
-                                        {/* Photo */}
-                                        <td className="px-6 py-4">
-                                            {record.photoUrl ? (
-                                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
-                                                    <img
-                                                        src={record.photoUrl}
-                                                        alt="Preuve"
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                </div>
-                                            ) : (
-                                                <span className="text-gray-400">—</span>
-                                            )}
-                                        </td>
+                                            {/* Photo */}
+                                            <td className="px-6 py-4">
+                                                {proofUrl ? (
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
+                                                            <img
+                                                                src={proofUrl}
+                                                                alt="Preuve"
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        </div>
+                                                        <span className="text-sm text-gray-600">Photo reçue</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-400">Photo non fournie</span>
+                                                )}
+                                            </td>
 
-                                        {/* Durée */}
-                                        <td className="px-6 py-4">
-                                            <span className="font-medium text-gray-900">
-                                                {record.duration}
-                                            </span>
-                                        </td>
+                                            {/* Durée */}
+                                            <td className="px-6 py-4">
+                                                <span className="font-medium text-gray-900">
+                                                    {record.duration}
+                                                </span>
+                                                <p className="mt-1 max-w-[220px] text-xs text-gray-500">{getProofExplanation(record)}</p>
+                                            </td>
 
-                                        {/* Statut */}
-                                        <td className="px-6 py-4">
-                                            <StatusBadge status={record.checkOut ? 'COMPLETE' : 'IN_PROGRESS'} />
-                                        </td>
-                                    </tr>
-                                ))}
+                                            {/* Statut */}
+                                            <td className="px-6 py-4">
+                                                <StatusBadge status={status} />
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

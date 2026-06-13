@@ -219,9 +219,12 @@ export default function DashboardHome() {
 
     // Calculate absent (total - active)
     const absentToday = kpis.totalEmployees - kpis.activeNow;
-    const sitesWithoutGps = sites.filter(site => !site.latitude || !site.longitude);
-    const sitesNotStrict = sites.filter(site => site.latitude && site.longitude && site.gpsMode !== 'STRICT');
-    const sitesToSecure = sites.filter(site => !site.latitude || !site.longitude || site.gpsMode !== 'STRICT');
+    const visibleSites = selectedSiteId ? sites.filter(site => site.id === selectedSiteId) : sites;
+    const hasSiteCoordinates = (site: { latitude: number | null; longitude: number | null }) =>
+        site.latitude !== null && site.longitude !== null;
+    const sitesWithoutGps = visibleSites.filter(site => !hasSiteCoordinates(site));
+    const sitesNotStrict = visibleSites.filter(site => hasSiteCoordinates(site) && site.gpsMode !== 'STRICT');
+    const sitesToSecure = visibleSites.filter(site => !hasSiteCoordinates(site) || site.gpsMode !== 'STRICT');
     const completedOnboardingSteps = onboarding?.steps.filter(step => step.done).length || 0;
     const adminStartUrl = `https://wa.me/${import.meta.env.VITE_BOT_PHONE_NUMBER || '33612345678'}?text=${encodeURIComponent("Admin Start")}`;
     const firstEmployeeName = onboarding?.firstEmployee?.name || 'le collaborateur invité';

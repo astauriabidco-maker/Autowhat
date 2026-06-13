@@ -5,6 +5,7 @@ import { sendMessage } from '../services/whatsappService';
 import { getCredentialsForTenant } from '../services/whatsappConfigService';
 
 const GPS_MODES = ['STRICT', 'WARNING', 'DISABLED'] as const;
+const SITE_GPS_APPROVAL_EXPIRATION_MS = 24 * 60 * 60 * 1000;
 type GpsMode = typeof GPS_MODES[number];
 type CountryBounds = {
     label: string;
@@ -96,6 +97,11 @@ function stringValue(value: unknown): string | null {
     return String(value);
 }
 
+function isExpiredSharedAt(value: unknown, now = new Date()): boolean {
+    const sharedAt = value ? new Date(String(value)) : null;
+    return Boolean(sharedAt && !Number.isNaN(sharedAt.getTime()) && now.getTime() - sharedAt.getTime() > SITE_GPS_APPROVAL_EXPIRATION_MS);
+}
+
 function cleanPhone(value: unknown): string | null {
     const phone = stringValue(value);
     return phone ? phone.replace(/^\+/, '') : null;
@@ -132,12 +138,16 @@ async function getPendingGpsProposalOrNull(tenantId: string, managerId: string) 
     if (!manager) return null;
 
     const data = jsonObject(manager.tempExpenseData);
+    if (isExpiredSharedAt(data.sharedAt)) {
+        return { manager, data, expired: true as const, invalid: false as const };
+    }
+
     const siteId = stringValue(data.siteId);
     const latitude = Number(data.latitude);
     const longitude = Number(data.longitude);
 
     if (!siteId || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-        return { manager, data, invalid: true as const };
+        return { manager, data, expired: false as const, invalid: true as const };
     }
 
     const site = await prisma.site.findFirst({
@@ -145,7 +155,7 @@ async function getPendingGpsProposalOrNull(tenantId: string, managerId: string) 
     });
 
     if (!site) {
-        return { manager, data, invalid: true as const };
+        return { manager, data, expired: false as const, invalid: true as const };
     }
 
     return {
@@ -155,6 +165,7 @@ async function getPendingGpsProposalOrNull(tenantId: string, managerId: string) 
         siteId,
         latitude,
         longitude,
+        expired: false as const,
         invalid: false as const
     };
 }
@@ -272,6 +283,8 @@ export const getSiteGpsActivity = async (req: Request, res: Response) => {
         const pendingProposals = managersWithPending
             .map(manager => {
                 const data = jsonObject(manager.tempExpenseData);
+                if (isExpiredSharedAt(data.sharedAt)) return null;
+
                 const siteId = data.siteId ? String(data.siteId) : null;
                 const site = siteId ? siteMap.get(siteId) : null;
                 const latitude = Number(data.latitude);
@@ -301,7 +314,7 @@ export const getSiteGpsActivity = async (req: Request, res: Response) => {
         const events = await prisma.onboardingEvent.findMany({
             where: {
                 tenantId,
-                type: { in: ['SITE_GPS_POSITION_SHARED', 'SITE_GPS_UPDATED', 'SITE_GPS_REJECTED', 'SITE_GPS_EXPIRED'] }
+                type: { in: ['SITE_GPS_POSITION_SHARED', 'SITE_GPS_UPDATED', 'SITE_GPS_REJECTED', 'SITE_GPS_APPROVAL_REMINDER_SENT', 'SITE_GPS_EXPIRED'] }
             },
             orderBy: { createdAt: 'desc' },
             take: 20,
@@ -363,6 +376,11 @@ export const approveSiteGpsProposal = async (req: Request, res: Response) => {
         const proposal = await getPendingGpsProposalOrNull(tenantId, managerId);
         if (!proposal) {
             return res.status(404).json({ error: 'Position proposée introuvable ou déjà traitée' });
+        }
+
+        if (proposal.expired) {
+            await clearManagerSiteGpsState(proposal.manager.id);
+            return res.status(409).json({ error: 'Position proposée expirée après 24h. La demande a été nettoyée.' });
         }
 
         if (proposal.invalid) {
@@ -438,6 +456,11 @@ export const rejectSiteGpsProposal = async (req: Request, res: Response) => {
         const proposal = await getPendingGpsProposalOrNull(tenantId, managerId);
         if (!proposal) {
             return res.status(404).json({ error: 'Position proposée introuvable ou déjà traitée' });
+        }
+
+        if (proposal.expired) {
+            await clearManagerSiteGpsState(proposal.manager.id);
+            return res.status(409).json({ error: 'Position proposée expirée après 24h. La demande a été nettoyée.' });
         }
 
         const data = proposal.data;

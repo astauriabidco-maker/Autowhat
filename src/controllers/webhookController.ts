@@ -231,7 +231,9 @@ async function processCommand(
             const result = await checkIn(employee, messageTimestamp);
 
             if (result.success) {
-                responseText = `✅ ${result.message} Bon travail ${employee.name} !`;
+                responseText = result.requiresLocation
+                    ? `📍 ${result.message}`
+                    : `✅ ${result.message} Bon travail ${employee.name} !`;
             } else {
                 responseText = `⚠️ ${result.message}`;
             }
@@ -1675,7 +1677,13 @@ async function handleEmployeeActivationAction(
 
     const result = await checkIn(employee, messageTimestamp);
     if (result.success) {
-        await sendMessage(from, `✅ ${result.message} Bon travail ${employee.name || ''} !`, phoneNumberId);
+        await sendMessage(
+            from,
+            result.requiresLocation
+                ? `📍 ${result.message}`
+                : `✅ ${result.message} Bon travail ${employee.name || ''} !`,
+            phoneNumberId
+        );
         await logOnboardingEvent(employee.tenantId, 'FIRST_CHECKIN', employee.id, { source: 'WHATSAPP' });
         await notifyManagersByWhatsApp(
             employee.tenantId,
@@ -2713,6 +2721,12 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                             console.log(`📍 Geofencing result for ${employee.name}: ${JSON.stringify(complianceResult)}`);
 
+                            const nextAttendanceStatus = !complianceResult.isCompliant
+                                ? 'REJECTED'
+                                : complianceResult.warning
+                                    ? 'WARNING'
+                                    : 'PRESENT';
+
                             // Update attendance record with GPS data and warning flag
                             await prisma.attendance.update({
                                 where: { id: todayAttendance.id },
@@ -2720,7 +2734,9 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     latitude,
                                     longitude,
                                     distanceFromSite: complianceResult.distance,
-                                    locationWarning: complianceResult.warning
+                                    locationWarning: complianceResult.warning,
+                                    status: nextAttendanceStatus,
+                                    siteId: employee.siteId || todayAttendance.siteId || null
                                 }
                             });
 
@@ -2730,8 +2746,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 await notifyAllManagers(
                                     employee.tenantId,
                                     'GEOFENCE',
-                                    'Pointage hors zone',
-                                    `📍 ${employee.name || 'Un employé'} a pointé HORS ZONE (Distance: ${distanceKm} km).`,
+                                    nextAttendanceStatus === 'REJECTED' ? 'Pointage refusé hors zone' : 'Pointage sous réserve',
+                                    nextAttendanceStatus === 'REJECTED'
+                                        ? `📍 ${employee.name || 'Un employé'} a tenté de pointer hors zone stricte (Distance: ${distanceKm} km). Le pointage est refusé.`
+                                        : `📍 ${employee.name || 'Un employé'} a pointé hors zone (Distance: ${distanceKm} km). Le pointage est enregistré sous réserve.`,
                                     employee.id
                                 );
                             }

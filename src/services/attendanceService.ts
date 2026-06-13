@@ -9,6 +9,8 @@ interface Employee {
     phoneNumber: string;
     role: string;
     tenantId: string;
+    workProfile?: string | null;
+    siteId?: string | null;
     tenant: {
         id: string;
         name: string;
@@ -19,6 +21,7 @@ interface CheckInResult {
     success: boolean;
     message: string;
     checkInTime?: Date;
+    requiresLocation?: boolean;
 }
 
 interface CheckOutResult {
@@ -48,6 +51,35 @@ const calculateDuration = (checkIn: Date, checkOut: Date): string => {
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
     return `${hours}h${minutes.toString().padStart(2, '0')}`;
 };
+
+async function getInitialAttendanceVerdict(employee: Employee): Promise<{
+    status: string;
+    locationWarning: boolean;
+    requiresLocation: boolean;
+}> {
+    if (employee.workProfile !== 'SEDENTARY' || !employee.siteId) {
+        return { status: 'PRESENT', locationWarning: false, requiresLocation: false };
+    }
+
+    const site = await prisma.site.findUnique({
+        where: { id: employee.siteId },
+        select: { latitude: true, longitude: true, gpsMode: true }
+    });
+
+    if (!site || site.gpsMode === 'DISABLED') {
+        return { status: 'PRESENT', locationWarning: false, requiresLocation: false };
+    }
+
+    if (site.gpsMode === 'STRICT' && site.latitude !== null && site.longitude !== null) {
+        return { status: 'PENDING_GPS', locationWarning: true, requiresLocation: true };
+    }
+
+    if (site.gpsMode === 'STRICT') {
+        return { status: 'WARNING', locationWarning: true, requiresLocation: false };
+    }
+
+    return { status: 'PRESENT', locationWarning: false, requiresLocation: false };
+}
 
 /**
  * Enregistre un pointage d'entrée (Check-in)
@@ -87,13 +119,17 @@ export const checkIn = async (employee: Employee, messageTimestamp?: Date): Prom
         };
     }
 
+    const initialVerdict = await getInitialAttendanceVerdict(employee);
+
     // Créer le pointage d'entrée avec le timestamp réel
     const attendance = await prisma.attendance.create({
         data: {
             checkIn: checkInTime,
             employeeId: employee.id,
             tenantId: employee.tenantId,
-            status: 'PRESENT'
+            siteId: employee.siteId || null,
+            status: initialVerdict.status,
+            locationWarning: initialVerdict.locationWarning
         }
     });
 
@@ -137,8 +173,11 @@ export const checkIn = async (employee: Employee, messageTimestamp?: Date): Prom
 
     return {
         success: true,
-        message: `Pointage enregistré à ${formatTimeInParis(checkInTime)}.`,
-        checkInTime: checkInTime
+        message: initialVerdict.requiresLocation
+            ? `Pointage reçu à ${formatTimeInParis(checkInTime)}. Envoyez maintenant votre position WhatsApp pour validation GPS.`
+            : `Pointage enregistré à ${formatTimeInParis(checkInTime)}.`,
+        checkInTime: checkInTime,
+        requiresLocation: initialVerdict.requiresLocation
     };
 };
 
@@ -158,7 +197,8 @@ export const checkOut = async (employee: Employee, messageTimestamp?: Date): Pro
         where: {
             employeeId: employee.id,
             tenantId: employee.tenantId,
-            checkOut: null
+            checkOut: null,
+            status: { not: 'REJECTED' }
         },
         orderBy: {
             checkIn: 'desc'

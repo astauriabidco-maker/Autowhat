@@ -60,7 +60,7 @@ interface PendingGpsProposal {
 
 interface GpsHistoryEvent {
     id: string;
-    type: 'SITE_GPS_POSITION_SHARED' | 'SITE_GPS_UPDATED' | 'SITE_GPS_REJECTED' | 'SITE_GPS_EXPIRED';
+    type: 'SITE_GPS_POSITION_SHARED' | 'SITE_GPS_UPDATED' | 'SITE_GPS_REJECTED' | 'SITE_GPS_APPROVAL_REMINDER_SENT' | 'SITE_GPS_EXPIRED';
     createdAt: string;
     siteId: string | null;
     siteName: string | null;
@@ -130,7 +130,7 @@ function gpsStatus(site: Site) {
         };
     }
 
-    if (!site.latitude || !site.longitude) {
+    if (!hasCoordinates(site.latitude, site.longitude)) {
         return {
             label: 'GPS manquant',
             icon: <AlertTriangle size={16} />,
@@ -143,6 +143,10 @@ function gpsStatus(site: Site) {
         icon: <CheckCircle2 size={16} />,
         className: 'bg-emerald-50 text-emerald-700 border-emerald-200'
     };
+}
+
+function hasCoordinates(latitude: number | null, longitude: number | null): boolean {
+    return latitude !== null && longitude !== null;
 }
 
 function countryLabel(country?: string | null): string {
@@ -167,6 +171,7 @@ function mapsLink(latitude: number | string | null, longitude: number | string |
 
 function eventLabel(type: GpsHistoryEvent['type']): string {
     if (type === 'SITE_GPS_POSITION_SHARED') return 'Position proposée';
+    if (type === 'SITE_GPS_APPROVAL_REMINDER_SENT') return 'Relance envoyée';
     if (type === 'SITE_GPS_REJECTED') return 'Position refusée';
     if (type === 'SITE_GPS_EXPIRED') return 'Position expirée';
     return 'Site mis à jour';
@@ -338,6 +343,7 @@ export default function SiteGpsCenter() {
             });
             setSuccess(response.data.message || 'Décision enregistrée.');
             await fetchSites();
+            window.dispatchEvent(new Event('whatspoint:gps-pending-changed'));
         } catch (err) {
             if (axios.isAxiosError(err) && err.response?.data?.error) {
                 setError(err.response.data.error);
@@ -376,13 +382,13 @@ export default function SiteGpsCenter() {
                 <div className="rounded-xl border border-gray-200 bg-white p-4">
                     <p className="text-sm text-gray-500">GPS configuré</p>
                     <p className="text-2xl font-bold text-emerald-600 mt-1">
-                        {sites.filter(site => site.latitude && site.longitude && site.gpsMode !== 'DISABLED').length}
+                        {sites.filter(site => hasCoordinates(site.latitude, site.longitude) && site.gpsMode !== 'DISABLED').length}
                     </p>
                 </div>
                 <div className="rounded-xl border border-gray-200 bg-white p-4">
                     <p className="text-sm text-gray-500">À corriger</p>
                     <p className="text-2xl font-bold text-red-600 mt-1">
-                        {sites.filter(site => !site.latitude || !site.longitude || site.gpsMode === 'DISABLED').length}
+                        {sites.filter(site => !hasCoordinates(site.latitude, site.longitude) || site.gpsMode === 'DISABLED').length}
                     </p>
                 </div>
             </div>

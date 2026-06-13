@@ -87,7 +87,16 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
                         id: true,
                         name: true,
                         phoneNumber: true,
-                        role: true
+                        role: true,
+                        workProfile: true,
+                        site: {
+                            select: {
+                                id: true,
+                                name: true,
+                                radius: true,
+                                gpsMode: true
+                            }
+                        }
                     }
                 }
             },
@@ -97,26 +106,59 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
         });
 
         // Format response with Paris timezone
-        const formattedAttendances = attendances.map(a => ({
-            id: a.id,
-            employee: {
-                id: a.employee.id,
-                name: a.employee.name,
-                phoneNumber: a.employee.phoneNumber,
-                role: a.employee.role
-            },
-            date: formatDateInParis(a.checkIn),
-            checkIn: formatTimeInParis(a.checkIn),
-            checkOut: a.checkOut ? formatTimeInParis(a.checkOut) : null,
-            status: a.status,
-            photoUrl: signUploadUrlIfNeeded(a.photoUrl),
-            latitude: a.latitude || null,
-            longitude: a.longitude || null,
-            distanceFromSite: a.distanceFromSite || null,
-            duration: a.checkOut
-                ? calculateDuration(a.checkIn, a.checkOut)
-                : 'En cours'
-        }));
+        const formattedAttendances = attendances.map(a => {
+            const site = a.employee.site;
+            const radius = site?.radius || null;
+            const statusReason = (() => {
+                if (a.status === 'PENDING_GPS') {
+                    return 'Position GPS attendue pour valider ce pointage strict.';
+                }
+                if (a.status === 'REJECTED') {
+                    const distance = a.distanceFromSite !== null ? `${a.distanceFromSite} m` : 'distance inconnue';
+                    return radius
+                        ? `Pointage refusé : hors zone GPS (${distance}, rayon autorisé ${radius} m).`
+                        : `Pointage refusé : hors zone GPS (${distance}).`;
+                }
+                if (a.status === 'WARNING' || a.locationWarning) {
+                    const distance = a.distanceFromSite !== null ? `${a.distanceFromSite} m` : 'distance non vérifiable';
+                    return radius
+                        ? `Pointage sous réserve : contrôle GPS à vérifier (${distance}, rayon ${radius} m).`
+                        : `Pointage sous réserve : contrôle GPS à vérifier (${distance}).`;
+                }
+                if (a.latitude !== null && a.longitude !== null) {
+                    return 'Pointage validé avec position GPS.';
+                }
+                return null;
+            })();
+
+            return {
+                id: a.id,
+                employee: {
+                    id: a.employee.id,
+                    name: a.employee.name,
+                    phoneNumber: a.employee.phoneNumber,
+                    role: a.employee.role,
+                    workProfile: a.employee.workProfile
+                },
+                date: formatDateInParis(a.checkIn),
+                checkIn: formatTimeInParis(a.checkIn),
+                checkOut: a.checkOut ? formatTimeInParis(a.checkOut) : null,
+                status: a.status,
+                statusReason,
+                photoUrl: signUploadUrlIfNeeded(a.photoUrl),
+                latitude: a.latitude ?? null,
+                longitude: a.longitude ?? null,
+                distanceFromSite: a.distanceFromSite ?? null,
+                locationWarning: a.locationWarning,
+                siteId: a.siteId || site?.id || null,
+                siteName: site?.name || null,
+                siteRadius: radius,
+                gpsMode: site?.gpsMode || null,
+                duration: a.checkOut
+                    ? calculateDuration(a.checkIn, a.checkOut)
+                    : 'En cours'
+            };
+        });
 
         res.status(200).json({
             period,
@@ -480,6 +522,14 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
                 const data = typeof manager.tempExpenseData === 'object' && manager.tempExpenseData && !Array.isArray(manager.tempExpenseData)
                     ? manager.tempExpenseData as Record<string, any>
                     : {};
+                const sharedAtDate = data.sharedAt ? new Date(String(data.sharedAt)) : null;
+                const isExpiredProposal = Boolean(
+                    sharedAtDate &&
+                    !Number.isNaN(sharedAtDate.getTime()) &&
+                    now.getTime() - sharedAtDate.getTime() > 24 * 60 * 60 * 1000
+                );
+                if (isExpiredProposal) return null;
+
                 const proposalSiteId = data.siteId ? String(data.siteId) : null;
                 if (siteId && proposalSiteId !== siteId) return null;
                 const site = proposalSiteId ? gpsSiteMap.get(proposalSiteId) : null;
@@ -532,8 +582,10 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
 
         const gpsSevenDaysAgo = new Date(now);
         gpsSevenDaysAgo.setDate(now.getDate() - 7);
-        const missingGpsSites = gpsSites.filter(site => !site.latitude || !site.longitude);
-        const nonStrictSites = gpsSites.filter(site => site.latitude && site.longitude && site.gpsMode !== 'STRICT');
+        const siteHasCoordinates = (site: { latitude: number | null; longitude: number | null }) =>
+            site.latitude !== null && site.longitude !== null;
+        const missingGpsSites = gpsSites.filter(site => !siteHasCoordinates(site));
+        const nonStrictSites = gpsSites.filter(site => siteHasCoordinates(site) && site.gpsMode !== 'STRICT');
         const disabledGpsSites = gpsSites.filter(site => site.gpsMode === 'DISABLED');
         const recentlyRejected = gpsEvents.filter(event => event.type === 'SITE_GPS_REJECTED' && new Date(event.createdAt) >= gpsSevenDaysAgo);
         const recentlyValidated = gpsEvents.filter(event => event.type === 'SITE_GPS_UPDATED' && new Date(event.createdAt) >= gpsSevenDaysAgo);
@@ -576,7 +628,7 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
                 riskLevel,
                 summary: {
                     totalSites: gpsSites.length,
-                    strictSites: gpsSites.filter(site => site.latitude && site.longitude && site.gpsMode === 'STRICT').length,
+                    strictSites: gpsSites.filter(site => siteHasCoordinates(site) && site.gpsMode === 'STRICT').length,
                     missingGpsSites: missingGpsSites.length,
                     nonStrictSites: nonStrictSites.length,
                     disabledGpsSites: disabledGpsSites.length,

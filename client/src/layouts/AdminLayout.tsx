@@ -90,6 +90,7 @@ const mobileNavItems: NavItem[] = [
     { icon: <LayoutDashboard size={20} />, label: 'Accueil', path: '/dashboard' },
     { icon: <Users size={20} />, label: 'Équipe', path: '/employees' },
     { icon: <Clock size={20} />, label: 'Présence', path: '/attendance' },
+    { icon: <MapPin size={20} />, label: 'GPS', path: '/sites-gps' },
     { icon: <Inbox size={20} />, label: 'Demandes', path: '/inbox' },
 ];
 
@@ -169,8 +170,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             } catch (e) { /* ignore if ops not enabled */ }
         };
         fetchPendingBadges();
+        window.addEventListener('whatspoint:gps-pending-changed', fetchPendingBadges);
         const interval = setInterval(fetchPendingBadges, 30000);
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('whatspoint:gps-pending-changed', fetchPendingBadges);
+        };
     }, [navigate]);
 
     // Check for impersonation mode on mount and route changes
@@ -489,7 +494,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </div>
 
             <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-2 pb-[env(safe-area-inset-bottom)]">
-                <div className="grid grid-cols-4 gap-1 py-2">
+                <div className="grid grid-cols-5 gap-1 py-2">
                     {mobileNavItems.map((item) => {
                         const isActive = location.pathname === item.path ||
                             (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
@@ -507,6 +512,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                                 {item.path === '/inbox' && pendingRequests > 0 && (
                                     <span className="absolute top-1 right-5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
                                         {pendingRequests}
+                                    </span>
+                                )}
+                                {item.path === '/sites-gps' && pendingGpsProposals > 0 && (
+                                    <span className="absolute top-1 right-5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center">
+                                        {pendingGpsProposals}
                                     </span>
                                 )}
                             </Link>
