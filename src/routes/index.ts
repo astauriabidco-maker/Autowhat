@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as webhookController from '../controllers/webhookController';
 import * as authController from '../controllers/authController';
 import * as dashboardController from '../controllers/dashboardController';
+import * as attendanceController from '../controllers/attendanceController';
 import * as adminController from '../controllers/adminController';
 import * as expenseController from '../controllers/expenseController';
 import * as documentController from '../controllers/documentController';
@@ -47,6 +48,7 @@ router.get('/api/config/legal', adminController.getLegalContent);
 // Dashboard API Routes (Protected - Manager only)
 router.get('/api/attendance', authenticateManager, dashboardController.getAttendance);
 router.get('/api/attendance/stats', authenticateManager, dashboardController.getAttendanceStats);
+router.patch('/api/attendance/:id/verdict', authenticateManager, attendanceController.updateAttendanceVerdict);
 router.get('/api/dashboard/stats', authenticateManager, dashboardController.getDashboardStats);
 router.get('/api/onboarding/progress', authenticateManager, dashboardController.getOnboardingProgress);
 

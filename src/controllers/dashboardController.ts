@@ -47,9 +47,13 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
         }
 
         const period = (req.query.period as string) || 'today';
+        const requestedDate = typeof req.query.date === 'string' ? new Date(`${req.query.date}T12:00:00.000Z`) : null;
+        const siteId = typeof req.query.siteId === 'string' && req.query.siteId.trim()
+            ? req.query.siteId.trim()
+            : null;
 
         // Calculate date range based on period
-        const now = new Date();
+        const now = requestedDate && !Number.isNaN(requestedDate.getTime()) ? requestedDate : new Date();
         let startDate: Date;
         let endDate: Date = new Date(now);
         endDate.setUTCHours(23, 59, 59, 999);
@@ -72,10 +76,20 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
                 break;
         }
 
+        const siteFilter = siteId
+            ? {
+                OR: [
+                    { siteId },
+                    { siteId: null, employee: { siteId } }
+                ]
+            }
+            : {};
+
         // SECURITY: Query ALWAYS filtered by tenantId from JWT
         const attendances = await prisma.attendance.findMany({
             where: {
                 tenantId: tenantId, // CRITICAL: Multi-tenant isolation
+                ...siteFilter,
                 checkIn: {
                     gte: startDate,
                     lte: endDate
@@ -105,9 +119,25 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
             }
         });
 
+        const attendanceSiteIds = [
+            ...new Set(attendances.map(a => a.siteId || a.employee.site?.id).filter(Boolean))
+        ] as string[];
+        const attendanceSites = attendanceSiteIds.length > 0
+            ? await prisma.site.findMany({
+                where: { tenantId, id: { in: attendanceSiteIds } },
+                select: {
+                    id: true,
+                    name: true,
+                    radius: true,
+                    gpsMode: true
+                }
+            })
+            : [];
+        const siteById = new Map(attendanceSites.map(site => [site.id, site]));
+
         // Format response with Paris timezone
         const formattedAttendances = attendances.map(a => {
-            const site = a.employee.site;
+            const site = a.siteId ? siteById.get(a.siteId) || a.employee.site : a.employee.site;
             const radius = site?.radius || null;
             const statusReason = a.verdictReason || (() => {
                 if (a.status === 'PENDING_GPS') {
@@ -153,11 +183,27 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
                 latitude: a.latitude ?? null,
                 longitude: a.longitude ?? null,
                 distanceFromSite: a.distanceFromSite ?? null,
+                allowedRadius: radius,
                 locationWarning: a.locationWarning,
                 siteId: a.siteId || site?.id || null,
                 siteName: site?.name || null,
                 siteRadius: radius,
                 gpsMode: site?.gpsMode || null,
+                siteGpsMode: site?.gpsMode || null,
+                gps: {
+                    verdict: a.gpsVerdict,
+                    reason: statusReason,
+                    distanceFromSite: a.distanceFromSite ?? null,
+                    allowedRadius: radius,
+                    siteGpsMode: site?.gpsMode || null,
+                    checkedAt: a.gpsCheckedAt,
+                    proofReceivedAt: a.proofReceivedAt,
+                    proof: {
+                        photoUrl: signUploadUrlIfNeeded(a.photoUrl),
+                        latitude: a.latitude ?? null,
+                        longitude: a.longitude ?? null
+                    }
+                },
                 duration: a.checkOut
                     ? calculateDuration(a.checkIn, a.checkOut)
                     : 'En cours'

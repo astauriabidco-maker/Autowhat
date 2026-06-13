@@ -15,7 +15,9 @@ import {
     Loader2,
     CheckCircle,
     XCircle,
-    AlertTriangle
+    AlertTriangle,
+    ChevronRight,
+    ShieldCheck
 } from 'lucide-react';
 import { useSiteContext } from '../context/SiteContext';
 import ExportModal from '../components/ExportModal';
@@ -59,9 +61,23 @@ interface AttendanceRecord {
 interface DetailModalProps {
     record: AttendanceRecord;
     onClose: () => void;
+    onDecision: (record: AttendanceRecord, action: AttendanceDecisionAction) => Promise<void>;
+    decidingAction: AttendanceDecisionAction | null;
 }
 
 type AttendancePeriod = 'today' | 'week' | 'month';
+type AttendanceQuickFilter = 'all' | 'toReview' | 'pendingGps' | 'warning' | 'rejected' | 'accepted';
+type AttendanceDecisionAction = 'APPROVE_EXCEPTION' | 'REJECT' | 'CONFIRM';
+
+const QUICK_FILTERS: Array<{ key: AttendanceQuickFilter; label: string }> = [
+    { key: 'all', label: 'Tous' },
+    { key: 'toReview', label: 'À contrôler' },
+    { key: 'pendingGps', label: 'GPS attendu' },
+    { key: 'warning', label: 'Sous réserve' },
+    { key: 'rejected', label: 'Refusés' },
+    { key: 'accepted', label: 'Acceptés' }
+];
+type DecisionStatus = 'ACCEPTED' | 'WARNING' | 'PENDING_GPS' | 'REJECTED' | 'IN_PROGRESS' | 'UNKNOWN';
 
 function hasNumber(value: number | null | undefined): value is number {
     return typeof value === 'number' && Number.isFinite(value);
@@ -81,6 +97,18 @@ function getProofUrl(record: AttendanceRecord): string | null {
 
 function getRecordStatus(record: AttendanceRecord): string {
     return record.status || (record.checkOut ? 'COMPLETE' : 'IN_PROGRESS');
+}
+
+function getDecisionStatus(record: AttendanceRecord): DecisionStatus {
+    const status = getRecordStatus(record).toUpperCase();
+    const gpsVerdict = (record.gpsVerdict || '').toUpperCase();
+
+    if (isRejectedStatus(status) || gpsVerdict === 'REJECTED') return 'REJECTED';
+    if (status === 'PENDING_GPS' || gpsVerdict === 'PENDING') return 'PENDING_GPS';
+    if (status === 'WARNING' || record.locationWarning || gpsVerdict === 'WARNING' || gpsVerdict === 'NOT_CONFIGURED') return 'WARNING';
+    if (isAcceptedStatus(status) || gpsVerdict === 'APPROVED' || gpsVerdict === 'NOT_REQUIRED') return 'ACCEPTED';
+    if (!record.checkOut) return 'IN_PROGRESS';
+    return 'UNKNOWN';
 }
 
 function formatDistance(distance: number): string {
@@ -103,8 +131,36 @@ function isRejectedStatus(status: string): boolean {
     return ['REJECTED', 'REFUSED', 'DECLINED', 'ABSENT', 'INVALID'].includes(status.toUpperCase());
 }
 
+function isRecordToReview(record: AttendanceRecord): boolean {
+    return ['PENDING_GPS', 'WARNING', 'REJECTED'].includes(getDecisionStatus(record));
+}
+
+function matchesQuickFilter(record: AttendanceRecord, filter: AttendanceQuickFilter): boolean {
+    const status = getDecisionStatus(record);
+
+    switch (filter) {
+        case 'toReview':
+            return isRecordToReview(record);
+        case 'pendingGps':
+            return status === 'PENDING_GPS';
+        case 'warning':
+            return status === 'WARNING';
+        case 'rejected':
+            return status === 'REJECTED';
+        case 'accepted':
+            return status === 'ACCEPTED';
+        case 'all':
+        default:
+            return true;
+    }
+}
+
 function getStatusReason(record: AttendanceRecord): string | null {
     return record.rejectionReason || record.verdictReason || record.statusReason || record.managerComment || null;
+}
+
+function getReadableReason(record: AttendanceRecord): string {
+    return getStatusReason(record) || getProofExplanation(record);
 }
 
 function getSiteLabel(record: AttendanceRecord): string {
@@ -121,6 +177,19 @@ function getDistanceTone(record: AttendanceRecord): 'good' | 'warning' | 'muted'
     if (hasNumber(record.siteRadius) && distanceFromSite > record.siteRadius) return 'warning';
     if (record.locationWarning) return 'warning';
     return 'good';
+}
+
+function formatDateTime(value?: string | null): string {
+    if (!value) return 'Non horodaté';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Horodatage invalide';
+    return new Intl.DateTimeFormat('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(date);
 }
 
 function getProofExplanation(record: AttendanceRecord): string {
@@ -148,10 +217,13 @@ function getProofExplanation(record: AttendanceRecord): string {
     return 'Aucune preuve complémentaire fournie pour ce pointage.';
 }
 
-function DetailModal({ record, onClose }: DetailModalProps) {
+function DetailModal({ record, onClose, onDecision, decidingAction }: DetailModalProps) {
     const recordHasLocation = hasLocation(record);
     const proofUrl = getProofUrl(record);
-    const status = getRecordStatus(record);
+    const status = getDecisionStatus(record);
+    const canApprove = ['PENDING_GPS', 'WARNING', 'REJECTED'].includes(status);
+    const canReject = status !== 'REJECTED';
+    const canConfirm = status !== 'PENDING_GPS';
     const mapUrl = recordHasLocation
         ? `https://www.google.com/maps?q=${record.latitude},${record.longitude}`
         : null;
@@ -192,7 +264,11 @@ function DetailModal({ record, onClose }: DetailModalProps) {
                                 <ProofPill icon={<MapPin size={14} />} label={record.siteName} active />
                             )}
                         </div>
-                        <p className="mt-2 text-sm text-gray-600">{getProofExplanation(record)}</p>
+                        <p className="mt-2 text-sm text-gray-700">{getReadableReason(record)}</p>
+                        <p className="mt-2 text-xs font-medium text-gray-500">
+                            Contrôle GPS : {formatDateTime(record.gpsCheckedAt)}
+                            {record.proofReceivedAt ? ` · Dernière preuve : ${formatDateTime(record.proofReceivedAt)}` : ''}
+                        </p>
                     </div>
                 </div>
 
@@ -274,14 +350,43 @@ function DetailModal({ record, onClose }: DetailModalProps) {
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                <div className="px-4 py-4 sm:px-6 bg-gray-50 border-t border-gray-200 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
                         <span className="flex items-center gap-1">
                             <Clock size={16} />
                             Durée : <strong>{record.duration}</strong>
                         </span>
+                        <StatusBadge status={status} />
                     </div>
-                    <StatusBadge status={status} />
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:w-auto">
+                        <button
+                            type="button"
+                            disabled={!canApprove || decidingAction !== null}
+                            onClick={() => onDecision(record, 'APPROVE_EXCEPTION')}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
+                        >
+                            {decidingAction === 'APPROVE_EXCEPTION' ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                            Valider exception
+                        </button>
+                        <button
+                            type="button"
+                            disabled={!canReject || decidingAction !== null}
+                            onClick={() => onDecision(record, 'REJECT')}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
+                        >
+                            {decidingAction === 'REJECT' ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
+                            Refuser
+                        </button>
+                        <button
+                            type="button"
+                            disabled={!canConfirm || decidingAction !== null}
+                            onClick={() => onDecision(record, 'CONFIRM')}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                        >
+                            {decidingAction === 'CONFIRM' ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+                            Confirmer
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -291,12 +396,12 @@ function DetailModal({ record, onClose }: DetailModalProps) {
 function StatusBadge({ status }: { status?: string | null }) {
     const normalizedStatus = (status || '').toUpperCase();
     const config: Record<string, { bg: string; text: string; label: string; icon?: 'check' | 'x' | 'warning' }> = {
-        COMPLETE: { bg: 'bg-green-100', text: 'text-green-800', label: 'Complet' },
-        COMPLETED: { bg: 'bg-green-100', text: 'text-green-800', label: 'Complet' },
-        PRESENT: { bg: 'bg-green-100', text: 'text-green-800', label: 'Présent' },
+        COMPLETE: { bg: 'bg-green-100', text: 'text-green-800', label: 'Accepté', icon: 'check' },
+        COMPLETED: { bg: 'bg-green-100', text: 'text-green-800', label: 'Accepté', icon: 'check' },
+        PRESENT: { bg: 'bg-green-100', text: 'text-green-800', label: 'Accepté', icon: 'check' },
         ACCEPTED: { bg: 'bg-green-100', text: 'text-green-800', label: 'Accepté', icon: 'check' },
         APPROVED: { bg: 'bg-green-100', text: 'text-green-800', label: 'Accepté', icon: 'check' },
-        VALIDATED: { bg: 'bg-green-100', text: 'text-green-800', label: 'Validé', icon: 'check' },
+        VALIDATED: { bg: 'bg-green-100', text: 'text-green-800', label: 'Accepté', icon: 'check' },
         IN_PROGRESS: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'En cours' },
         INCOMPLETE: { bg: 'bg-red-100', text: 'text-red-800', label: 'Incomplet' },
         CHECKED_IN: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'En cours' },
@@ -379,11 +484,13 @@ export default function Attendance() {
     const [loading, setLoading] = useState(true);
     const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
     const [showExportModal, setShowExportModal] = useState(false);
+    const [decidingAction, setDecidingAction] = useState<AttendanceDecisionAction | null>(null);
 
     // Filters
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
     const [period, setPeriod] = useState<AttendancePeriod>('today');
+    const [quickFilter, setQuickFilter] = useState<AttendanceQuickFilter>('all');
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -392,7 +499,7 @@ export default function Attendance() {
             return;
         }
         fetchData();
-    }, [navigate, period, selectedSiteId]); // Refetch on site change
+    }, [navigate, period, selectedDate, selectedSiteId]); // Refetch on site/date change
 
     const fetchData = async () => {
         setLoading(true);
@@ -400,8 +507,13 @@ export default function Attendance() {
             const token = localStorage.getItem('token');
             const headers = { Authorization: `Bearer ${token}` };
 
+            const attendanceParams = new URLSearchParams({ period, date: selectedDate });
+            if (selectedSiteId) {
+                attendanceParams.set('siteId', selectedSiteId);
+            }
+
             const [attendanceRes, employeesRes] = await Promise.all([
-                axios.get(`/api/attendance?period=${period}`, { headers }),
+                axios.get(`/api/attendance?${attendanceParams.toString()}`, { headers }),
                 axios.get('/api/employees', { headers })
             ]);
 
@@ -414,19 +526,62 @@ export default function Attendance() {
         }
     };
 
+    const handleDecision = async (record: AttendanceRecord, action: AttendanceDecisionAction) => {
+        setDecidingAction(action);
+        try {
+            const token = localStorage.getItem('token');
+            const headers = { Authorization: `Bearer ${token}` };
+            const defaultReason: Record<AttendanceDecisionAction, string> = {
+                APPROVE_EXCEPTION: 'Présence validée exceptionnellement depuis le dashboard manager.',
+                REJECT: 'Pointage refusé depuis le dashboard manager.',
+                CONFIRM: 'Verdict GPS confirmé depuis le dashboard manager.'
+            };
+
+            await axios.patch(
+                `/api/attendance/${record.id}/verdict`,
+                { action, reason: defaultReason[action] },
+                { headers }
+            );
+            await fetchData();
+            setSelectedRecord(null);
+        } catch (err) {
+            console.error('Error updating attendance verdict:', err);
+        } finally {
+            setDecidingAction(null);
+        }
+    };
+
     // Filter records
-    const filteredRecords = records.filter(record => {
+    const baseFilteredRecords = records.filter(record => {
+        if (selectedSiteId && record.siteId !== selectedSiteId) {
+            return false;
+        }
         if (selectedEmployee !== 'all' && record.employee.id !== selectedEmployee) {
             return false;
         }
         return true;
     });
 
+    const quickFilterCounts = QUICK_FILTERS.reduce<Record<AttendanceQuickFilter, number>>((counts, filter) => {
+        counts[filter.key] = baseFilteredRecords.filter(record => matchesQuickFilter(record, filter.key)).length;
+        return counts;
+    }, {
+        all: 0,
+        toReview: 0,
+        pendingGps: 0,
+        warning: 0,
+        rejected: 0,
+        accepted: 0
+    });
+
+    const filteredRecords = baseFilteredRecords.filter(record => matchesQuickFilter(record, quickFilter));
+
     // Stats
     const stats = {
         total: filteredRecords.length,
-        complete: filteredRecords.filter(r => r.checkOut).length,
-        inProgress: filteredRecords.filter(r => !r.checkOut).length
+        accepted: filteredRecords.filter(r => getDecisionStatus(r) === 'ACCEPTED').length,
+        toReview: filteredRecords.filter(r => ['PENDING_GPS', 'WARNING'].includes(getDecisionStatus(r))).length,
+        rejected: filteredRecords.filter(r => getDecisionStatus(r) === 'REJECTED').length
     };
 
     return (
@@ -446,12 +601,12 @@ export default function Attendance() {
                     <div className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</div>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                    <div className="text-xs sm:text-sm text-gray-500">Complets</div>
-                    <div className="text-2xl font-bold text-green-600 mt-1">{stats.complete}</div>
+                    <div className="text-xs sm:text-sm text-gray-500">Acceptés</div>
+                    <div className="text-2xl font-bold text-green-600 mt-1">{stats.accepted}</div>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                    <div className="text-sm text-gray-500">En cours</div>
-                    <div className="text-2xl font-bold text-orange-600 mt-1">{stats.inProgress}</div>
+                    <div className="text-sm text-gray-500">À décider</div>
+                    <div className="text-2xl font-bold text-amber-600 mt-1">{stats.toReview + stats.rejected}</div>
                 </div>
             </div>
 
@@ -507,6 +662,36 @@ export default function Attendance() {
                         Exporter
                     </button>
                 </div>
+
+                <div className="mt-3 border-t border-gray-100 pt-3">
+                    <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+                        {QUICK_FILTERS.map(filter => {
+                            const active = quickFilter === filter.key;
+                            const count = quickFilterCounts[filter.key];
+
+                            return (
+                                <button
+                                    key={filter.key}
+                                    type="button"
+                                    onClick={() => setQuickFilter(filter.key)}
+                                    aria-pressed={active}
+                                    className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-semibold transition ${active
+                                        ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                                        : 'border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 hover:bg-white'
+                                        }`}
+                                >
+                                    <span>{filter.label}</span>
+                                    <span className={`min-w-5 rounded-full px-1.5 py-0.5 text-center text-[11px] leading-none ${active
+                                        ? 'bg-white/20 text-white'
+                                        : 'bg-white text-gray-500'
+                                        }`}>
+                                        {count}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             </div>
 
             {/* Table */}
@@ -526,9 +711,9 @@ export default function Attendance() {
                         {filteredRecords.map((record) => {
                             const recordHasLocation = hasLocation(record);
                             const proofUrl = getProofUrl(record);
-                            const status = getRecordStatus(record);
+                            const status = getDecisionStatus(record);
                             const distanceTone = getDistanceTone(record);
-                            const statusReason = getStatusReason(record);
+                            const readableReason = getReadableReason(record);
 
                             return (
                                 <button
@@ -536,14 +721,23 @@ export default function Attendance() {
                                     onClick={() => setSelectedRecord(record)}
                                     className="w-full p-4 text-left hover:bg-gray-50 transition"
                                 >
-                                    <div className="flex items-start gap-3">
-                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <StatusBadge status={status} />
+                                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600">
+                                            Détails
+                                            <ChevronRight size={15} />
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-3 flex items-start gap-3">
+                                        <div className="flex min-w-0 flex-1 items-center gap-3">
                                             <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${getAvatarColor(record.employee.name)} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
                                                 {getInitials(record.employee.name)}
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="font-semibold text-gray-900 truncate">{record.employee.name || 'Sans nom'}</p>
                                                 <p className="text-sm text-gray-500">{record.date} · {record.checkIn} → {record.checkOut || 'En cours'}</p>
+                                                <p className="mt-0.5 text-xs text-gray-500 truncate">{getSiteLabel(record)}</p>
                                             </div>
                                         </div>
                                         {proofUrl ? (
@@ -555,11 +749,6 @@ export default function Attendance() {
                                                 <Camera size={18} />
                                             </div>
                                         )}
-                                    </div>
-
-                                    <div className="mt-3 flex items-center justify-between gap-2">
-                                        <StatusBadge status={status} />
-                                        <span className="text-sm font-medium text-gray-900">{record.duration}</span>
                                     </div>
 
                                     <div className="mt-3 grid grid-cols-2 gap-2">
@@ -574,9 +763,9 @@ export default function Attendance() {
                                             tone={distanceTone === 'warning' ? 'warning' : 'muted'}
                                         />
                                         <MobileProofMetric
-                                            label="Site"
-                                            value={getSiteLabel(record)}
-                                            tone={record.siteName ? 'good' : 'muted'}
+                                            label="Durée"
+                                            value={record.duration}
+                                            tone={record.checkOut ? 'good' : 'muted'}
                                         />
                                         <MobileProofMetric
                                             label="Preuve"
@@ -587,16 +776,17 @@ export default function Attendance() {
 
                                     <div className="mt-3 flex flex-wrap gap-2">
                                         <ProofPill icon={<MapPin size={14} />} label={recordHasLocation ? 'GPS reçu' : 'GPS absent'} active={recordHasLocation} />
+                                        <ProofPill icon={<ShieldCheck size={14} />} label={`Contrôle GPS: ${formatDateTime(record.gpsCheckedAt)}`} active={Boolean(record.gpsCheckedAt)} />
                                         {record.gpsMode && (
                                             <ProofPill icon={<MapPin size={14} />} label={`Mode ${record.gpsMode}`} active />
                                         )}
                                     </div>
 
-                                    <p className={`mt-3 rounded-lg px-3 py-2 text-xs leading-relaxed ${statusReason || record.locationWarning
+                                    <p className={`mt-3 rounded-lg px-3 py-2 text-xs leading-relaxed ${status !== 'ACCEPTED'
                                         ? 'bg-amber-50 text-amber-800'
                                         : 'bg-gray-50 text-gray-600'
                                         }`}>
-                                        {getProofExplanation(record)}
+                                        {readableReason}
                                     </p>
                                 </button>
                             );
@@ -608,8 +798,8 @@ export default function Attendance() {
                                 <tr>
                                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">
                                         <div className="flex items-center gap-2">
-                                            <Calendar size={16} />
-                                            Date/Heure
+                                            <ShieldCheck size={16} />
+                                            Décision
                                         </div>
                                     </th>
                                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">
@@ -621,7 +811,7 @@ export default function Attendance() {
                                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">
                                         <div className="flex items-center gap-2">
                                             <MapPin size={16} />
-                                            Lieu
+                                            GPS / Site
                                         </div>
                                     </th>
                                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">
@@ -633,11 +823,11 @@ export default function Attendance() {
                                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">
                                         <div className="flex items-center gap-2">
                                             <Clock size={16} />
-                                            Durée
+                                            Horaires
                                         </div>
                                     </th>
                                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">
-                                        Statut
+                                        Action
                                     </th>
                                 </tr>
                             </thead>
@@ -645,7 +835,8 @@ export default function Attendance() {
                                 {filteredRecords.map((record) => {
                                     const recordHasLocation = hasLocation(record);
                                     const proofUrl = getProofUrl(record);
-                                    const status = getRecordStatus(record);
+                                    const status = getDecisionStatus(record);
+                                    const distanceTone = getDistanceTone(record);
 
                                     return (
                                         <tr
@@ -653,18 +844,16 @@ export default function Attendance() {
                                             onClick={() => setSelectedRecord(record)}
                                             className="hover:bg-gray-50 cursor-pointer transition"
                                         >
-                                            {/* Date/Heure */}
-                                            <td className="px-6 py-4">
-                                                <div className="font-medium text-gray-900">
-                                                    {record.date}
-                                                </div>
-                                                <div className="text-sm text-gray-500">
-                                                    {record.checkIn} → {record.checkOut || '...'}
-                                                </div>
+                                            {/* Décision */}
+                                            <td className="px-6 py-4 align-top">
+                                                <StatusBadge status={status} />
+                                                <p className="mt-2 max-w-[260px] text-xs leading-relaxed text-gray-600">
+                                                    {getReadableReason(record)}
+                                                </p>
                                             </td>
 
                                             {/* Employé */}
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4 align-top">
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${getAvatarColor(record.employee.name)} flex items-center justify-center text-white font-bold text-sm`}>
                                                         {getInitials(record.employee.name)}
@@ -676,14 +865,17 @@ export default function Attendance() {
                                                         <div className="text-sm text-gray-500">
                                                             {record.employee.role}
                                                         </div>
+                                                        <div className="mt-1 text-xs text-gray-500">
+                                                            {record.date}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
 
-                                            {/* Lieu */}
-                                            <td className="px-6 py-4">
+                                            {/* GPS / Site */}
+                                            <td className="px-6 py-4 align-top">
                                                 {recordHasLocation ? (
-                                                    <div className="space-y-1">
+                                                    <div className="space-y-2">
                                                         <a
                                                             href={`https://www.google.com/maps?q=${record.latitude},${record.longitude}`}
                                                             target="_blank"
@@ -695,17 +887,27 @@ export default function Attendance() {
                                                             Voir carte
                                                         </a>
                                                         <div className="text-xs text-gray-500">{formatCoordinates(record)}</div>
-                                                        {hasDistance(record) && (
-                                                            <div className="text-xs font-medium text-amber-700">{formatDistance(record.distanceFromSite!)} du site</div>
-                                                        )}
                                                     </div>
                                                 ) : (
                                                     <span className="text-gray-400">GPS non fourni</span>
                                                 )}
+                                                <div className="mt-2 grid max-w-[260px] grid-cols-2 gap-2">
+                                                    <MobileProofMetric
+                                                        label="Distance"
+                                                        value={hasDistance(record) ? formatDistance(record.distanceFromSite!) : 'Non fournie'}
+                                                        tone={distanceTone}
+                                                    />
+                                                    <MobileProofMetric
+                                                        label="Rayon"
+                                                        value={getRadiusLabel(record)}
+                                                        tone={distanceTone === 'warning' ? 'warning' : 'muted'}
+                                                    />
+                                                </div>
+                                                <p className="mt-2 text-xs text-gray-500">{getSiteLabel(record)}</p>
                                             </td>
 
                                             {/* Photo */}
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4 align-top">
                                                 {proofUrl ? (
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
@@ -720,19 +922,37 @@ export default function Attendance() {
                                                 ) : (
                                                     <span className="text-gray-400">Photo non fournie</span>
                                                 )}
+                                                <p className="mt-2 text-xs text-gray-500">
+                                                    Dernière preuve : {formatDateTime(record.proofReceivedAt)}
+                                                </p>
                                             </td>
 
-                                            {/* Durée */}
-                                            <td className="px-6 py-4">
-                                                <span className="font-medium text-gray-900">
-                                                    {record.duration}
-                                                </span>
-                                                <p className="mt-1 max-w-[220px] text-xs text-gray-500">{getProofExplanation(record)}</p>
+                                            {/* Horaires */}
+                                            <td className="px-6 py-4 align-top">
+                                                <div className="font-medium text-gray-900">
+                                                    {record.checkIn} → {record.checkOut || 'En cours'}
+                                                </div>
+                                                <div className="mt-1 text-sm text-gray-500">
+                                                    Durée : {record.duration}
+                                                </div>
+                                                <p className="mt-2 max-w-[220px] text-xs text-gray-500">
+                                                    Contrôle GPS : {formatDateTime(record.gpsCheckedAt)}
+                                                </p>
                                             </td>
 
-                                            {/* Statut */}
-                                            <td className="px-6 py-4">
-                                                <StatusBadge status={status} />
+                                            {/* Action */}
+                                            <td className="px-6 py-4 align-top">
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedRecord(record);
+                                                    }}
+                                                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                                                >
+                                                    Détails
+                                                    <ChevronRight size={16} />
+                                                </button>
                                             </td>
                                         </tr>
                                     );
@@ -749,6 +969,8 @@ export default function Attendance() {
                 <DetailModal
                     record={selectedRecord}
                     onClose={() => setSelectedRecord(null)}
+                    onDecision={handleDecision}
+                    decidingAction={decidingAction}
                 />
             )}
 
