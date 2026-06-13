@@ -289,7 +289,8 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
                 tenantId,
                 ...siteFilter,
                 checkIn: { gte: today, lte: endOfDay },
-                checkOut: null
+                checkOut: null,
+                status: { notIn: ['REJECTED', 'PENDING_GPS'] }
             }
         });
 
@@ -496,6 +497,117 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
                 timeAgo: getTimeAgo(new Date(act.time))
             }));
 
+        // === Supervision pointages GPS ===
+        const attendanceProblemWhere = {
+            tenantId,
+            ...siteFilter,
+            checkIn: { gte: today, lte: endOfDay }
+        };
+        const [pendingGpsToday, warningToday, rejectedToday, recentProblemAttendancesRaw] = await Promise.all([
+            prisma.attendance.count({
+                where: {
+                    ...attendanceProblemWhere,
+                    status: 'PENDING_GPS'
+                }
+            }),
+            prisma.attendance.count({
+                where: {
+                    ...attendanceProblemWhere,
+                    OR: [
+                        { status: 'WARNING' },
+                        { locationWarning: true }
+                    ]
+                }
+            }),
+            prisma.attendance.count({
+                where: {
+                    ...attendanceProblemWhere,
+                    status: 'REJECTED'
+                }
+            }),
+            prisma.attendance.findMany({
+                where: {
+                    tenantId,
+                    ...siteFilter,
+                    OR: [
+                        { status: { in: ['PENDING_GPS', 'WARNING', 'REJECTED'] } },
+                        { locationWarning: true },
+                        { gpsVerdict: { in: ['PENDING', 'WARNING', 'REJECTED', 'NOT_CONFIGURED'] } }
+                    ]
+                },
+                include: {
+                    employee: {
+                        select: {
+                            name: true,
+                            site: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    radius: true
+                                }
+                            }
+                        }
+                    }
+                },
+                orderBy: { checkIn: 'desc' },
+                take: 5
+            })
+        ]);
+
+        const recentProblemAttendances = recentProblemAttendancesRaw.map(att => {
+            const site = att.employee.site;
+            const radius = site?.radius || null;
+            const statusReason = att.verdictReason || (() => {
+                if (att.status === 'PENDING_GPS') {
+                    return 'Position GPS attendue pour valider ce pointage strict.';
+                }
+                if (att.status === 'REJECTED') {
+                    const distance = att.distanceFromSite !== null ? `${att.distanceFromSite} m` : 'distance inconnue';
+                    return radius
+                        ? `Pointage refusé : hors zone GPS (${distance}, rayon autorisé ${radius} m).`
+                        : `Pointage refusé : hors zone GPS (${distance}).`;
+                }
+                if (att.status === 'WARNING' || att.locationWarning || att.gpsVerdict === 'WARNING' || att.gpsVerdict === 'NOT_CONFIGURED') {
+                    const distance = att.distanceFromSite !== null ? `${att.distanceFromSite} m` : 'distance non vérifiable';
+                    return radius
+                        ? `Pointage sous réserve : contrôle GPS à vérifier (${distance}, rayon ${radius} m).`
+                        : `Pointage sous réserve : contrôle GPS à vérifier (${distance}).`;
+                }
+                return null;
+            })();
+
+            return {
+                id: att.id,
+                employeeName: att.employee.name || 'Employé',
+                siteName: site?.name || null,
+                status: att.status,
+                gpsVerdict: att.gpsVerdict,
+                distanceFromSite: att.distanceFromSite ?? null,
+                verdictReason: att.verdictReason,
+                statusReason,
+                checkIn: att.checkIn
+            };
+        });
+
+        const problematicCases = recentProblemAttendances.map(att => ({
+            id: att.id,
+            employeeName: att.employeeName,
+            siteName: att.siteName,
+            status: att.status === 'PENDING_GPS'
+                ? 'GPS_EXPECTED'
+                : att.status === 'REJECTED'
+                    ? 'REJECTED'
+                    : 'PENDING_REVIEW',
+            reason: att.statusReason || att.verdictReason || 'Pointage GPS à vérifier',
+            occurredAt: att.checkIn
+        }));
+        const attendanceToReview = pendingGpsToday + warningToday + rejectedToday;
+        const attendanceRiskLevel = rejectedToday > 0
+            ? 'high'
+            : pendingGpsToday > 0 || warningToday > 0
+                ? 'medium'
+                : 'low';
+
         // === Supervision GPS ===
         const siteWhere = siteId ? { tenantId, id: siteId } : { tenantId };
         const gpsSites = await prisma.site.findMany({
@@ -657,6 +769,20 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
                 ].slice(0, 5),
                 pendingProposals: pendingGpsProposals.slice(0, 5),
                 recentEvents: gpsEvents.slice(0, 6)
+            },
+            attendanceSupervision: {
+                pendingGpsToday,
+                warningToday,
+                rejectedToday,
+                totalToReview: attendanceToReview,
+                summary: {
+                    gpsExpected: pendingGpsToday,
+                    pendingReview: warningToday,
+                    rejected: rejectedToday
+                },
+                recentProblemAttendances,
+                problematicCases,
+                riskLevel: attendanceRiskLevel
             }
         });
     } catch (error) {

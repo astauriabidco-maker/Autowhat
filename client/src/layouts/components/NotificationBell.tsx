@@ -23,9 +23,10 @@ const typeConfig: Record<string, { icon: LucideIcon; color: string; bgColor: str
 
 interface NotificationBellProps {
     gpsPendingCount?: number;
+    attendanceGpsPendingCount?: number;
 }
 
-export default function NotificationBell({ gpsPendingCount = 0 }: NotificationBellProps) {
+export default function NotificationBell({ gpsPendingCount = 0, attendanceGpsPendingCount = 0 }: NotificationBellProps) {
     const navigate = useNavigate();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -145,8 +146,9 @@ export default function NotificationBell({ gpsPendingCount = 0 }: NotificationBe
         return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
     };
 
-    const totalBadgeCount = unreadCount + gpsPendingCount;
-    const recentNotifications = notifications.slice(0, gpsPendingCount > 0 ? 4 : 5);
+    const supervisionEntryCount = (gpsPendingCount > 0 ? 1 : 0) + (attendanceGpsPendingCount > 0 ? 1 : 0);
+    const totalBadgeCount = unreadCount + gpsPendingCount + attendanceGpsPendingCount;
+    const recentNotifications = notifications.slice(0, Math.max(1, 5 - supervisionEntryCount));
 
     return (
         <div className="relative" ref={dropdownRef}>
@@ -223,7 +225,37 @@ export default function NotificationBell({ gpsPendingCount = 0 }: NotificationBe
                             </button>
                         )}
 
-                        {recentNotifications.length === 0 && gpsPendingCount === 0 ? (
+                        {attendanceGpsPendingCount > 0 && (
+                            <button
+                                onClick={() => {
+                                    setIsOpen(false);
+                                    navigate('/attendance');
+                                }}
+                                className="w-full text-left px-4 py-3 border-b border-violet-100 bg-violet-50 hover:bg-violet-100 transition flex items-start gap-3"
+                            >
+                                <div className="p-2 rounded-lg bg-violet-100">
+                                    <Clock size={16} className="text-violet-700" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-sm font-semibold text-violet-950 truncate">
+                                            Pointages GPS à contrôler
+                                        </span>
+                                        <span className="min-w-[20px] h-5 flex items-center justify-center bg-violet-500 text-white text-xs font-bold rounded-full px-1">
+                                            {attendanceGpsPendingCount}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-violet-800 truncate mt-0.5">
+                                        {attendanceGpsPendingCount} pointage{attendanceGpsPendingCount > 1 ? 's' : ''} à vérifier.
+                                    </p>
+                                    <p className="text-xs text-violet-700 mt-1">
+                                        Ouvrir Pointage & présence
+                                    </p>
+                                </div>
+                            </button>
+                        )}
+
+                        {recentNotifications.length === 0 && gpsPendingCount === 0 && attendanceGpsPendingCount === 0 ? (
                             <div className="py-8 text-center text-gray-500">
                                 <Bell size={32} className="mx-auto mb-2 opacity-30" />
                                 <p className="text-sm">Aucune notification</p>

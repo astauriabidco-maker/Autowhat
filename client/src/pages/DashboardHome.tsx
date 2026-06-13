@@ -85,6 +85,7 @@ interface DashboardStats {
     recentActivity: ActivityItem[];
     analytics?: AnalyticsData;
     gpsSupervision?: GpsSupervision;
+    attendanceSupervision?: AttendanceSupervision;
 }
 
 interface GpsSupervision {
@@ -127,6 +128,24 @@ interface GpsSupervision {
     }>;
 }
 
+interface AttendanceProblematicCase {
+    id: string;
+    employeeName?: string | null;
+    siteName?: string | null;
+    status?: 'PENDING_REVIEW' | 'REJECTED' | 'GPS_EXPECTED' | string;
+    reason?: string | null;
+    occurredAt?: string | null;
+}
+
+interface AttendanceSupervision {
+    summary?: {
+        gpsExpected?: number;
+        pendingReview?: number;
+        rejected?: number;
+    };
+    problematicCases?: AttendanceProblematicCase[];
+}
+
 interface OnboardingStep {
     key: string;
     label: string;
@@ -166,6 +185,7 @@ export default function DashboardHome() {
     const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
     const [onboarding, setOnboarding] = useState<OnboardingProgress | null>(null);
     const [gpsSupervision, setGpsSupervision] = useState<GpsSupervision | null>(null);
+    const [attendanceSupervision, setAttendanceSupervision] = useState<AttendanceSupervision | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -190,7 +210,16 @@ export default function DashboardHome() {
                 axios.get<OnboardingProgress>('/api/onboarding/progress', { headers })
             ]);
 
-            const { totalEmployees, activeNow, pendingExpenses, weeklyActivity, recentActivity, analytics: analyticsData, gpsSupervision: gpsData } = response.data;
+            const {
+                totalEmployees,
+                activeNow,
+                pendingExpenses,
+                weeklyActivity,
+                recentActivity,
+                analytics: analyticsData,
+                gpsSupervision: gpsData,
+                attendanceSupervision: attendanceData
+            } = response.data;
 
             setKpis({
                 totalEmployees,
@@ -204,6 +233,7 @@ export default function DashboardHome() {
                 setAnalytics(analyticsData);
             }
             setGpsSupervision(gpsData || null);
+            setAttendanceSupervision(attendanceData || null);
             setOnboarding(onboardingResponse.data);
 
         } catch (err: unknown) {
@@ -378,6 +408,23 @@ export default function DashboardHome() {
             manager_dashboard_rejected: 'Dashboard refusé'
         };
         return labels[source] || source;
+    };
+    const attendanceSummary = attendanceSupervision?.summary;
+    const attendanceCases = attendanceSupervision?.problematicCases?.slice(0, 3) || [];
+    const attendanceToReview =
+        (attendanceSummary?.gpsExpected || 0) +
+        (attendanceSummary?.pendingReview || 0) +
+        (attendanceSummary?.rejected || 0);
+    const attendanceStatusLabel = (status: AttendanceProblematicCase['status']) => {
+        if (status === 'PENDING_REVIEW') return 'Sous réserve';
+        if (status === 'REJECTED') return 'Refusé';
+        if (status === 'GPS_EXPECTED') return 'GPS attendu';
+        return 'À contrôler';
+    };
+    const attendanceStatusClass = (status: AttendanceProblematicCase['status']) => {
+        if (status === 'REJECTED') return 'bg-red-100 text-red-700';
+        if (status === 'PENDING_REVIEW') return 'bg-amber-100 text-amber-700';
+        return 'bg-blue-100 text-blue-700';
     };
 
     if (loading) {
@@ -706,6 +753,88 @@ export default function DashboardHome() {
                             </div>
                         </div>
                     </div>
+                </section>
+            )}
+
+            {attendanceSupervision && (
+                <section className="bg-white border border-blue-200 rounded-xl shadow-sm p-4 sm:p-5">
+                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                            <div className={clsx(
+                                'p-2 rounded-lg shrink-0',
+                                attendanceToReview > 0 ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                            )}>
+                                {attendanceToReview > 0 ? <MapPin size={22} /> : <CheckCircle size={22} />}
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-gray-900">Pointages GPS à contrôler</h3>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    {attendanceToReview > 0
+                                        ? `${attendanceToReview} pointage${attendanceToReview > 1 ? 's' : ''} demande${attendanceToReview > 1 ? 'nt' : ''} une vérification manager.`
+                                        : 'Aucun pointage GPS problématique signalé.'}
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => navigate('/attendance')}
+                            className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-lg bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition"
+                        >
+                            Ouvrir les pointages
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-4">
+                        {[
+                            {
+                                label: 'GPS attendu',
+                                value: attendanceSummary?.gpsExpected || 0,
+                                tone: 'blue'
+                            },
+                            {
+                                label: 'Sous réserve',
+                                value: attendanceSummary?.pendingReview || 0,
+                                tone: 'amber'
+                            },
+                            {
+                                label: 'Refusés',
+                                value: attendanceSummary?.rejected || 0,
+                                tone: 'red'
+                            }
+                        ].map(item => (
+                            <div key={item.label} className={clsx(
+                                'rounded-lg border p-3',
+                                item.tone === 'blue' && 'bg-blue-50 border-blue-200 text-blue-800',
+                                item.tone === 'amber' && 'bg-amber-50 border-amber-200 text-amber-800',
+                                item.tone === 'red' && 'bg-red-50 border-red-200 text-red-800'
+                            )}>
+                                <p className="text-[11px] sm:text-xs font-semibold leading-tight">{item.label}</p>
+                                <p className="text-xl sm:text-2xl font-bold mt-1">{item.value}</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    {attendanceCases.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                            {attendanceCases.map(item => (
+                                <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg bg-gray-50 border border-gray-200 p-3">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-gray-900 truncate">
+                                            {item.employeeName || 'Collaborateur'}{item.siteName ? ` · ${item.siteName}` : ''}
+                                        </p>
+                                        <p className="text-xs text-gray-500 mt-0.5 truncate">
+                                            {item.reason || 'Pointage à vérifier'} · {formatShortDate(item.occurredAt)}
+                                        </p>
+                                    </div>
+                                    <span className={clsx(
+                                        'w-fit rounded-full px-2 py-0.5 text-xs font-semibold shrink-0',
+                                        attendanceStatusClass(item.status)
+                                    )}>
+                                        {attendanceStatusLabel(item.status)}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </section>
             )}
 

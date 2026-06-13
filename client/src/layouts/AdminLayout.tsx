@@ -94,6 +94,54 @@ const mobileNavItems: NavItem[] = [
     { icon: <Inbox size={20} />, label: 'Demandes', path: '/inbox' },
 ];
 
+const getAttendanceGpsPendingCount = (data: unknown) => {
+    if (!data || typeof data !== 'object') return 0;
+    const stats = data as {
+        attendanceSupervision?: {
+            totalToReview?: unknown;
+            summary?: {
+                gpsExpected?: unknown;
+                pendingReview?: unknown;
+                rejected?: unknown;
+            };
+            pendingGpsToday?: unknown;
+            warningToday?: unknown;
+            rejectedToday?: unknown;
+            pendingGps?: unknown;
+            pendingGpsCount?: unknown;
+            toReview?: unknown;
+            recentProblemAttendances?: unknown;
+        };
+    };
+    const supervision = stats.attendanceSupervision;
+    if (!supervision) return 0;
+
+    if (typeof supervision.totalToReview === 'number' && Number.isFinite(supervision.totalToReview)) {
+        return supervision.totalToReview;
+    }
+
+    const summaryCounts = [
+        supervision.summary?.gpsExpected,
+        supervision.summary?.pendingReview,
+        supervision.summary?.rejected
+    ];
+    if (summaryCounts.every(value => typeof value === 'number' && Number.isFinite(value))) {
+        return summaryCounts.reduce<number>((total, value) => total + Number(value), 0);
+    }
+
+    const numericCount = [
+        supervision.pendingGpsToday,
+        supervision.warningToday,
+        supervision.rejectedToday,
+        supervision.pendingGps,
+        supervision.pendingGpsCount,
+        supervision.toReview
+    ].find(value => typeof value === 'number' && Number.isFinite(value));
+
+    if (typeof numericCount === 'number') return numericCount;
+    return Array.isArray(supervision.recentProblemAttendances) ? supervision.recentProblemAttendances.length : 0;
+};
+
 interface AdminLayoutProps {
     children: React.ReactNode;
 }
@@ -106,6 +154,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     const [tenantInfo, setTenantInfo] = useState<{ plan?: string; trialEndsAt?: string | null; maxEmployees?: number } | null>(null);
     const [pendingRequests, setPendingRequests] = useState(0);
     const [pendingGpsProposals, setPendingGpsProposals] = useState(0);
+    const [pendingAttendanceGpsChecks, setPendingAttendanceGpsChecks] = useState(0);
 
     // Support Mode - SuperAdmin Impersonation
     const [isImpersonating, setIsImpersonating] = useState(false);
@@ -156,9 +205,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 const token = localStorage.getItem('token');
                 if (!token) return;
                 const headers = { Authorization: `Bearer ${token}` };
-                const [requestsRes, gpsRes] = await Promise.allSettled([
+                const [requestsRes, gpsRes, dashboardRes] = await Promise.allSettled([
                     axios.get('/api/intervention-requests/stats', { headers }),
-                    axios.get('/api/sites/gps-activity', { headers })
+                    axios.get('/api/sites/gps-activity', { headers }),
+                    axios.get('/api/dashboard/stats', { headers })
                 ]);
 
                 if (requestsRes.status === 'fulfilled') {
@@ -166,6 +216,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 }
                 if (gpsRes.status === 'fulfilled') {
                     setPendingGpsProposals(gpsRes.value.data.pendingProposals?.length || 0);
+                }
+                if (dashboardRes.status === 'fulfilled') {
+                    setPendingAttendanceGpsChecks(getAttendanceGpsPendingCount(dashboardRes.value.data));
                 }
             } catch (e) { /* ignore if ops not enabled */ }
         };
@@ -347,6 +400,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                                                                 {pendingGpsProposals}
                                                             </span>
                                                         )}
+                                                        {item.path === '/attendance' && pendingAttendanceGpsChecks > 0 && (
+                                                            <span className="ml-auto px-2 py-0.5 bg-violet-500 text-white text-[10px] font-bold rounded-full min-w-[20px] text-center animate-pulse">
+                                                                {pendingAttendanceGpsChecks}
+                                                            </span>
+                                                        )}
                                                     </>
                                                 )}
                                                 {collapsed && (item.path === '/operations/requests' || item.path === '/inbox') && pendingRequests > 0 && (
@@ -357,6 +415,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                                                 {collapsed && item.path === '/sites-gps' && pendingGpsProposals > 0 && (
                                                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
                                                         {pendingGpsProposals}
+                                                    </span>
+                                                )}
+                                                {collapsed && item.path === '/attendance' && pendingAttendanceGpsChecks > 0 && (
+                                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-violet-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                                                        {pendingAttendanceGpsChecks}
                                                     </span>
                                                 )}
                                             </Link>
@@ -468,7 +531,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                         </div>
                         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
                             {/* Notification Bell */}
-                            <NotificationBell gpsPendingCount={pendingGpsProposals} />
+                            <NotificationBell
+                                gpsPendingCount={pendingGpsProposals}
+                                attendanceGpsPendingCount={pendingAttendanceGpsChecks}
+                            />
 
                             {/* Language Switcher */}
                             <LanguageSwitcher />
@@ -517,6 +583,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                                 {item.path === '/sites-gps' && pendingGpsProposals > 0 && (
                                     <span className="absolute top-1 right-5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center">
                                         {pendingGpsProposals}
+                                    </span>
+                                )}
+                                {item.path === '/attendance' && pendingAttendanceGpsChecks > 0 && (
+                                    <span className="absolute top-1 right-5 min-w-[18px] h-[18px] px-1 rounded-full bg-violet-500 text-white text-[10px] flex items-center justify-center">
+                                        {pendingAttendanceGpsChecks}
                                     </span>
                                 )}
                             </Link>
