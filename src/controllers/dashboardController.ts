@@ -109,7 +109,7 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
         const formattedAttendances = attendances.map(a => {
             const site = a.employee.site;
             const radius = site?.radius || null;
-            const statusReason = (() => {
+            const statusReason = a.verdictReason || (() => {
                 if (a.status === 'PENDING_GPS') {
                     return 'Position GPS attendue pour valider ce pointage strict.';
                 }
@@ -145,6 +145,10 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
                 checkOut: a.checkOut ? formatTimeInParis(a.checkOut) : null,
                 status: a.status,
                 statusReason,
+                verdictReason: a.verdictReason,
+                gpsVerdict: a.gpsVerdict,
+                gpsCheckedAt: a.gpsCheckedAt,
+                proofReceivedAt: a.proofReceivedAt,
                 photoUrl: signUploadUrlIfNeeded(a.photoUrl),
                 latitude: a.latitude ?? null,
                 longitude: a.longitude ?? null,

@@ -46,8 +46,12 @@ interface AttendanceRecord {
     siteName?: string | null;
     siteRadius?: number | null;
     gpsMode?: string | null;
+    gpsVerdict?: string | null;
+    gpsCheckedAt?: string | null;
+    proofReceivedAt?: string | null;
     duration: string;
     rejectionReason?: string | null;
+    verdictReason?: string | null;
     statusReason?: string | null;
     managerComment?: string | null;
 }
@@ -100,7 +104,23 @@ function isRejectedStatus(status: string): boolean {
 }
 
 function getStatusReason(record: AttendanceRecord): string | null {
-    return record.rejectionReason || record.statusReason || record.managerComment || null;
+    return record.rejectionReason || record.verdictReason || record.statusReason || record.managerComment || null;
+}
+
+function getSiteLabel(record: AttendanceRecord): string {
+    return record.siteName || 'Site non précisé';
+}
+
+function getRadiusLabel(record: AttendanceRecord): string {
+    return hasNumber(record.siteRadius) ? `${record.siteRadius} m` : 'Rayon non précisé';
+}
+
+function getDistanceTone(record: AttendanceRecord): 'good' | 'warning' | 'muted' {
+    const distanceFromSite = record.distanceFromSite;
+    if (!hasNumber(distanceFromSite)) return 'muted';
+    if (hasNumber(record.siteRadius) && distanceFromSite > record.siteRadius) return 'warning';
+    if (record.locationWarning) return 'warning';
+    return 'good';
 }
 
 function getProofExplanation(record: AttendanceRecord): string {
@@ -318,6 +338,21 @@ function ProofPill({ icon, label, active }: { icon: ReactNode; label: string; ac
     );
 }
 
+function MobileProofMetric({ label, value, tone = 'muted' }: { label: string; value: string; tone?: 'good' | 'warning' | 'muted' }) {
+    const toneClass = {
+        good: 'border-green-200 bg-green-50 text-green-800',
+        warning: 'border-amber-200 bg-amber-50 text-amber-800',
+        muted: 'border-gray-200 bg-gray-50 text-gray-700'
+    }[tone];
+
+    return (
+        <div className={`min-w-0 rounded-lg border px-3 py-2 ${toneClass}`}>
+            <div className="text-[11px] font-medium uppercase tracking-normal opacity-70">{label}</div>
+            <div className="mt-0.5 truncate text-sm font-semibold">{value}</div>
+        </div>
+    );
+}
+
 function getInitials(name: string | null): string {
     if (!name) return '?';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -421,15 +456,15 @@ export default function Attendance() {
             </div>
 
             {/* Filters Bar */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:flex xl:items-center gap-3 sm:gap-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 shadow-sm">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 xl:flex xl:items-center">
                     {/* Period Selector */}
-                    <div className="flex items-center gap-2">
-                        <Filter size={18} className="text-gray-400" />
+                    <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-2.5 py-2 sm:border-0 sm:px-0 sm:py-0">
+                        <Filter size={17} className="text-gray-400 flex-shrink-0" />
                         <select
                             value={period}
                             onChange={(e) => setPeriod(e.target.value as AttendancePeriod)}
-                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                            className="w-full bg-transparent text-sm font-medium text-gray-800 focus:outline-none sm:px-3 sm:py-2.5 sm:border sm:border-gray-300 sm:rounded-lg sm:focus:ring-2 sm:focus:ring-indigo-500 sm:focus:border-indigo-500"
                         >
                             <option value="today">Aujourd'hui</option>
                             <option value="week">Cette semaine</option>
@@ -438,23 +473,23 @@ export default function Attendance() {
                     </div>
 
                     {/* Date Picker */}
-                    <div className="flex items-center gap-2">
-                        <Calendar size={18} className="text-gray-400" />
+                    <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-2.5 py-2 sm:border-0 sm:px-0 sm:py-0">
+                        <Calendar size={17} className="text-gray-400 flex-shrink-0" />
                         <input
                             type="date"
                             value={selectedDate}
                             onChange={(e) => setSelectedDate(e.target.value)}
-                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full bg-transparent text-sm font-medium text-gray-800 focus:outline-none sm:px-3 sm:py-2.5 sm:border sm:border-gray-300 sm:rounded-lg sm:focus:ring-2 sm:focus:ring-indigo-500 sm:focus:border-indigo-500"
                         />
                     </div>
 
                     {/* Employee Filter */}
-                    <div className="flex items-center gap-2">
-                        <User size={18} className="text-gray-400" />
+                    <div className="col-span-2 flex items-center gap-2 rounded-lg border border-gray-200 px-2.5 py-2 sm:col-span-1 sm:border-0 sm:px-0 sm:py-0">
+                        <User size={17} className="text-gray-400 flex-shrink-0" />
                         <select
                             value={selectedEmployee}
                             onChange={(e) => setSelectedEmployee(e.target.value)}
-                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white min-w-[150px]"
+                            className="w-full min-w-0 bg-transparent text-sm font-medium text-gray-800 focus:outline-none sm:min-w-[150px] sm:px-3 sm:py-2.5 sm:border sm:border-gray-300 sm:rounded-lg sm:focus:ring-2 sm:focus:ring-indigo-500 sm:focus:border-indigo-500"
                         >
                             <option value="all">Tous les employés</option>
                             {employees.map(emp => (
@@ -466,10 +501,10 @@ export default function Attendance() {
                     {/* Export Button */}
                     <button
                         onClick={() => setShowExportModal(true)}
-                        className="sm:col-span-2 xl:col-span-1 xl:ml-auto flex items-center justify-center gap-2 px-4 py-3 xl:py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition font-medium shadow-md"
+                        className="col-span-2 sm:col-span-2 xl:col-span-1 xl:ml-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium shadow-sm"
                     >
                         <FileDown size={18} />
-                        📤 Exporter
+                        Exporter
                     </button>
                 </div>
             </div>
@@ -492,6 +527,8 @@ export default function Attendance() {
                             const recordHasLocation = hasLocation(record);
                             const proofUrl = getProofUrl(record);
                             const status = getRecordStatus(record);
+                            const distanceTone = getDistanceTone(record);
+                            const statusReason = getStatusReason(record);
 
                             return (
                                 <button
@@ -499,32 +536,68 @@ export default function Attendance() {
                                     onClick={() => setSelectedRecord(record)}
                                     className="w-full p-4 text-left hover:bg-gray-50 transition"
                                 >
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex items-center gap-3 min-w-0">
+                                    <div className="flex items-start gap-3">
+                                        <div className="flex items-center gap-3 min-w-0 flex-1">
                                             <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${getAvatarColor(record.employee.name)} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
                                                 {getInitials(record.employee.name)}
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="font-semibold text-gray-900 truncate">{record.employee.name || 'Sans nom'}</p>
-                                                <p className="text-sm text-gray-500">{record.date} · {record.checkIn} → {record.checkOut || '...'}</p>
+                                                <p className="text-sm text-gray-500">{record.date} · {record.checkIn} → {record.checkOut || 'En cours'}</p>
                                             </div>
                                         </div>
-                                        <StatusBadge status={status} />
-                                    </div>
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                        <ProofPill icon={<Camera size={14} />} label={proofUrl ? 'Photo' : 'Sans photo'} active={Boolean(proofUrl)} />
-                                        <ProofPill icon={<MapPin size={14} />} label={recordHasLocation ? 'GPS' : 'Sans GPS'} active={recordHasLocation} />
-                                        {hasDistance(record) && (
-                                            <ProofPill icon={<MapPin size={14} />} label={formatDistance(record.distanceFromSite!)} active />
+                                        {proofUrl ? (
+                                            <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                                                <img src={proofUrl} alt="Preuve" className="h-full w-full object-cover" />
+                                            </div>
+                                        ) : (
+                                            <div className="h-12 w-12 flex-shrink-0 rounded-lg border border-dashed border-gray-300 bg-gray-50 text-gray-400 flex items-center justify-center">
+                                                <Camera size={18} />
+                                            </div>
                                         )}
                                     </div>
-                                    <div className="mt-3 flex items-center justify-between gap-2 text-sm">
-                                        <span className="font-medium text-gray-900">Durée : {record.duration}</span>
-                                        <span className="text-indigo-600 flex items-center gap-1">
-                                            Détails
-                                        </span>
+
+                                    <div className="mt-3 flex items-center justify-between gap-2">
+                                        <StatusBadge status={status} />
+                                        <span className="text-sm font-medium text-gray-900">{record.duration}</span>
                                     </div>
-                                    <p className="mt-2 line-clamp-2 text-xs text-gray-500">{getProofExplanation(record)}</p>
+
+                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                        <MobileProofMetric
+                                            label="Distance"
+                                            value={hasDistance(record) ? formatDistance(record.distanceFromSite!) : 'Non fournie'}
+                                            tone={distanceTone}
+                                        />
+                                        <MobileProofMetric
+                                            label="Rayon"
+                                            value={getRadiusLabel(record)}
+                                            tone={distanceTone === 'warning' ? 'warning' : 'muted'}
+                                        />
+                                        <MobileProofMetric
+                                            label="Site"
+                                            value={getSiteLabel(record)}
+                                            tone={record.siteName ? 'good' : 'muted'}
+                                        />
+                                        <MobileProofMetric
+                                            label="Preuve"
+                                            value={proofUrl ? 'Photo reçue' : 'Photo absente'}
+                                            tone={proofUrl ? 'good' : 'muted'}
+                                        />
+                                    </div>
+
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        <ProofPill icon={<MapPin size={14} />} label={recordHasLocation ? 'GPS reçu' : 'GPS absent'} active={recordHasLocation} />
+                                        {record.gpsMode && (
+                                            <ProofPill icon={<MapPin size={14} />} label={`Mode ${record.gpsMode}`} active />
+                                        )}
+                                    </div>
+
+                                    <p className={`mt-3 rounded-lg px-3 py-2 text-xs leading-relaxed ${statusReason || record.locationWarning
+                                        ? 'bg-amber-50 text-amber-800'
+                                        : 'bg-gray-50 text-gray-600'
+                                        }`}>
+                                        {getProofExplanation(record)}
+                                    </p>
                                 </button>
                             );
                         })}

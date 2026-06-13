@@ -85,6 +85,44 @@ const EXPENSE_CATEGORY_MAPPING: Record<string, string> = {
     'cat_materiel': 'MATERIEL'
 };
 
+const buildAttendanceGpsVerdict = (status: string): string => {
+    if (status === 'REJECTED') return 'REJECTED';
+    if (status === 'WARNING') return 'WARNING';
+    return 'APPROVED';
+};
+
+const buildAttendanceVerdictReason = (
+    status: string,
+    distance: number | null,
+    message: string
+): string => {
+    const distanceLabel = distance !== null ? ` Distance mesuree: ${distance} m.` : '';
+    if (status === 'REJECTED') {
+        return `Position GPS controlee: pointage refuse hors zone.${distanceLabel}`;
+    }
+    if (status === 'WARNING') {
+        return `Position GPS controlee: pointage enregistre sous reserve.${distanceLabel}`;
+    }
+    return `Position GPS controlee: pointage valide.${distanceLabel || ` ${message}`}`;
+};
+
+async function findOpenAttendanceForProof(employee: any, referenceDate: Date = new Date()) {
+    const startOfDay = new Date(referenceDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(referenceDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    return prisma.attendance.findFirst({
+        where: {
+            employeeId: employee.id,
+            tenantId: employee.tenantId,
+            checkOut: null,
+            checkIn: { gte: startOfDay, lte: endOfDay }
+        },
+        orderBy: { checkIn: 'desc' }
+    });
+}
+
 // Main menu sections for WhatsApp interactive list
 const MENU_SECTIONS = [
     {
@@ -2689,19 +2727,7 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                             console.log(`📍 Processing LOCATION for ${employee.name} (workProfile: ${employee.workProfile || 'MOBILE'})`);
                             const { latitude, longitude } = message.location;
 
-                            // Check if employee has an active attendance record today
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            const endOfDay = new Date(today);
-                            endOfDay.setHours(23, 59, 59, 999);
-
-                            const todayAttendance = await prisma.attendance.findFirst({
-                                where: {
-                                    employeeId: employee.id,
-                                    tenantId: employee.tenantId,
-                                    checkIn: { gte: today, lte: endOfDay }
-                                }
-                            });
+                            const todayAttendance = await findOpenAttendanceForProof(employee, messageTimestamp || new Date());
 
                             if (!todayAttendance) {
                                 await sendMessage(
@@ -2726,6 +2752,7 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 : complianceResult.warning
                                     ? 'WARNING'
                                     : 'PRESENT';
+                            const gpsCheckedAt = new Date();
 
                             // Update attendance record with GPS data and warning flag
                             await prisma.attendance.update({
@@ -2736,6 +2763,14 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     distanceFromSite: complianceResult.distance,
                                     locationWarning: complianceResult.warning,
                                     status: nextAttendanceStatus,
+                                    gpsVerdict: buildAttendanceGpsVerdict(nextAttendanceStatus),
+                                    verdictReason: buildAttendanceVerdictReason(
+                                        nextAttendanceStatus,
+                                        complianceResult.distance,
+                                        complianceResult.message
+                                    ),
+                                    gpsCheckedAt,
+                                    proofReceivedAt: gpsCheckedAt,
                                     siteId: employee.siteId || todayAttendance.siteId || null
                                 }
                             });
@@ -2867,27 +2902,21 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                             // ATTENDANCE: Photo for check-in
                             console.log(`📷 Processing PHOTO ATTENDANCE for ${employee.name}`);
 
-                            // Check if employee has an active attendance record today (already checked in)
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            const endOfDay = new Date(today);
-                            endOfDay.setHours(23, 59, 59, 999);
-
-                            const todayAttendance = await prisma.attendance.findFirst({
-                                where: {
-                                    employeeId: employee.id,
-                                    tenantId: employee.tenantId, // SECURITY: tenant isolation
-                                    checkIn: {
-                                        gte: today,
-                                        lte: endOfDay
-                                    }
-                                }
-                            });
+                            const todayAttendance = await findOpenAttendanceForProof(employee, messageTimestamp || new Date());
 
                             if (!todayAttendance) {
                                 await sendMessage(
                                     from,
                                     `⚠️ Vous devez d'abord pointer votre entrée avec "Hi" avant d'envoyer une photo.`,
+                                    phoneNumberId
+                                );
+                                continue;
+                            }
+
+                            if (todayAttendance.status === 'REJECTED') {
+                                await sendMessage(
+                                    from,
+                                    `⚠️ Votre pointage d'arrivée a été refusé. La photo ne peut pas valider cette présence automatiquement. Contactez votre manager si besoin.`,
                                     phoneNumberId
                                 );
                                 continue;
@@ -2901,14 +2930,19 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 // Update attendance record with photo URL
                                 await prisma.attendance.update({
                                     where: { id: todayAttendance.id },
-                                    data: { photoUrl }
+                                    data: {
+                                        photoUrl,
+                                        proofReceivedAt: new Date()
+                                    }
                                 });
 
                                 console.log(`✅ Photo saved for ${employee.name}: ${photoUrl}`);
 
                                 await sendMessage(
                                     from,
-                                    `📷 Photo bien reçue et ajoutée à ton dossier ! ✅`,
+                                    todayAttendance.status === 'PENDING_GPS'
+                                        ? `📷 Photo bien reçue. Votre arrivée attend encore votre position WhatsApp pour validation GPS.`
+                                        : `📷 Photo bien reçue et ajoutée à ton dossier ! ✅`,
                                     phoneNumberId
                                 );
                             } catch (error) {

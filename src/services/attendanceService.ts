@@ -56,9 +56,17 @@ async function getInitialAttendanceVerdict(employee: Employee): Promise<{
     status: string;
     locationWarning: boolean;
     requiresLocation: boolean;
+    verdictReason: string | null;
+    gpsVerdict: string;
 }> {
     if (employee.workProfile !== 'SEDENTARY' || !employee.siteId) {
-        return { status: 'PRESENT', locationWarning: false, requiresLocation: false };
+        return {
+            status: 'PRESENT',
+            locationWarning: false,
+            requiresLocation: false,
+            verdictReason: 'Contrôle GPS non requis pour ce profil de poste.',
+            gpsVerdict: 'NOT_REQUIRED'
+        };
     }
 
     const site = await prisma.site.findUnique({
@@ -67,18 +75,42 @@ async function getInitialAttendanceVerdict(employee: Employee): Promise<{
     });
 
     if (!site || site.gpsMode === 'DISABLED') {
-        return { status: 'PRESENT', locationWarning: false, requiresLocation: false };
+        return {
+            status: 'PRESENT',
+            locationWarning: false,
+            requiresLocation: false,
+            verdictReason: 'Contrôle GPS désactivé pour le site.',
+            gpsVerdict: 'NOT_REQUIRED'
+        };
     }
 
     if (site.gpsMode === 'STRICT' && site.latitude !== null && site.longitude !== null) {
-        return { status: 'PENDING_GPS', locationWarning: true, requiresLocation: true };
+        return {
+            status: 'PENDING_GPS',
+            locationWarning: true,
+            requiresLocation: true,
+            verdictReason: 'Position GPS attendue pour valider ce pointage strict.',
+            gpsVerdict: 'PENDING'
+        };
     }
 
     if (site.gpsMode === 'STRICT') {
-        return { status: 'WARNING', locationWarning: true, requiresLocation: false };
+        return {
+            status: 'WARNING',
+            locationWarning: true,
+            requiresLocation: false,
+            verdictReason: 'Site en mode GPS strict sans coordonnées configurées.',
+            gpsVerdict: 'NOT_CONFIGURED'
+        };
     }
 
-    return { status: 'PRESENT', locationWarning: false, requiresLocation: false };
+    return {
+        status: 'PRESENT',
+        locationWarning: false,
+        requiresLocation: false,
+        verdictReason: 'Contrôle GPS souple sans preuve requise au pointage.',
+        gpsVerdict: 'NOT_REQUIRED'
+    };
 }
 
 /**
@@ -129,7 +161,9 @@ export const checkIn = async (employee: Employee, messageTimestamp?: Date): Prom
             tenantId: employee.tenantId,
             siteId: employee.siteId || null,
             status: initialVerdict.status,
-            locationWarning: initialVerdict.locationWarning
+            locationWarning: initialVerdict.locationWarning,
+            verdictReason: initialVerdict.verdictReason,
+            gpsVerdict: initialVerdict.gpsVerdict
         }
     });
 
@@ -197,8 +231,7 @@ export const checkOut = async (employee: Employee, messageTimestamp?: Date): Pro
         where: {
             employeeId: employee.id,
             tenantId: employee.tenantId,
-            checkOut: null,
-            status: { not: 'REJECTED' }
+            checkOut: null
         },
         orderBy: {
             checkIn: 'desc'
@@ -209,6 +242,20 @@ export const checkOut = async (employee: Employee, messageTimestamp?: Date): Pro
         return {
             success: false,
             message: "Vous n'avez pas pointé ce matin. Dites 'Hi' pour commencer votre journée."
+        };
+    }
+
+    if (openAttendance.status === 'PENDING_GPS') {
+        return {
+            success: false,
+            message: "Votre arrivée attend encore votre position WhatsApp. Envoyez votre position avant d'enregistrer le départ."
+        };
+    }
+
+    if (openAttendance.status === 'REJECTED') {
+        return {
+            success: false,
+            message: "Votre pointage d'arrivée a été refusé. Le départ ne peut pas être enregistré sur cette journée."
         };
     }
 

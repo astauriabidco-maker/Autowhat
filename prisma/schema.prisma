@@ -305,6 +305,10 @@ model Attendance {
   checkOut   DateTime?
   status     String    @default("PRESENT")
   photoUrl   String?   // URL de la photo de pointage
+  verdictReason  String?   // Raison durable du verdict de pointage
+  gpsVerdict     String?   // PENDING, APPROVED, WARNING, REJECTED, NOT_REQUIRED, NOT_CONFIGURED
+  gpsCheckedAt   DateTime? // Date de contrôle GPS
+  proofReceivedAt DateTime? // Dernière preuve reçue (position ou photo)
   
   // Géolocalisation au pointage
   latitude       Float?
