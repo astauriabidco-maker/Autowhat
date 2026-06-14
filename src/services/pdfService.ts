@@ -47,6 +47,145 @@ const calculateDuration = (checkIn: Date, checkOut: Date | null): string => {
     return `${hours}h${minutes.toString().padStart(2, '0')}`;
 };
 
+type DecisionAuditEvent = {
+    attendanceDate: Date;
+    action: string;
+    previousStatus: string;
+    nextStatus: string;
+    previousGpsVerdict: string | null;
+    nextGpsVerdict: string | null;
+    reason: string | null;
+    createdAt: Date;
+    manager: { name: string | null; phoneNumber: string } | null;
+};
+
+const statusLabels: Record<string, string> = {
+    PRESENT: 'Présent',
+    WARNING: 'Sous réserve',
+    REJECTED: 'Refusé',
+    PENDING_GPS: 'En attente GPS',
+    APPROVED: 'Validé',
+    PENDING: 'En attente',
+    NOT_REQUIRED: 'Non requis',
+    NOT_CONFIGURED: 'Non configuré'
+};
+
+const actionLabels: Record<string, string> = {
+    APPROVE_EXCEPTION: 'Validation exceptionnelle',
+    REJECT: 'Refus',
+    CONFIRM: 'Confirmation'
+};
+
+const labelStatus = (status: string | null): string => {
+    if (!status) return '-';
+    return statusLabels[status] || status;
+};
+
+const labelAction = (action: string): string => actionLabels[action] || action;
+
+const ensurePageSpace = (doc: PDFKit.PDFDocument, y: number, neededHeight: number): number => {
+    if (y + neededHeight > 742) {
+        doc.addPage();
+        return 50;
+    }
+
+    return y;
+};
+
+const formatDecisionTransition = (event: DecisionAuditEvent): string => {
+    const statusTransition = `${labelStatus(event.previousStatus)} -> ${labelStatus(event.nextStatus)}`;
+
+    if (event.previousGpsVerdict || event.nextGpsVerdict) {
+        return `${statusTransition} (GPS ${labelStatus(event.previousGpsVerdict)} -> ${labelStatus(event.nextGpsVerdict)})`;
+    }
+
+    return statusTransition;
+};
+
+const drawDecisionAuditSection = (
+    doc: PDFKit.PDFDocument,
+    startY: number,
+    auditEvents: DecisionAuditEvent[]
+): number => {
+    if (auditEvents.length === 0) {
+        return startY;
+    }
+
+    let y = ensurePageSpace(doc, startY + 20, 95);
+
+    doc.font('Helvetica-Bold')
+        .fontSize(11)
+        .fillColor('#111827')
+        .text('Audit GPS / décisions manager', 50, y);
+
+    y += 18;
+    doc.font('Helvetica')
+        .fontSize(8)
+        .fillColor('#4b5563')
+        .text('Pointages refusés, sous réserve ou validés exceptionnellement avec historique de décision.', 50, y, { width: 480 });
+
+    y += 18;
+
+    const colWidths = [55, 70, 105, 95, 155];
+    const headers = ['Pointage', 'Décision', 'Statut', 'Manager', 'Raison'];
+    let x = 50;
+
+    doc.rect(50, y - 4, 480, 18).fill('#eef2f7');
+    doc.fillColor('#111827')
+        .font('Helvetica-Bold')
+        .fontSize(7.5);
+
+    headers.forEach((header, index) => {
+        doc.text(header, x + 3, y, { width: colWidths[index] - 6 });
+        x += colWidths[index];
+    });
+
+    y += 18;
+
+    auditEvents.forEach((event, index) => {
+        const manager = event.manager?.name || event.manager?.phoneNumber || 'Non renseigné';
+        const reason = event.reason || 'Raison non renseignée';
+        const transition = `${labelAction(event.action)}\n${formatDecisionTransition(event)}`;
+        const rowTexts = [
+            formatDateInParis(event.attendanceDate),
+            formatDateInParis(event.createdAt),
+            transition,
+            manager,
+            reason
+        ];
+        const rowHeight = Math.max(
+            28,
+            ...rowTexts.map((text, textIndex) => doc.heightOfString(text, { width: colWidths[textIndex] - 6 }) + 10)
+        );
+
+        y = ensurePageSpace(doc, y, rowHeight + 8);
+
+        if (index % 2 === 0) {
+            doc.rect(50, y - 3, 480, rowHeight).fill('#fafafa');
+        }
+
+        doc.rect(50, y - 3, 480, rowHeight).strokeColor('#e5e7eb').stroke();
+        doc.fillColor('#111827')
+            .font('Helvetica')
+            .fontSize(7.5);
+
+        x = 50;
+        rowTexts.forEach((text, textIndex) => {
+            doc.text(text, x + 3, y + 2, {
+                width: colWidths[textIndex] - 6,
+                height: rowHeight - 6,
+                ellipsis: true
+            });
+            x += colWidths[textIndex];
+        });
+
+        y += rowHeight;
+    });
+
+    doc.fillColor('#000000').strokeColor('#000000');
+    return y + 10;
+};
+
 /**
  * Generate Individual Timesheet PDF
  * @param employeeId - Employee ID
@@ -90,8 +229,42 @@ export const generateIndividualTimesheet = async (
                 lte: endDate
             }
         },
+        include: {
+            decisionEvents: {
+                orderBy: { createdAt: 'asc' },
+                select: {
+                    action: true,
+                    previousStatus: true,
+                    nextStatus: true,
+                    previousGpsVerdict: true,
+                    nextGpsVerdict: true,
+                    reason: true,
+                    createdAt: true,
+                    manager: {
+                        select: {
+                            name: true,
+                            phoneNumber: true
+                        }
+                    }
+                }
+            }
+        },
         orderBy: { checkIn: 'asc' }
     });
+
+    const auditEvents: DecisionAuditEvent[] = attendances.flatMap((attendance) =>
+        attendance.decisionEvents.map((event) => ({
+            attendanceDate: attendance.checkIn,
+            action: event.action,
+            previousStatus: event.previousStatus,
+            nextStatus: event.nextStatus,
+            previousGpsVerdict: event.previousGpsVerdict,
+            nextGpsVerdict: event.nextGpsVerdict,
+            reason: event.reason,
+            createdAt: event.createdAt,
+            manager: event.manager
+        }))
+    );
 
     // Create attendance map by day
     const attendanceByDay: Map<number, typeof attendances[0]> = new Map();
@@ -211,7 +384,11 @@ export const generateIndividualTimesheet = async (
             }
 
             // Commentaires
-            const comment = !attendance.checkOut ? 'Oubli pointage' : '';
+            const comments = [
+                !attendance.checkOut ? 'Oubli pointage' : '',
+                attendance.decisionEvents.length > 0 ? 'Décision manager' : ''
+            ].filter(Boolean);
+            const comment = comments.join(' / ');
             doc.text(comment, x + 2, y, { width: colWidths[5], align: 'left' });
         } else {
             // No attendance
@@ -245,8 +422,10 @@ export const generateIndividualTimesheet = async (
     doc.text('TOTAL', 52, y + 10, { width: 300 });
     doc.text(`${totalHours}h${remainingMins.toString().padStart(2, '0')}`, 52 + 300, y + 10, { width: 80, align: 'center' });
 
+    const afterAuditY = drawDecisionAuditSection(doc, y + 35, auditEvents);
+
     // ===== SIGNATURES =====
-    const signatureY = Math.min(y + 80, 720);
+    const signatureY = ensurePageSpace(doc, afterAuditY + 20, 80);
 
     doc.font('Helvetica').fontSize(10);
 
