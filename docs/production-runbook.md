@@ -4,6 +4,33 @@ Runbook court pour preparer une beta/production Autowhat. Il ne remplace pas les
 
 ## Checklist Env Production
 
+### Preproduction Coolify
+
+Le serveur Coolify actuellement vise la preproduction, pas la production client finale.
+
+Domaines preproduction:
+
+- Frontend: `https://testbed.whatspoint.com`
+- Backend/API: `https://api.testbed.whatspoint.com`
+
+Configuration a poser dans Coolify:
+
+- utiliser `.env.preproduction.example` comme template de variables;
+- garder `NODE_ENV=production`, car l'image doit tourner avec les garde-fous production;
+- ajouter `APP_ENV=preproduction` pour distinguer les logs, prefixes Redis et procedures;
+- definir `FRONTEND_URL=https://testbed.whatspoint.com`;
+- definir `BACKEND_URL=https://api.testbed.whatspoint.com`;
+- definir `BASE_URL=https://api.testbed.whatspoint.com`;
+- definir `APP_URL=https://testbed.whatspoint.com`;
+- definir `CORS_ORIGINS=https://testbed.whatspoint.com`;
+- generer des secrets preprod distincts de production pour `JWT_SECRET`, `ENCRYPTION_KEY`, `FILE_URL_SECRET`, `LOG_HASH_SECRET`, `WEBHOOK_VERIFY_TOKEN` et `WHATSAPP_APP_SECRET`;
+- verifier que `ENCRYPTION_KEY` fait exactement 32 caracteres;
+- verifier que `AUTH_COOKIE_SECURE=true`.
+
+Avant de redeployer sur Coolify, lancer `npm run env:check` avec les variables Coolify preprod. L'erreur vue au deploy du 12 septembre 2026 venait de variables preprod absentes, pas d'un bug applicatif.
+
+### Production client
+
 Variables obligatoires:
 
 - `NODE_ENV=production`
