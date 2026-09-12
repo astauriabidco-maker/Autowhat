@@ -3,7 +3,7 @@ import multer from 'multer';
 import ExcelJS from 'exceljs';
 import { parsePhoneNumber, isValidPhoneNumber, CountryCode } from 'libphonenumber-js';
 import { sendMessage } from '../services/whatsappService';
-import { getCredentialsForTenant } from '../services/whatsappConfigService';
+import { resolveOutgoingWhatsAppChannel } from '../services/whatsappConfigService';
 import prisma from '../lib/prisma';
 
 
@@ -149,7 +149,7 @@ export const importEmployees = async (req: Request, res: Response): Promise<void
         const countryCode = (tenant.country || 'FR') as CountryCode;
 
         // Get WhatsApp credentials once before the loop (for auto-onboarding messages)
-        const tenantCredentials = await getCredentialsForTenant(tenantId);
+        const tenantCredentials = (await resolveOutgoingWhatsAppChannel(tenantId, 'ONBOARDING')).config;
 
         const rows = await parseImportRows(req.file);
 

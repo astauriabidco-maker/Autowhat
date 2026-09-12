@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { createManagerMagicLoginLink } from '../services/managerMagicLoginService';
 import { sendMessage } from '../services/whatsappService';
-import { getCredentialsForTenant } from '../services/whatsappConfigService';
+import { resolveOutgoingWhatsAppChannel } from '../services/whatsappConfigService';
 
 const LINK_REMINDER_DELAY_MS = 20 * 60 * 1000;
 const INVITE_REMINDER_DELAY_MS = 30 * 60 * 1000;
@@ -90,11 +90,13 @@ async function sendMagicLinkOpenReminders(now: Date): Promise<number> {
         if (alreadyReachedDashboard || alreadyReminded) continue;
 
         const { url } = await createManagerMagicLoginLink(manager.id, { source: 'REMINDER_MAGIC_LINK' });
+        const credentials = (await resolveOutgoingWhatsAppChannel(manager.tenantId, 'ONBOARDING')).config;
         await sendMessage(
             cleanWhatsAppNumber(manager.phoneNumber),
             `👋 Votre espace WhatsPoint est prêt.\n\n` +
             `Ouvrez votre dashboard manager ici :\n${url}\n\n` +
-            `_Ce nouveau lien personnel expire dans 15 minutes._`
+            `_Ce nouveau lien personnel expire dans 15 minutes._`,
+            credentials
         );
 
         await prisma.onboardingEvent.create({
@@ -159,11 +161,13 @@ async function sendFirstEmployeeInviteReminders(now: Date): Promise<number> {
             source: 'REMINDER_EMPLOYEE_INVITE'
         });
 
+        const credentials = (await resolveOutgoingWhatsAppChannel(tenant.id, 'ONBOARDING')).config;
         await sendMessage(
             cleanWhatsAppNumber(manager.phoneNumber),
             `Vous êtes à une étape du premier résultat WhatsPoint.\n\n` +
             `Invitez votre premier collaborateur ici :\n${url}\n\n` +
-            `Vous pouvez aussi répondre *Inviter employé* dans WhatsApp.`
+            `Vous pouvez aussi répondre *Inviter employé* dans WhatsApp.`,
+            credentials
         );
 
         await prisma.onboardingEvent.create({
@@ -239,11 +243,13 @@ async function sendFirstEmployeeActivationReminders(now: Date): Promise<number> 
             source: 'REMINDER_EMPLOYEE_ACTIVATION'
         });
 
+        const credentials = (await resolveOutgoingWhatsAppChannel(tenant.id, 'ONBOARDING')).config;
         await sendMessage(
             cleanWhatsAppNumber(manager.phoneNumber),
             `Votre premier collaborateur n'a pas encore activé WhatsPoint.\n\n` +
             `${firstPendingEmployee.name || 'Le collaborateur invité'} doit simplement répondre au message WhatsApp reçu pour activer son accès.\n\n` +
-            `Vous pouvez suivre ou relancer l'invitation ici :\n${url}`
+            `Vous pouvez suivre ou relancer l'invitation ici :\n${url}`,
+            credentials
         );
 
         await prisma.onboardingEvent.create({
@@ -295,7 +301,7 @@ async function sendSiteGpsApprovalReminders(now: Date): Promise<number> {
             redirectTo: '/sites-gps',
             source: 'REMINDER_SITE_GPS_APPROVAL'
         });
-        const credentials = await getCredentialsForTenant(manager.tenantId);
+        const credentials = (await resolveOutgoingWhatsAppChannel(manager.tenantId, 'ATTENDANCE')).config;
 
         await sendMessage(
             cleanWhatsAppNumber(manager.phoneNumber),
@@ -378,7 +384,7 @@ async function expireSiteGpsApprovalProposals(now: Date): Promise<number> {
         ]);
 
         if (manager.tenant.status !== 'SUSPENDED') {
-            const credentials = await getCredentialsForTenant(manager.tenantId);
+            const credentials = (await resolveOutgoingWhatsAppChannel(manager.tenantId, 'ATTENDANCE')).config;
             await sendMessage(
                 cleanWhatsAppNumber(manager.phoneNumber),
                 `⌛ La proposition GPS pour *${siteName}* a expiré après 24h sans validation.\n\n` +

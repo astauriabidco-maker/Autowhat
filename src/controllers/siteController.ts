@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { sendMessage } from '../services/whatsappService';
-import { getCredentialsForTenant } from '../services/whatsappConfigService';
+import { resolveOutgoingWhatsAppChannel } from '../services/whatsappConfigService';
 
 const GPS_MODES = ['STRICT', 'WARNING', 'DISABLED'] as const;
 const SITE_GPS_APPROVAL_EXPIRATION_MS = 24 * 60 * 60 * 1000;
@@ -112,8 +112,8 @@ async function notifyGpsProvider(tenantId: string, providerPhone: unknown, messa
     if (!phone) return;
 
     try {
-        const credentials = await getCredentialsForTenant(tenantId);
-        await sendMessage(phone, message, credentials);
+        const channel = await resolveOutgoingWhatsAppChannel(tenantId, 'ATTENDANCE');
+        await sendMessage(phone, message, channel.config);
     } catch (error) {
         console.warn('Site GPS provider notification skipped:', error);
     }

@@ -101,6 +101,21 @@ function planScopeLabel(planScope: SystemNumber['planScope']) {
     return planScope === 'ANY' ? 'Tous plans' : planScope;
 }
 
+function normalizeSegment(value?: string | null) {
+    return (value || 'DEFAULT').trim().toUpperCase() || 'DEFAULT';
+}
+
+function isTenantCountryCompatible(number: SystemNumber, tenant: TenantSummary) {
+    const numberCountry = normalizeSegment(number.countryCode);
+    const tenantCountry = normalizeSegment(tenant.country);
+    return numberCountry === 'DEFAULT' || tenantCountry === 'DEFAULT' || numberCountry === tenantCountry;
+}
+
+function isTenantPlanCompatible(number: SystemNumber, tenant: TenantSummary) {
+    const numberPlan = normalizeSegment(number.planScope);
+    return numberPlan === 'ANY' || normalizeSegment(tenant.plan) === numberPlan;
+}
+
 export default function WhatsAppNumbers() {
     const token = localStorage.getItem('superadmin_token');
     const [loading, setLoading] = useState(true);
@@ -142,7 +157,7 @@ export default function WhatsAppNumbers() {
     );
 
     const assignableTenantsFor = useCallback((number: SystemNumber) => (
-        unassignedTenants.filter(tenant => number.planScope === 'ANY' || tenant.plan === number.planScope)
+        unassignedTenants.filter(tenant => isTenantCountryCompatible(number, tenant) && isTenantPlanCompatible(number, tenant))
     ), [unassignedTenants]);
 
     const saveNumber = async () => {
@@ -186,7 +201,10 @@ export default function WhatsAppNumbers() {
             await fetchNumbers();
         } catch (err) {
             console.error('Error assigning WhatsApp number:', err);
-            setError('Assignation impossible. Le numéro est peut-être déjà utilisé.');
+            setError(axios.isAxiosError(err) && err.response?.data?.error
+                ? err.response.data.error
+                : 'Assignation impossible. Le numéro est peut-être déjà utilisé.'
+            );
         } finally {
             setSaving(false);
         }

@@ -19,6 +19,26 @@ function routeParam(value: string | string[] | undefined): string {
     return Array.isArray(value) ? value[0] : value || '';
 }
 
+function assignmentErrorMessage(error: unknown): string {
+    const message = error instanceof Error ? error.message : '';
+    if (message.includes('country mismatch')) {
+        return 'Ce numéro WhatsApp ne correspond pas au pays du client.';
+    }
+    if (message.includes('plan scope')) {
+        return 'Ce numéro WhatsApp est réservé à un autre plan.';
+    }
+    if (message.includes('already assigned')) {
+        return 'Ce numéro WhatsApp dédié est déjà assigné à un autre client.';
+    }
+    if (message.includes('capacity reached')) {
+        return 'Ce numéro WhatsApp a atteint sa capacité.';
+    }
+    if (message.includes('not found or inactive')) {
+        return 'Ce numéro WhatsApp est introuvable ou inactif.';
+    }
+    return 'Impossible d’assigner ce numéro au tenant';
+}
+
 export const getSystemNumbers = async (_req: Request, res: Response): Promise<void> => {
     try {
         const [numbers, tenants] = await Promise.all([
@@ -146,7 +166,9 @@ export const assignSystemNumber = async (req: Request, res: Response): Promise<v
         }
 
         const number = await assignExistingNumberToTenant(tenantId, routeParam(req.params.id), {
-            exclusive: req.body.exclusive ?? true
+            exclusive: req.body.exclusive ?? true,
+            overrideReason: typeof req.body.overrideReason === 'string' ? req.body.overrideReason : undefined,
+            throwOnError: true
         });
 
         if (!number) {
@@ -170,7 +192,7 @@ export const assignSystemNumber = async (req: Request, res: Response): Promise<v
         });
     } catch (error) {
         console.error('Error assigning WhatsApp system number:', error);
-        res.status(500).json({ error: 'Erreur lors de l’assignation du numéro' });
+        res.status(409).json({ error: assignmentErrorMessage(error) });
     }
 };
 

@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma';
+import { assignNumberToTenant } from './numberAllocationService';
 import { decryptSecretIfEncrypted, encryptSecret } from '../utils/crypto';
 /**
  * WhatsApp Config Service
@@ -15,12 +16,33 @@ export interface WhatsAppCredentials {
 }
 
 export type WhatsAppChannelType = 'BYON' | 'SYSTEM' | 'DEFAULT' | 'DISABLED';
+export type OutgoingWhatsAppChannelType = 'BYON' | 'SYSTEM_DEDICATED' | 'SYSTEM_SHARED' | 'DEFAULT';
+export type OutgoingWhatsAppIntent =
+    | 'LOGIN_OTP'
+    | 'ONBOARDING'
+    | 'ATTENDANCE'
+    | 'MANAGER_NOTIFICATION'
+    | 'EMPLOYEE_NOTIFICATION'
+    | 'CUSTOMER_NOTIFICATION'
+    | 'GENERAL'
+    | string;
 
 export interface IncomingWhatsAppChannel {
     type: WhatsAppChannelType;
     phoneNumberId?: string;
     config: WhatsAppCredentials;
     tenantIds?: string[];
+}
+
+export interface OutgoingWhatsAppChannel {
+    type: OutgoingWhatsAppChannelType;
+    intent: OutgoingWhatsAppIntent;
+    tenantId: string;
+    phoneNumberId: string;
+    config: WhatsAppCredentials;
+    systemPhoneNumberId?: string;
+    countryCode?: string;
+    planScope?: string;
 }
 
 function decryptWhatsAppToken(accessToken: string): string {
@@ -102,6 +124,26 @@ export function getDefaultConfig(): WhatsAppCredentials {
         phoneNumberId: phoneId,
         accessToken: token,
         displayName: 'WhatsPoint'
+    };
+}
+
+function normalizeRoutingSegment(value: string | null | undefined, fallback: string): string {
+    return (value || fallback).trim().toUpperCase() || fallback;
+}
+
+function isDefaultFallbackAllowed(): boolean {
+    return process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEFAULT_WHATSAPP_FALLBACK === 'true';
+}
+
+function credentialsFromSystemNumber(number: {
+    phoneNumberId: string;
+    accessToken: string;
+    displayNumber: string;
+}): WhatsAppCredentials {
+    return {
+        phoneNumberId: number.phoneNumberId,
+        accessToken: decryptWhatsAppToken(number.accessToken),
+        displayName: number.displayNumber
     };
 }
 
@@ -206,6 +248,110 @@ export async function resolveIncomingWhatsAppChannel(phoneNumberId?: string): Pr
 }
 
 /**
+ * Resolves the best outbound WhatsApp channel for a tenant and business intent.
+ *
+ * Priority:
+ * 1. Active tenant BYON config.
+ * 2. Active dedicated WhatsPoint number assigned to the tenant.
+ * 3. Active shared WhatsPoint number assigned to, or allocatable for, the tenant country/plan.
+ * 4. Default env credentials only outside production, or with an explicit emergency flag.
+ */
+export async function resolveOutgoingWhatsAppChannel(
+    tenantId: string,
+    intent: OutgoingWhatsAppIntent = 'GENERAL'
+): Promise<OutgoingWhatsAppChannel> {
+    const byonConfig = await getConfigForTenant(tenantId);
+    if (byonConfig) {
+        console.log(`📞 Using BYON WhatsApp channel for tenant ${tenantId}`, { intent });
+        return {
+            type: 'BYON',
+            intent,
+            tenantId,
+            phoneNumberId: byonConfig.phoneNumberId,
+            config: byonConfig
+        };
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        include: { assignedSystemNumber: true }
+    });
+
+    if (!tenant) {
+        throw new Error(`Tenant ${tenantId} not found for WhatsApp outbound routing`);
+    }
+
+    const tenantCountry = normalizeRoutingSegment(tenant.country, 'DEFAULT');
+    const tenantPlan = normalizeRoutingSegment(tenant.plan, 'ANY');
+    const assignedNumber = tenant.assignedSystemNumber;
+
+    if (assignedNumber?.isActive && assignedNumber.setupStatus === 'ACTIVE') {
+        const numberCountry = normalizeRoutingSegment(assignedNumber.countryCode, 'DEFAULT');
+        const numberPlanScope = normalizeRoutingSegment(assignedNumber.planScope, 'ANY');
+        const countryMatches = numberCountry === 'DEFAULT' || tenantCountry === 'DEFAULT' || numberCountry === tenantCountry;
+        const planMatches = numberPlanScope === 'ANY' || numberPlanScope === tenantPlan;
+
+        if (countryMatches && planMatches) {
+            const type = assignedNumber.channelType === 'DEDICATED' ? 'SYSTEM_DEDICATED' : 'SYSTEM_SHARED';
+            console.log(`📞 Using ${type} WhatsApp channel for tenant ${tenantId}`, { intent });
+            return {
+                type,
+                intent,
+                tenantId,
+                phoneNumberId: assignedNumber.phoneNumberId,
+                systemPhoneNumberId: assignedNumber.id,
+                countryCode: assignedNumber.countryCode,
+                planScope: assignedNumber.planScope,
+                config: credentialsFromSystemNumber(assignedNumber)
+            };
+        }
+
+        console.warn('⚠️ Skipping incompatible assigned WhatsApp channel for outbound routing', {
+            tenantId,
+            intent,
+            tenantCountry,
+            tenantPlan,
+            systemPhoneNumberId: assignedNumber.id,
+            numberCountry,
+            numberPlanScope
+        });
+    }
+
+    const allocatedNumber = await assignNumberToTenant(tenantId, tenantCountry);
+    if (allocatedNumber?.isActive && allocatedNumber.setupStatus === 'ACTIVE') {
+        const type = allocatedNumber.channelType === 'DEDICATED' ? 'SYSTEM_DEDICATED' : 'SYSTEM_SHARED';
+        console.log(`📞 Using allocated ${type} WhatsApp channel for tenant ${tenantId}`, { intent });
+        return {
+            type,
+            intent,
+            tenantId,
+            phoneNumberId: allocatedNumber.phoneNumberId,
+            systemPhoneNumberId: allocatedNumber.id,
+            countryCode: allocatedNumber.countryCode,
+            planScope: allocatedNumber.planScope,
+            config: credentialsFromSystemNumber(allocatedNumber)
+        };
+    }
+
+    const defaultConfig = getDefaultConfig();
+    if (isDefaultFallbackAllowed() && defaultConfig.phoneNumberId && defaultConfig.accessToken) {
+        console.warn(`⚠️ Using default WhatsApp fallback for tenant ${tenantId}`, {
+            intent,
+            nodeEnv: process.env.NODE_ENV || 'development'
+        });
+        return {
+            type: 'DEFAULT',
+            intent,
+            tenantId,
+            phoneNumberId: defaultConfig.phoneNumberId,
+            config: defaultConfig
+        };
+    }
+
+    throw new Error(`No active WhatsApp outbound channel available for tenant ${tenantId}`);
+}
+
+/**
  * Get credentials for sending a message to an employee.
  * Checks if their tenant has BYON config, otherwise uses shared number.
  */
@@ -216,10 +362,7 @@ export async function getCredentialsForEmployee(employeeId: string): Promise<Wha
     });
 
     if (employee?.tenantId) {
-        const tenantConfig = await getConfigForTenant(employee.tenantId);
-        if (tenantConfig) {
-            return tenantConfig;
-        }
+        return (await resolveOutgoingWhatsAppChannel(employee.tenantId, 'EMPLOYEE_NOTIFICATION')).config;
     }
 
     return getDefaultConfig();
@@ -233,31 +376,7 @@ export async function getCredentialsForEmployee(employeeId: string): Promise<Wha
  * 3. Default environment credentials (fallback)
  */
 export async function getCredentialsForTenant(tenantId: string): Promise<WhatsAppCredentials> {
-    // Priority 1: Check for BYON config
-    const byonConfig = await getConfigForTenant(tenantId);
-    if (byonConfig) {
-        console.log(`📞 Using BYON config for tenant ${tenantId}`);
-        return byonConfig;
-    }
-
-    // Priority 2: Check for assigned system number from pool
-    const tenant = await prisma.tenant.findUnique({
-        where: { id: tenantId },
-        include: { assignedSystemNumber: true }
-    });
-
-    if (tenant?.assignedSystemNumber?.isActive && tenant.assignedSystemNumber.setupStatus === 'ACTIVE') {
-        console.log(`📞 Using assigned system number for tenant ${tenantId}: ${tenant.assignedSystemNumber.displayNumber}`);
-        return {
-            phoneNumberId: tenant.assignedSystemNumber.phoneNumberId,
-            accessToken: decryptWhatsAppToken(tenant.assignedSystemNumber.accessToken),
-            displayName: tenant.assignedSystemNumber.displayNumber
-        };
-    }
-
-    // Priority 3: Fallback to default env credentials
-    console.log(`📞 Using default credentials for tenant ${tenantId} (no BYON/assigned number)`);
-    return getDefaultConfig();
+    return (await resolveOutgoingWhatsAppChannel(tenantId, 'GENERAL')).config;
 }
 
 // ==================== CRUD OPERATIONS ====================

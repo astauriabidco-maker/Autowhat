@@ -78,6 +78,12 @@ function normalizePlanScope(planScope: string | null | undefined): string {
     return (planScope || ANY_PLAN_SCOPE).trim().toUpperCase() || ANY_PLAN_SCOPE;
 }
 
+function isCountryCompatible(tenantCountry: string | null | undefined, numberCountry: string | null | undefined): boolean {
+    const tenant = normalizeCountryCode(tenantCountry);
+    const number = normalizeCountryCode(numberCountry);
+    return number === 'DEFAULT' || tenant === 'DEFAULT' || tenant === number;
+}
+
 async function syncTenantCount(numberId: string): Promise<SystemPhoneNumber> {
     const tenantCount = await prisma.tenant.count({
         where: { assignedSystemNumberId: numberId }
@@ -158,9 +164,26 @@ export async function assignNumberToTenant(
             return null;
         }
 
-        if (tenant.assignedSystemNumber?.isActive) {
+        const assignedPlanScope = normalizePlanScope(tenant.assignedSystemNumber?.planScope);
+        const tenantPlan = normalizePlanScope(tenant.plan);
+        const assignedNumberIsCompatible = tenant.assignedSystemNumber
+            && isCountryCompatible(countryCode, tenant.assignedSystemNumber.countryCode)
+            && (assignedPlanScope === ANY_PLAN_SCOPE || assignedPlanScope === tenantPlan);
+
+        if (tenant.assignedSystemNumber?.isActive && assignedNumberIsCompatible) {
             console.log(`📞 Tenant ${tenantId} already assigned to ${tenant.assignedSystemNumber.displayNumber}`);
             return syncTenantCount(tenant.assignedSystemNumber.id);
+        }
+
+        if (tenant.assignedSystemNumber?.isActive && !assignedNumberIsCompatible) {
+            console.warn('⚠️ Tenant has incompatible assigned WhatsApp number, looking for a matching pool number', {
+                tenantId,
+                tenantCountry: normalizeCountryCode(countryCode),
+                tenantPlan,
+                assignedSystemNumberId: tenant.assignedSystemNumber.id,
+                numberCountry: normalizeCountryCode(tenant.assignedSystemNumber.countryCode),
+                numberPlanScope: assignedPlanScope
+            });
         }
 
         const candidates = await findAllocationCandidates(countryCode, tenant.plan);
@@ -187,14 +210,14 @@ export async function assignNumberToTenant(
 export async function assignExistingNumberToTenant(
     tenantId: string,
     systemPhoneNumberId: string,
-    options: { exclusive?: boolean } = {}
+    options: { exclusive?: boolean; overrideReason?: string; throwOnError?: boolean } = {}
 ): Promise<SystemPhoneNumber | null> {
     try {
         return await prisma.$transaction(async (tx) => {
             const [tenant, selectedNumber] = await Promise.all([
                 tx.tenant.findUnique({
                     where: { id: tenantId },
-                    select: { id: true, plan: true, assignedSystemNumberId: true }
+                    select: { id: true, name: true, country: true, plan: true, assignedSystemNumberId: true }
                 }),
                 tx.systemPhoneNumber.findUnique({
                     where: { id: systemPhoneNumberId },
@@ -223,8 +246,30 @@ export async function assignExistingNumberToTenant(
             if ((options.exclusive || selectedNumber.channelType !== 'SHARED') && selectedNumber.tenants.length > 0) {
                 throw new Error('System phone number is already assigned to another tenant');
             }
-            if (selectedNumber.planScope !== ANY_PLAN_SCOPE && selectedNumber.planScope !== normalizePlanScope(tenant.plan)) {
+
+            const hasOverride = Boolean(options.overrideReason?.trim());
+            const tenantCountry = normalizeCountryCode(tenant.country);
+            const numberCountry = normalizeCountryCode(selectedNumber.countryCode);
+            if (!isCountryCompatible(tenantCountry, numberCountry) && !hasOverride) {
+                throw new Error(`System phone number country mismatch: tenant ${tenantCountry}, number ${numberCountry}`);
+            }
+
+            const tenantPlan = normalizePlanScope(tenant.plan);
+            const numberPlanScope = normalizePlanScope(selectedNumber.planScope);
+            if (numberPlanScope !== ANY_PLAN_SCOPE && numberPlanScope !== tenantPlan && !hasOverride) {
                 throw new Error('System phone number is reserved for another plan scope');
+            }
+
+            if (hasOverride && (!isCountryCompatible(tenantCountry, numberCountry) || (numberPlanScope !== ANY_PLAN_SCOPE && numberPlanScope !== tenantPlan))) {
+                console.warn('⚠️ WhatsApp number assignment override used', {
+                    tenantId: tenant.id,
+                    tenantCountry,
+                    tenantPlan,
+                    systemPhoneNumberId: selectedNumber.id,
+                    numberCountry,
+                    numberPlanScope,
+                    overrideReason: options.overrideReason
+                });
             }
             if (selectedNumber.tenants.length >= maxTenants) {
                 throw new Error('System phone number capacity reached');
@@ -258,6 +303,9 @@ export async function assignExistingNumberToTenant(
         });
     } catch (error) {
         console.error('❌ Error assigning existing number to tenant:', error);
+        if (options.throwOnError) {
+            throw error;
+        }
         return null;
     }
 }

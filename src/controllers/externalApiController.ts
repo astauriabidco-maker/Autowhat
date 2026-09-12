@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { sendMessage, sendTemplateMessage, WhatsAppTemplateComponent } from '../services/whatsappService';
 import prisma from '../lib/prisma';
-import { getCredentialsForTenant } from '../services/whatsappConfigService';
+import { resolveOutgoingWhatsAppChannel } from '../services/whatsappConfigService';
 
 
 /**
@@ -104,7 +104,7 @@ export const sendNotification = async (req: Request, res: Response): Promise<voi
         }
 
         // 2. Identify WhatsApp credentials (BYON, assigned pool number, or default).
-        const senderCredentials = await getCredentialsForTenant(tenantId);
+        const senderCredentials = (await resolveOutgoingWhatsAppChannel(tenantId, 'GENERAL')).config;
 
         // 3. Send the message
         if (templateName) {

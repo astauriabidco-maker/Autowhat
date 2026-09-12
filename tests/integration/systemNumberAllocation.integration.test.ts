@@ -8,6 +8,7 @@ import {
 } from '../../src/services/numberAllocationService';
 import {
     getCredentialsForTenant,
+    resolveOutgoingWhatsAppChannel,
     upsertWhatsAppConfig
 } from '../../src/services/whatsappConfigService';
 import {
@@ -294,6 +295,81 @@ describeIntegration('system WhatsApp number allocation', () => {
         expect(assigned).toBeNull();
     });
 
+    it('blocks manual assignment when the number belongs to another country', async () => {
+        const seeded = await seedTenantGraph('CountryMismatch');
+        const cameroonNumber = await prisma.systemPhoneNumber.create({
+            data: {
+                phoneNumberId: 'phone_country_cameroon',
+                displayNumber: '+237650000001',
+                countryCode: 'CM',
+                accessToken: 'token_country_cameroon',
+                wabaId: 'waba_country_cameroon',
+                isActive: true,
+                channelType: 'SHARED',
+                setupStatus: 'ACTIVE',
+                planScope: 'PRO',
+                maxTenants: 10
+            }
+        });
+
+        const assigned = await assignExistingNumberToTenant(seeded.tenant.id, cameroonNumber.id);
+
+        expect(assigned).toBeNull();
+
+        const tenant = await prisma.tenant.findUniqueOrThrow({
+            where: { id: seeded.tenant.id }
+        });
+        expect(tenant.assignedSystemNumberId).toBeNull();
+    });
+
+    it('allows manual assignment to a DEFAULT country fallback number', async () => {
+        const seeded = await seedTenantGraph('DefaultCountryFallback');
+        const defaultNumber = await prisma.systemPhoneNumber.create({
+            data: {
+                phoneNumberId: 'phone_country_default',
+                displayNumber: '+15550000001',
+                countryCode: 'DEFAULT',
+                accessToken: 'token_country_default',
+                wabaId: 'waba_country_default',
+                isActive: true,
+                channelType: 'SHARED',
+                setupStatus: 'ACTIVE',
+                planScope: 'PRO',
+                maxTenants: 10
+            }
+        });
+
+        const assigned = await assignExistingNumberToTenant(seeded.tenant.id, defaultNumber.id);
+
+        expect(assigned?.id).toBe(defaultNumber.id);
+        expect(assigned?.tenantCount).toBe(1);
+    });
+
+    it('allows country and plan mismatch only with an explicit override reason', async () => {
+        const seeded = await seedTenantGraph('CountryPlanOverride');
+        const overrideNumber = await prisma.systemPhoneNumber.create({
+            data: {
+                phoneNumberId: 'phone_country_plan_override',
+                displayNumber: '+237650000002',
+                countryCode: 'CM',
+                accessToken: 'token_country_plan_override',
+                wabaId: 'waba_country_plan_override',
+                isActive: true,
+                channelType: 'SHARED',
+                setupStatus: 'ACTIVE',
+                planScope: 'ENTERPRISE',
+                maxTenants: 10
+            }
+        });
+
+        const assigned = await assignExistingNumberToTenant(seeded.tenant.id, overrideNumber.id, {
+            overrideReason: 'Temporary manual migration during preproduction testing'
+        });
+
+        expect(assigned?.id).toBe(overrideNumber.id);
+        expect(assigned?.tenantCount).toBe(1);
+    });
+
     it('reports pool health alerts for missing capacity and risky assignments', async () => {
         const healthyTenant = await seedTenantGraph('HealthOk');
         const fullTenant = await seedTenantGraph('HealthFull');
@@ -449,5 +525,133 @@ describeIntegration('system WhatsApp number allocation', () => {
             accessToken: 'token_default_priority',
             displayName: 'WhatsPoint'
         });
+    });
+
+    it('resolves outbound channel priority as BYON before dedicated system number', async () => {
+        const seeded = await seedTenantGraph('OutboundByonPriority');
+        const dedicatedNumber = await prisma.systemPhoneNumber.create({
+            data: {
+                phoneNumberId: 'phone_outbound_dedicated',
+                displayNumber: '+33111111131',
+                countryCode: 'FR',
+                accessToken: 'token_outbound_dedicated',
+                wabaId: 'waba_outbound_dedicated',
+                isActive: true,
+                channelType: 'DEDICATED',
+                setupStatus: 'ACTIVE',
+                planScope: 'PRO',
+                maxTenants: 1
+            }
+        });
+        await prisma.tenant.update({
+            where: { id: seeded.tenant.id },
+            data: { assignedSystemNumberId: dedicatedNumber.id }
+        });
+        await upsertWhatsAppConfig(seeded.tenant.id, {
+            phoneNumberId: 'phone_outbound_byon',
+            accessToken: 'token_outbound_byon',
+            wabaId: 'waba_outbound_byon',
+            displayName: 'Outbound BYON'
+        });
+
+        await expect(resolveOutgoingWhatsAppChannel(seeded.tenant.id, 'LOGIN_OTP')).resolves.toEqual(
+            expect.objectContaining({
+                type: 'BYON',
+                intent: 'LOGIN_OTP',
+                tenantId: seeded.tenant.id,
+                phoneNumberId: 'phone_outbound_byon',
+                config: expect.objectContaining({
+                    accessToken: 'token_outbound_byon'
+                })
+            })
+        );
+    });
+
+    it('resolves an assigned dedicated system number before shared pool allocation', async () => {
+        const seeded = await seedTenantGraph('OutboundDedicated');
+        const dedicatedNumber = await prisma.systemPhoneNumber.create({
+            data: {
+                phoneNumberId: 'phone_outbound_dedicated_only',
+                displayNumber: '+33111111132',
+                countryCode: 'FR',
+                accessToken: 'token_outbound_dedicated_only',
+                wabaId: 'waba_outbound_dedicated_only',
+                isActive: true,
+                channelType: 'DEDICATED',
+                setupStatus: 'ACTIVE',
+                planScope: 'PRO',
+                maxTenants: 1
+            }
+        });
+        await prisma.systemPhoneNumber.create({
+            data: {
+                phoneNumberId: 'phone_outbound_shared_unused',
+                displayNumber: '+33111111133',
+                countryCode: 'FR',
+                accessToken: 'token_outbound_shared_unused',
+                wabaId: 'waba_outbound_shared_unused',
+                isActive: true,
+                channelType: 'SHARED',
+                setupStatus: 'ACTIVE',
+                planScope: 'PRO',
+                maxTenants: 10
+            }
+        });
+        await prisma.tenant.update({
+            where: { id: seeded.tenant.id },
+            data: { assignedSystemNumberId: dedicatedNumber.id }
+        });
+
+        const channel = await resolveOutgoingWhatsAppChannel(seeded.tenant.id, 'ATTENDANCE');
+
+        expect(channel).toEqual(expect.objectContaining({
+            type: 'SYSTEM_DEDICATED',
+            phoneNumberId: 'phone_outbound_dedicated_only',
+            systemPhoneNumberId: dedicatedNumber.id
+        }));
+    });
+
+    it('auto-allocates a compatible shared system number for outbound routing', async () => {
+        const seeded = await seedTenantGraph('OutboundSharedAllocate');
+        const sharedNumber = await prisma.systemPhoneNumber.create({
+            data: {
+                phoneNumberId: 'phone_outbound_shared_allocate',
+                displayNumber: '+33111111134',
+                countryCode: 'FR',
+                accessToken: 'token_outbound_shared_allocate',
+                wabaId: 'waba_outbound_shared_allocate',
+                isActive: true,
+                channelType: 'SHARED',
+                setupStatus: 'ACTIVE',
+                planScope: 'PRO',
+                maxTenants: 10
+            }
+        });
+
+        const channel = await resolveOutgoingWhatsAppChannel(seeded.tenant.id, 'MANAGER_NOTIFICATION');
+
+        expect(channel).toEqual(expect.objectContaining({
+            type: 'SYSTEM_SHARED',
+            phoneNumberId: 'phone_outbound_shared_allocate',
+            systemPhoneNumberId: sharedNumber.id
+        }));
+
+        const tenant = await prisma.tenant.findUniqueOrThrow({
+            where: { id: seeded.tenant.id }
+        });
+        expect(tenant.assignedSystemNumberId).toBe(sharedNumber.id);
+    });
+
+    it('does not use the default outbound fallback in production unless explicitly allowed', async () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        vi.stubEnv('WHATSAPP_PHONE_ID', 'phone_default_production');
+        vi.stubEnv('WHATSAPP_API_TOKEN', 'token_default_production');
+        vi.stubEnv('ALLOW_DEFAULT_WHATSAPP_FALLBACK', '');
+
+        const seeded = await seedTenantGraph('OutboundNoProdFallback');
+
+        await expect(resolveOutgoingWhatsAppChannel(seeded.tenant.id, 'LOGIN_OTP')).rejects.toThrow(
+            `No active WhatsApp outbound channel available for tenant ${seeded.tenant.id}`
+        );
     });
 });

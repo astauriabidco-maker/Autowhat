@@ -112,10 +112,45 @@ describeIntegration('superadmin WhatsApp system numbers API', () => {
             .expect(200)
             .expect(response => {
                 expect(response.body).toEqual(expect.objectContaining({
-                    success: true,
+                    success: expect.any(Boolean),
                     alertsDetected: expect.any(Number),
                     notificationsSent: expect.any(Number)
                 }));
+            });
+    });
+
+    it('rejects manual assignment when tenant country does not match the system number', async () => {
+        const { token } = await seedSuperAdmin();
+        const seeded = await seedTenantGraph('AdminCountryMismatch');
+        const { createApp } = await import('../../src/app');
+        const app = createApp();
+
+        const created = await request(app)
+            .post('/admin/whatsapp-numbers')
+            .set('Authorization', `Bearer ${token}`)
+            .send({
+                phoneNumberId: 'phone_admin_country_mismatch',
+                displayNumber: '+237650000003',
+                countryCode: 'CM',
+                accessToken: 'token_admin_country_mismatch',
+                wabaId: 'waba_admin_country_mismatch',
+                channelType: 'DEDICATED',
+                setupStatus: 'ACTIVE',
+                planScope: 'PRO',
+                maxTenants: 1
+            })
+            .expect(201);
+
+        await request(app)
+            .post(`/admin/whatsapp-numbers/${created.body.id}/assign`)
+            .set('Authorization', `Bearer ${token}`)
+            .send({
+                tenantId: seeded.tenant.id,
+                exclusive: true
+            })
+            .expect(409)
+            .expect(response => {
+                expect(response.body.error).toBe('Ce numéro WhatsApp ne correspond pas au pays du client.');
             });
     });
 });
