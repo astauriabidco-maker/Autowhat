@@ -104,6 +104,8 @@ router.get('/api/exports/pdf/:employeeId', authenticateManager, exportController
 
 // Notification API Routes (Protected - Manager only)
 router.get('/api/inbox', authenticateManager, inboxController.getInbox);
+router.patch('/api/inbox/:kind/:id/decision', authenticateManager, inboxController.decideInboxItem);
+router.patch('/api/inbox/leave/:id/status', authenticateManager, inboxController.updateLeaveStatus);
 router.get('/api/notifications', authenticateManager, notificationController.getNotifications);
 router.get('/api/notifications/unread-count', authenticateManager, notificationController.getUnreadCount);
 router.patch('/api/notifications/read-all', authenticateManager, notificationController.markAllAsRead);

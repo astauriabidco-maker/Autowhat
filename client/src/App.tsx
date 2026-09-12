@@ -18,6 +18,7 @@ const OnboardingWizard = lazy(() => import('./pages/OnboardingWizard'));
 
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const DashboardHome = lazy(() => import('./pages/DashboardHome'));
+const Inbox = lazy(() => import('./pages/Inbox'));
 const Attendance = lazy(() => import('./pages/Attendance'));
 const Employees = lazy(() => import('./pages/Employees'));
 const EmployeeDetails = lazy(() => import('./pages/EmployeeDetails'));
@@ -102,6 +103,9 @@ function App() {
           <Route path="/dashboard" element={
             <ProtectedRoute><DashboardHome /></ProtectedRoute>
           } />
+          <Route path="/inbox" element={
+            <ProtectedRoute><Inbox /></ProtectedRoute>
+          } />
           <Route path="/attendance" element={
             <ProtectedRoute><Attendance /></ProtectedRoute>
           } />
@@ -143,7 +147,6 @@ function App() {
           } />
 
           {/* Legacy operations routes are intentionally retired from the product surface. */}
-          <Route path="/inbox" element={<Navigate to="/dashboard" replace />} />
           <Route path="/operations/*" element={<Navigate to="/dashboard" replace />} />
 
           <Route path="/sign-intervention/:token" element={<Navigate to="/" replace />} />

@@ -1,6 +1,8 @@
 import { Employee, LeaveRequest } from '@prisma/client';
 import { dispatchWebhook, WEBHOOK_EVENTS } from './webhookService';
+import { getKPaieBalances } from './kpaieService';
 import prisma from '../lib/prisma';
+import { isFlagEnabled } from '../utils/featureFlags';
 
 
 /**
@@ -23,6 +25,12 @@ interface HandleResponseResult {
     employeePhoneNumber?: string;
     requestId?: string;
     status?: string;
+}
+
+const ENABLE_KPAIE_STRICT_LEAVE_CHECK = 'ENABLE_KPAIE_STRICT_LEAVE_CHECK';
+
+function isKPaieStrictLeaveCheckEnabled(): boolean {
+    return isFlagEnabled(ENABLE_KPAIE_STRICT_LEAVE_CHECK, false);
 }
 
 /**
@@ -117,26 +125,42 @@ export async function createRequest(
             };
         }
 
+        // Find the manager before creating the request to avoid orphaned leave requests.
+        const manager = await prisma.employee.findFirst({
+            where: {
+                tenantId: employee.tenantId,
+                role: 'MANAGER'
+            }
+        });
+
+        if (!manager) {
+            return {
+                success: false,
+                message: `Aucun manager trouvé pour votre entreprise. Contactez votre RH.`
+            };
+        }
+
         // --- PRE-CHECK ERP (Phase 6) ---
 
-        const { getKPaieBalances } = require('./kpaieService');
         const balanceResult = await getKPaieBalances(employee.tenantId, employee.phoneNumber);
         let kpaiePreCheckContext = '';
 
         if (balanceResult.success && balanceResult.data) {
             const availableBalance = balanceResult.data.paid_leave;
             
-            // Hard block if balance is insufficient
             if (availableBalance < requestedDays) {
-                return {
-                    success: false,
-                    message: `❌ *Refusé par la Paie*\nVotre solde de congés (${availableBalance} jours) est insuffisant pour cette demande (${requestedDays} jours).`
-                };
+                if (isKPaieStrictLeaveCheckEnabled()) {
+                    return {
+                        success: false,
+                        message: `❌ *Refusé par la Paie*\nVotre solde de congés (${availableBalance} jours) est insuffisant pour cette demande (${requestedDays} jours).`
+                    };
+                }
+
+                kpaiePreCheckContext = `\n⚠️ *Alerte KPaie* : solde indiqué ${availableBalance} j pour ${requestedDays} j demandés. À vérifier avant validation.\n`;
+            } else {
+                const newBalance = availableBalance - requestedDays;
+                kpaiePreCheckContext = `\n📊 *Indicateurs (KPaie) :*\n• Solde après validation : ${newBalance} j ✅\n• Conflits d'équipe : Aucun connu 🟢\n`;
             }
-            
-            // Enrich Manager Context
-            const newBalance = availableBalance - requestedDays;
-            kpaiePreCheckContext = `\n📊 *Indicateurs (KPaie) :*\n• Solde après validation : ${newBalance} j ✅\n• Conflits d'équipe : Aucun connu 🟢\n`;
         } else if (balanceResult.error === 'NO_CONFIG') {
              kpaiePreCheckContext = `\n⚠️ *KPaie non configuré* (Solde non vérifié)\n`;
         }
@@ -165,21 +189,6 @@ export async function createRequest(
             isHalfDayEnd: request.isHalfDayEnd,
             status: request.status
         }, employee.tenantId);
-
-        // Find the manager for this tenant
-        const manager = await prisma.employee.findFirst({
-            where: {
-                tenantId: employee.tenantId,
-                role: 'MANAGER'
-            }
-        });
-
-        if (!manager) {
-            return {
-                success: false,
-                message: `Aucun manager trouvé pour votre entreprise. Contactez votre RH.`
-            };
-        }
 
         // Format date for display
         const formattedDate = dates.startDate.toLocaleDateString('fr-FR', {

@@ -6,6 +6,7 @@ import {
     LayoutDashboard,
     Users,
     Clock,
+    Inbox,
     Receipt,
     FolderOpen,
     Settings,
@@ -41,6 +42,7 @@ const navSections: NavSection[] = [
         title: 'PRÉSENCE & RH',
         items: [
             { icon: <LayoutDashboard size={20} />, label: 'Vue d\'ensemble', path: '/dashboard' },
+            { icon: <Inbox size={20} />, label: 'Boîte de demandes', path: '/inbox' },
             { icon: <Users size={20} />, label: 'Collaborateurs', path: '/employees' },
             { icon: <Clock size={20} />, label: 'Pointage & présence', path: '/attendance' },
             { icon: <MapPin size={20} />, label: 'Sites GPS', path: '/sites-gps' },
@@ -66,9 +68,9 @@ const allNavItems = navSections.flatMap(s => s.items).concat([
 
 const mobileNavItems: NavItem[] = [
     { icon: <LayoutDashboard size={20} />, label: 'Accueil', path: '/dashboard' },
+    { icon: <Inbox size={20} />, label: 'Demandes', path: '/inbox' },
     { icon: <Users size={20} />, label: 'Équipe', path: '/employees' },
     { icon: <Clock size={20} />, label: 'Présence', path: '/attendance' },
-    { icon: <MapPin size={20} />, label: 'GPS', path: '/sites-gps' },
     { icon: <Settings size={20} />, label: 'Réglages', path: '/settings' },
 ];
 
@@ -135,6 +137,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     const [tenantInfo, setTenantInfo] = useState<{ plan?: string; trialEndsAt?: string | null; maxEmployees?: number } | null>(null);
     const [pendingGpsProposals, setPendingGpsProposals] = useState(0);
     const [pendingAttendanceGpsChecks, setPendingAttendanceGpsChecks] = useState(0);
+    const [pendingInboxItems, setPendingInboxItems] = useState(0);
 
     // Support Mode - SuperAdmin Impersonation
     const [isImpersonating, setIsImpersonating] = useState(false);
@@ -181,9 +184,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 const token = localStorage.getItem('token');
                 if (!token) return;
                 const headers = { Authorization: `Bearer ${token}` };
-                const [gpsRes, dashboardRes] = await Promise.allSettled([
+                const [gpsRes, dashboardRes, inboxRes] = await Promise.allSettled([
                     axios.get('/api/sites/gps-activity', { headers }),
-                    axios.get('/api/dashboard/stats', { headers })
+                    axios.get('/api/dashboard/stats', { headers }),
+                    axios.get('/api/inbox', { headers, params: { limit: 1 } })
                 ]);
 
                 if (gpsRes.status === 'fulfilled') {
@@ -191,6 +195,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 }
                 if (dashboardRes.status === 'fulfilled') {
                     setPendingAttendanceGpsChecks(getAttendanceGpsPendingCount(dashboardRes.value.data));
+                }
+                if (inboxRes.status === 'fulfilled') {
+                    setPendingInboxItems(inboxRes.value.data.summary?.actionable || inboxRes.value.data.counts?.ALL || 0);
                 }
             } catch (e) { /* ignore if ops not enabled */ }
         };
@@ -372,6 +379,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                                                                 {pendingAttendanceGpsChecks}
                                                             </span>
                                                         )}
+                                                        {item.path === '/inbox' && pendingInboxItems > 0 && (
+                                                            <span className="ml-auto px-2 py-0.5 bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-[20px] text-center">
+                                                                {pendingInboxItems}
+                                                            </span>
+                                                        )}
                                                     </>
                                                 )}
                                                 {collapsed && item.path === '/sites-gps' && pendingGpsProposals > 0 && (
@@ -382,6 +394,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                                                 {collapsed && item.path === '/attendance' && pendingAttendanceGpsChecks > 0 && (
                                                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-violet-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
                                                         {pendingAttendanceGpsChecks}
+                                                    </span>
+                                                )}
+                                                {collapsed && item.path === '/inbox' && pendingInboxItems > 0 && (
+                                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-600 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                                                        {pendingInboxItems}
                                                     </span>
                                                 )}
                                             </Link>
@@ -545,6 +562,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                                 {item.path === '/attendance' && pendingAttendanceGpsChecks > 0 && (
                                     <span className="absolute top-1 right-5 min-w-[18px] h-[18px] px-1 rounded-full bg-violet-500 text-white text-[10px] flex items-center justify-center">
                                         {pendingAttendanceGpsChecks}
+                                    </span>
+                                )}
+                                {item.path === '/inbox' && pendingInboxItems > 0 && (
+                                    <span className="absolute top-1 right-5 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center">
+                                        {pendingInboxItems}
                                     </span>
                                 )}
                             </Link>

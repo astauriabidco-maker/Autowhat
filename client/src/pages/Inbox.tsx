@@ -3,24 +3,27 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
     AlertCircle,
-    Bell,
     CalendarDays,
     CheckCircle2,
     ClipboardList,
+    Clock,
+    FileCheck2,
     Headphones,
     Inbox as InboxIcon,
     Loader2,
+    MapPinned,
     MessageCircle,
-    Receipt,
     RefreshCw,
     Search,
     SlidersHorizontal,
+    UserX,
+    X,
     type LucideIcon,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { getErrorMessage, getErrorStatus } from '../utils/errors';
 
-type InboxKind = 'INTERVENTION' | 'SUPPORT' | 'LEAVE' | 'EXPENSE' | 'NOTIFICATION';
+type InboxKind = 'ATTENDANCE_GPS' | 'INTERVENTION' | 'SUPPORT' | 'LEAVE' | 'EXPENSE' | 'NOTIFICATION';
 type InboxPriority = 'LOW' | 'NORMAL' | 'URGENT' | 'INFO';
 
 interface InboxItem {
@@ -39,6 +42,7 @@ interface InboxItem {
     updatedAt?: string;
     targetUrl: string;
     availableActions: string[];
+    metadata?: Record<string, unknown>;
 }
 
 type Counts = Record<InboxKind | 'ALL', number>;
@@ -56,6 +60,11 @@ interface InboxResponse {
     summary?: InboxSummary;
 }
 
+interface PendingDecision {
+    item: InboxItem;
+    action: string;
+}
+
 interface KindConfig {
     label: string;
     shortLabel: string;
@@ -65,38 +74,45 @@ interface KindConfig {
 }
 
 const KIND_CONFIG: Record<InboxKind, KindConfig> = {
+    ATTENDANCE_GPS: {
+        label: 'Retards & GPS',
+        shortLabel: 'GPS',
+        icon: MapPinned,
+        tint: 'text-rose-600 bg-rose-50 border-rose-100',
+        badge: 'bg-rose-100 text-rose-700',
+    },
     INTERVENTION: {
-        label: 'Interventions',
-        shortLabel: 'Intervention',
+        label: 'Interventions masquées',
+        shortLabel: 'Legacy',
         icon: MessageCircle,
-        tint: 'text-orange-600 bg-orange-50 border-orange-100',
-        badge: 'bg-orange-100 text-orange-700',
+        tint: 'text-slate-600 bg-slate-50 border-slate-100',
+        badge: 'bg-slate-100 text-slate-700',
     },
     SUPPORT: {
-        label: 'Support',
+        label: 'Questions manager',
         shortLabel: 'Support',
         icon: Headphones,
         tint: 'text-blue-600 bg-blue-50 border-blue-100',
         badge: 'bg-blue-100 text-blue-700',
     },
     LEAVE: {
-        label: 'Absences',
+        label: 'Absences & congés',
         shortLabel: 'Absence',
-        icon: CalendarDays,
+        icon: UserX,
         tint: 'text-emerald-600 bg-emerald-50 border-emerald-100',
         badge: 'bg-emerald-100 text-emerald-700',
     },
     EXPENSE: {
-        label: 'Frais',
-        shortLabel: 'Frais',
-        icon: Receipt,
+        label: 'Justificatifs',
+        shortLabel: 'Justificatif',
+        icon: FileCheck2,
         tint: 'text-purple-600 bg-purple-50 border-purple-100',
         badge: 'bg-purple-100 text-purple-700',
     },
     NOTIFICATION: {
-        label: 'Alertes',
-        shortLabel: 'Alerte',
-        icon: Bell,
+        label: 'Alertes système',
+        shortLabel: 'Signal',
+        icon: AlertCircle,
         tint: 'text-rose-600 bg-rose-50 border-rose-100',
         badge: 'bg-rose-100 text-rose-700',
     },
@@ -104,11 +120,10 @@ const KIND_CONFIG: Record<InboxKind, KindConfig> = {
 
 const FILTERS: Array<{ key: 'ALL' | InboxKind; label: string }> = [
     { key: 'ALL', label: 'Tout' },
-    { key: 'INTERVENTION', label: 'Intervention' },
-    { key: 'LEAVE', label: 'RH' },
-    { key: 'EXPENSE', label: 'Frais' },
+    { key: 'LEAVE', label: 'Absences' },
+    { key: 'ATTENDANCE_GPS', label: 'Retards/GPS' },
+    { key: 'EXPENSE', label: 'Justificatifs' },
     { key: 'SUPPORT', label: 'Support' },
-    { key: 'NOTIFICATION', label: 'Alertes' },
 ];
 
 const STATUS_LABELS: Record<string, string> = {
@@ -123,6 +138,11 @@ const STATUS_LABELS: Record<string, string> = {
     READ: 'Lue',
     UNREAD: 'Non lue',
     APPROVED_EXPENSE: 'Validée',
+    PENDING_GPS: 'GPS attendu',
+    GPS_REQUIRED: 'GPS attendu',
+    PENDING_REVIEW: 'À contrôler',
+    GPS_NOT_CONFIGURED: 'GPS à configurer',
+    WARNING: 'Sous réserve',
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -131,12 +151,23 @@ const ACTION_LABELS: Record<string, string> = {
     plan: 'Planifier',
     open: 'Ouvrir',
     reply: 'Répondre',
-    review: 'Consulter',
-    mark_read: 'Marquer lu',
+    review: 'Contrôler',
+    mark_read: 'Classer',
+    confirm: 'Confirmer',
+    comment: 'Commenter',
 };
+
+const WORKFLOW_STEPS = [
+    { label: 'Retards', icon: Clock },
+    { label: 'Absences', icon: UserX },
+    { label: 'Justificatifs', icon: FileCheck2 },
+    { label: 'Anomalies GPS', icon: MapPinned },
+    { label: 'Congés simples', icon: CalendarDays },
+];
 
 const EMPTY_COUNTS: Counts = {
     ALL: 0,
+    ATTENDANCE_GPS: 0,
     INTERVENTION: 0,
     SUPPORT: 0,
     LEAVE: 0,
@@ -202,6 +233,8 @@ export default function Inbox() {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState('');
     const [actionLoadingKey, setActionLoadingKey] = useState<string | null>(null);
+    const [pendingDecision, setPendingDecision] = useState<PendingDecision | null>(null);
+    const [decisionComment, setDecisionComment] = useState('');
 
     const fetchInbox = useCallback(async () => {
         const token = getToken();
@@ -288,6 +321,12 @@ export default function Inbox() {
 
     const getActionKey = (item: InboxItem, action: string) => `${item.kind}:${item.id}:${action}`;
 
+    const openDecisionModal = (item: InboxItem, action: string) => {
+        setError('');
+        setPendingDecision({ item, action });
+        setDecisionComment('');
+    };
+
     const runItemAction = async (item: InboxItem, action: string) => {
         const token = getToken();
         if (!token) {
@@ -300,6 +339,14 @@ export default function Inbox() {
         setActionLoadingKey(actionKey);
 
         try {
+            if (
+                (item.kind === 'LEAVE' || item.kind === 'ATTENDANCE_GPS')
+                && ['approve', 'reject', 'confirm', 'comment'].includes(action)
+            ) {
+                openDecisionModal(item, action);
+                return;
+            }
+
             if (item.kind === 'EXPENSE' && (action === 'approve' || action === 'reject')) {
                 await axios.patch(
                     `/api/expenses/${item.id}/status`,
@@ -343,6 +390,62 @@ export default function Inbox() {
         }
     };
 
+    const submitDecision = async () => {
+        if (!pendingDecision) return;
+
+        const token = getToken();
+        if (!token) {
+            navigate('/');
+            return;
+        }
+
+        const { item, action } = pendingDecision;
+        const comment = decisionComment.trim();
+
+        if (action === 'comment' && !comment) {
+            setError('Un commentaire est requis pour commenter une demande.');
+            return;
+        }
+
+        const apiAction = action === 'approve'
+            ? 'APPROVE'
+            : action === 'reject'
+                ? 'REJECT'
+                : action === 'confirm'
+                    ? 'CONFIRM'
+                    : 'COMMENT';
+        const actionKey = getActionKey(item, action);
+
+        setError('');
+        setActionLoadingKey(actionKey);
+
+        try {
+            await axios.patch(
+                `/api/inbox/${item.kind.toLowerCase()}/${item.id}/decision`,
+                { action: apiAction, comment: comment || undefined },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setPendingDecision(null);
+            setDecisionComment('');
+            await fetchInbox();
+        } catch (err: unknown) {
+            if (getErrorStatus(err) === 401) {
+                localStorage.removeItem('token');
+                navigate('/');
+                return;
+            }
+            setError(getErrorMessage(err, "Impossible d'exécuter cette action."));
+        } finally {
+            setActionLoadingKey(current => current === actionKey ? null : current);
+        }
+    };
+
+    const pendingActionLabel = pendingDecision ? ACTION_LABELS[pendingDecision.action] || 'Traiter' : '';
+    const pendingActionNeedsComment = pendingDecision?.action === 'comment';
+    const pendingActionTone = pendingDecision?.action === 'reject'
+        ? 'border-red-200 bg-red-50 text-red-700'
+        : 'border-blue-200 bg-blue-50 text-blue-700';
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -357,10 +460,10 @@ export default function Inbox() {
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                         <InboxIcon className="text-blue-600" size={28} />
-                        Boîte de demandes
+                        Inbox manager
                     </h2>
                     <p className="text-gray-500 mt-1">
-                        Présence, planning, support et validations à traiter
+                        Retards, absences, justificatifs, anomalies GPS et congés simples à traiter
                     </p>
                 </div>
 
@@ -423,11 +526,11 @@ export default function Inbox() {
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
                 <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
-                    <p className="text-xs font-semibold uppercase text-red-600">Urgent</p>
+                    <p className="text-xs font-semibold uppercase text-red-600">Urgences terrain</p>
                     <p className="mt-1 text-2xl font-bold text-red-700">{visibleSummary.urgent}</p>
                 </div>
                 <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
-                    <p className="text-xs font-semibold uppercase text-blue-600">À traiter</p>
+                    <p className="text-xs font-semibold uppercase text-blue-600">Actions manager</p>
                     <p className="mt-1 text-2xl font-bold text-blue-700">{visibleSummary.actionable}</p>
                 </div>
                 <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
@@ -435,8 +538,22 @@ export default function Inbox() {
                     <p className="mt-1 text-2xl font-bold text-amber-700">{visibleSummary.pendingApproval}</p>
                 </div>
                 <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
-                    <p className="text-xs font-semibold uppercase text-gray-500">Sans réponse 24h</p>
+                    <p className="text-xs font-semibold uppercase text-gray-500">Vieillissement 24h</p>
                     <p className="mt-1 text-2xl font-bold text-gray-900">{visibleSummary.stale}</p>
+                </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 bg-white p-3 sm:p-4 shadow-sm">
+                <div className="flex flex-wrap gap-2">
+                    {WORKFLOW_STEPS.map(step => (
+                        <span
+                            key={step.label}
+                            className="inline-flex h-9 items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700"
+                        >
+                            <step.icon size={15} className="text-blue-600" />
+                            {step.label}
+                        </span>
+                    ))}
                 </div>
             </div>
 
@@ -444,8 +561,8 @@ export default function Inbox() {
                 <div className="rounded-2xl border border-gray-100 bg-white p-3 sm:p-4 shadow-sm">
                     <div className="flex items-center justify-between gap-3">
                         <div>
-                            <p className="text-sm font-semibold text-gray-900">Priorité maintenant</p>
-                            <p className="text-xs text-gray-500">Les demandes urgentes ou actionnables en premier.</p>
+                            <p className="text-sm font-semibold text-gray-900">À traiter maintenant</p>
+                            <p className="text-xs text-gray-500">Les signaux RH terrain urgents ou actionnables en premier.</p>
                         </div>
                         <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">
                             {priorityItems.length}
@@ -593,6 +710,83 @@ export default function Inbox() {
                     </div>
                 ) : null}
             </div>
+
+            {pendingDecision && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 px-4 py-6">
+                    <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl border border-gray-100">
+                        <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-5">
+                            <div>
+                                <div className={clsx('inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold', pendingActionTone)}>
+                                    {pendingActionLabel}
+                                </div>
+                                <h3 className="mt-3 text-lg font-semibold text-gray-900">
+                                    {pendingDecision.item.title}
+                                </h3>
+                                <p className="mt-1 text-sm text-gray-500 line-clamp-2">
+                                    {pendingDecision.item.summary}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setPendingDecision(null);
+                                    setDecisionComment('');
+                                    setError('');
+                                }}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
+                                title="Fermer"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="p-5">
+                            <label className="text-sm font-semibold text-gray-700" htmlFor="decision-comment">
+                                Message au collaborateur{pendingActionNeedsComment ? '' : ' (facultatif)'}
+                            </label>
+                            <textarea
+                                id="decision-comment"
+                                value={decisionComment}
+                                onChange={(event) => setDecisionComment(event.target.value)}
+                                maxLength={500}
+                                rows={5}
+                                placeholder="Exemple : validé, remplacement organisé."
+                                className="mt-2 w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            />
+                            <div className="mt-2 flex justify-between text-xs text-gray-500">
+                                <span>{pendingActionNeedsComment ? 'Commentaire obligatoire.' : 'Ce message sera envoyé via WhatsApp si la demande est validée ou refusée.'}</span>
+                                <span>{decisionComment.length}/500</span>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col-reverse gap-2 border-t border-gray-100 p-5 sm:flex-row sm:justify-end">
+                            <button
+                                onClick={() => {
+                                    setPendingDecision(null);
+                                    setDecisionComment('');
+                                    setError('');
+                                }}
+                                className="min-h-10 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={submitDecision}
+                                disabled={actionLoadingKey === getActionKey(pendingDecision.item, pendingDecision.action)}
+                                className={clsx(
+                                    'min-h-10 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-60',
+                                    pendingDecision.action === 'reject'
+                                        ? 'bg-red-600 hover:bg-red-700'
+                                        : 'bg-blue-600 hover:bg-blue-700'
+                                )}
+                            >
+                                {actionLoadingKey === getActionKey(pendingDecision.item, pendingDecision.action)
+                                    ? 'Traitement...'
+                                    : `${pendingActionLabel} la demande`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

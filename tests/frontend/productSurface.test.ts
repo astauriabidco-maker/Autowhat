@@ -6,10 +6,11 @@ const root = process.cwd();
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
 describe('product surface boundary', () => {
-    it('redirects retired frontend routes away from legacy operations', () => {
+    it('keeps retired frontend routes away from legacy operations', () => {
         const app = read('client/src/App.tsx');
 
-        expect(app).toContain('<Route path="/inbox" element={<Navigate to="/dashboard" replace />} />');
+        expect(app).toContain('<Route path="/inbox" element={');
+        expect(app).toContain('<ProtectedRoute><Inbox /></ProtectedRoute>');
         expect(app).toContain('<Route path="/operations/*" element={<Navigate to="/dashboard" replace />} />');
         expect(app).toContain('<Route path="/sign-intervention/:token" element={<Navigate to="/" replace />} />');
     });
@@ -18,7 +19,6 @@ describe('product surface boundary', () => {
         const app = read('client/src/App.tsx');
 
         [
-            './pages/Inbox',
             './pages/public/SignaturePad',
             './pages/operations/Customers',
             './pages/operations/Dispatch',
@@ -33,15 +33,17 @@ describe('product surface boundary', () => {
         });
     });
 
-    it('keeps admin navigation centered on presence, RH, GPS and integrations', () => {
+    it('keeps admin navigation centered on inbox, presence, RH, GPS and integrations', () => {
         const adminLayout = read('client/src/layouts/AdminLayout.tsx');
         const superAdminLayout = read('client/src/layouts/SuperAdminLayout.tsx');
 
-        ['/operations', '/inbox', 'Dispatch', 'Devis', 'Stock', 'Récurrences', 'Demandes d\\\'intervention'].forEach(term => {
+        expect(adminLayout).toContain('/inbox');
+        expect(adminLayout).toContain('Boîte de demandes');
+
+        ['/operations', 'Dispatch', 'Devis', 'Stock', 'Récurrences', 'Demandes d\\\'intervention'].forEach(term => {
             expect(adminLayout).not.toContain(term);
         });
         expect(superAdminLayout).not.toContain('/superadmin/leads');
         expect(superAdminLayout).not.toContain('CRM Leads');
     });
 });
-

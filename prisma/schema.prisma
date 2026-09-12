@@ -391,11 +391,15 @@ model LeaveRequest {
   // Validation tracking (Phase 4)
   validatedBy String? // Employee ID of the manager who validated
   validatedAt DateTime?
+  managerComment String? @db.Text
 
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id])
 
   tenantId String
+
+  @@index([tenantId, status])
+  @@index([employeeId])
 }
 
 model Expense {
