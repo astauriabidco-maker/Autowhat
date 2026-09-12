@@ -96,7 +96,7 @@ export async function getConfigByPhoneNumberId(phoneNumberId: string): Promise<{
  */
 export function getDefaultConfig(): WhatsAppCredentials {
     const token = process.env.WHATSAPP_API_TOKEN || process.env.WHATSAPP_TOKEN || '';
-    const phoneId = process.env.WHATSAPP_PHONE_ID || '';
+    const phoneId = process.env.WHATSAPP_PHONE_ID || process.env.WHATSAPP_PHONE_NUMBER_ID || '';
 
     return {
         phoneNumberId: phoneId,

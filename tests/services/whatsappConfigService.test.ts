@@ -24,6 +24,19 @@ describe('whatsappConfigService.resolveIncomingWhatsAppChannel', () => {
         vi.unstubAllEnvs();
     });
 
+    it('uses WHATSAPP_PHONE_NUMBER_ID as fallback for default outbound credentials', async () => {
+        vi.stubEnv('WHATSAPP_PHONE_ID', '');
+        vi.stubEnv('WHATSAPP_PHONE_NUMBER_ID', 'default_phone_number_id');
+
+        const { getDefaultConfig } = await import('../../src/services/whatsappConfigService');
+
+        expect(getDefaultConfig()).toEqual({
+            phoneNumberId: 'default_phone_number_id',
+            accessToken: 'default_token',
+            displayName: 'WhatsPoint'
+        });
+    });
+
     it('resolves an active BYON number with a single tenant scope', async () => {
         prismaMock.whatsAppConfig.findUnique.mockResolvedValue({
             tenantId: 'tenant-byon',

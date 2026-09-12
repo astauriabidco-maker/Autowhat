@@ -1426,7 +1426,9 @@ export const getHealth = async (req: Request, res: Response): Promise<void> => {
         // Check environment variables (without exposing values)
         const stripeConfigured = !!process.env.STRIPE_SECRET_KEY;
         const smtpConfigured = !!(process.env.SMTP_HOST || process.env.SENDGRID_API_KEY);
-        const whatsappConfigured = !!(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID);
+        const whatsappToken = process.env.WHATSAPP_API_TOKEN || process.env.WHATSAPP_TOKEN;
+        const whatsappPhoneId = process.env.WHATSAPP_PHONE_ID || process.env.WHATSAPP_PHONE_NUMBER_ID;
+        const whatsappConfigured = !!(whatsappToken && whatsappPhoneId);
         const redisConfigured = !!process.env.REDIS_URL;
 
         const health = {
