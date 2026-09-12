@@ -541,6 +541,11 @@ export const requestOtp = async (req: Request, res: Response): Promise<void> => 
                 [{
                     type: 'body',
                     parameters: [{ type: 'text', text: otpCode }]
+                }, {
+                    type: 'button',
+                    sub_type: 'url',
+                    index: '0',
+                    parameters: [{ type: 'text', text: otpCode }]
                 } satisfies WhatsAppTemplateComponent],
                 systemConfig
             )
