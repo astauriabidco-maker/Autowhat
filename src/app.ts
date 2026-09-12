@@ -80,6 +80,16 @@ app.use(cookieParser());
 // Swagger API Documentation
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
+app.get('/api/docs/public-v1.yaml', (_req, res) => {
+    const publicApiSpecPath = path.join(process.cwd(), 'docs/public-api-v1.openapi.yaml');
+    res.setHeader('Content-Type', 'application/yaml; charset=utf-8');
+    res.sendFile(publicApiSpecPath, (error) => {
+        if (error && !res.headersSent) {
+            res.status(404).json({ error: 'Public API OpenAPI spec not found' });
+        }
+    });
+});
+
 if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
     app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
         customCss: '.swagger-ui .topbar { display: none }',

@@ -59,6 +59,7 @@ const AiAgentsHub = lazy(() => import('./pages/superadmin/AiAgentsHub'));
 const PricingMatrix = lazy(() => import('./pages/superadmin/PricingMatrix'));
 const AutomationCockpit = lazy(() => import('./pages/superadmin/AutomationCockpit'));
 const WhatsAppNumbers = lazy(() => import('./pages/superadmin/WhatsAppNumbers'));
+const ApiKeys = lazy(() => import('./pages/superadmin/ApiKeys'));
 
 
 // Wrapper component for protected routes with AdminLayout
@@ -163,6 +164,7 @@ function App() {
             <Route path="logs" element={<SuperAdminLogs />} />
             <Route path="settings" element={<PlatformSettings />} />
             <Route path="integrations" element={<Integrations />} />
+            <Route path="api-keys" element={<ApiKeys />} />
             <Route path="whatsapp-numbers" element={<WhatsAppNumbers />} />
             <Route path="plans" element={<PlansManager />} />
             <Route path="pricing-matrix" element={<PricingMatrix />} />

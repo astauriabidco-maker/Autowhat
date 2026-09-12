@@ -1,0 +1,314 @@
+openapi: 3.0.3
+info:
+  title: WhatsPoint Public API
+  version: 1.0.0
+  description: API publique minimale pour intégrateurs et futurs connecteurs MCP.
+servers:
+  - url: https://api.testbed.whatspoint.com
+    description: Préproduction
+  - url: https://api.whatspoint.com
+    description: Production
+security:
+  - publicApiKey: []
+tags:
+  - name: Public API
+    description: Endpoints consommables par ERP, agents IA et connecteurs MCP.
+  - name: SuperAdmin API Keys
+    description: Gestion opérateur des clés API publiques.
+paths:
+  /api/v1/me:
+    get:
+      tags: [Public API]
+      summary: Identifier le tenant et la clé API courante.
+      security:
+        - publicApiKey: []
+      responses:
+        "200":
+          description: Identité API courante.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicApiMeResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/messages:
+    post:
+      tags: [Public API]
+      summary: Envoyer un message WhatsApp à un collaborateur du tenant.
+      security:
+        - publicApiKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/TextMessageRequest"
+                - $ref: "#/components/schemas/TemplateMessageRequest"
+      responses:
+        "202":
+          description: Message accepté.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageAcceptedResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+  /admin/api/scopes:
+    get:
+      tags: [SuperAdmin API Keys]
+      summary: Lister les scopes disponibles.
+      security:
+        - superAdminAuth: []
+      responses:
+        "200":
+          description: Scopes disponibles.
+  /admin/api/keys:
+    get:
+      tags: [SuperAdmin API Keys]
+      summary: Lister les clés API publiques, avec filtre tenant optionnel.
+      security:
+        - superAdminAuth: []
+      parameters:
+        - name: tenantId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Liste sans token brut.
+  /admin/tenants/{tenantId}/api-keys:
+    post:
+      tags: [SuperAdmin API Keys]
+      summary: Créer une clé API pour un tenant.
+      description: Le champ `token` est retourné une seule fois à la création.
+      security:
+        - superAdminAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyRequest"
+      responses:
+        "201":
+          description: Clé créée, token brut affiché une seule fois.
+  /admin/tenants/{tenantId}/api-keys/{id}/revoke:
+    post:
+      tags: [SuperAdmin API Keys]
+      summary: Révoquer une clé API.
+      security:
+        - superAdminAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Clé révoquée.
+components:
+  securitySchemes:
+    publicApiKey:
+      type: http
+      scheme: bearer
+      bearerFormat: wp_live
+      description: Clé API publique `wp_test_...` ou `wp_live_...`.
+    superAdminAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Clé unique côté client pour éviter les doubles envois.
+    TenantId:
+      name: tenantId
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    PublicApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code:
+              type: string
+              example: unauthorized
+            message:
+              type: string
+            requestId:
+              type: string
+              example: req_018f...
+    PublicApiMeResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            tenant:
+              $ref: "#/components/schemas/TenantSummary"
+            apiKey:
+              $ref: "#/components/schemas/ApiKeySummary"
+        meta:
+          $ref: "#/components/schemas/PublicApiMeta"
+    TextMessageRequest:
+      type: object
+      required: [message]
+      properties:
+        employeeId:
+          type: string
+        phoneNumber:
+          type: string
+          description: Alternative à employeeId. Le numéro n’est jamais renvoyé dans la réponse.
+        message:
+          type: string
+    TemplateMessageRequest:
+      type: object
+      required: [templateName]
+      properties:
+        employeeId:
+          type: string
+        phoneNumber:
+          type: string
+        templateName:
+          type: string
+        templateLanguage:
+          type: string
+          default: fr
+        templateVars:
+          type: array
+          items:
+            type: string
+    MessageAcceptedResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+              example: accepted
+            recipient:
+              type: object
+              properties:
+                employeeId:
+                  type: string
+            channel:
+              type: object
+              properties:
+                intent:
+                  type: string
+                  example: EMPLOYEE_NOTIFICATION
+                type:
+                  type: string
+                  example: SYSTEM_SHARED
+        meta:
+          $ref: "#/components/schemas/PublicApiMeta"
+    CreateApiKeyRequest:
+      type: object
+      required: [name, scopes]
+      properties:
+        name:
+          type: string
+          example: ERP Production
+        scopes:
+          type: array
+          items:
+            type: string
+            enum: [tenant:read, messages:send]
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+    TenantSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        country:
+          type: string
+          example: FR
+        plan:
+          type: string
+          example: PRO
+        status:
+          type: string
+          example: ACTIVE
+    ApiKeySummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        prefix:
+          type: string
+          example: wp_live_abc123...
+        scopes:
+          type: array
+          items:
+            type: string
+    PublicApiMeta:
+      type: object
+      properties:
+        requestId:
+          type: string
+  responses:
+    BadRequest:
+      description: Requête invalide.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PublicApiError"
+    Unauthorized:
+      description: Clé API absente ou invalide.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PublicApiError"
+    Forbidden:
+      description: Scope insuffisant.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PublicApiError"
+    NotFound:
+      description: Ressource introuvable ou hors tenant.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PublicApiError"
+    IdempotencyConflict:
+      description: Même Idempotency-Key réutilisée avec un payload différent.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PublicApiError"

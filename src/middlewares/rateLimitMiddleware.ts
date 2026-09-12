@@ -1,4 +1,4 @@
-import rateLimit, { Options } from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator, Options } from 'express-rate-limit';
 import { isRedisEnabled } from '../services/redisConnection';
 import { RedisRateLimitStore } from '../services/redisRateLimitStore';
 
@@ -70,4 +70,10 @@ export const webhookRateLimit = createLimiter('webhook', {
 export const externalNotifyRateLimit = createLimiter('external-notify', {
     windowMs: parseNumberEnv('EXTERNAL_NOTIFY_RATE_LIMIT_WINDOW_MS', 60 * 1000),
     limit: parseNumberEnv('EXTERNAL_NOTIFY_RATE_LIMIT_MAX', 120)
+});
+
+export const publicApiRateLimit = createLimiter('public-api', {
+    windowMs: parseNumberEnv('PUBLIC_API_RATE_LIMIT_WINDOW_MS', 60 * 1000),
+    limit: parseNumberEnv('PUBLIC_API_RATE_LIMIT_MAX', 120),
+    keyGenerator: (req) => req.publicApi?.apiKeyPrefix || ipKeyGenerator(req.ip || 'unknown')
 });

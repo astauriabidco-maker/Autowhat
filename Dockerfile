@@ -22,6 +22,7 @@ RUN npx prisma generate
 COPY tsconfig.json ./
 COPY src ./src
 COPY scripts ./scripts
+COPY docs ./docs
 RUN npm run build
 
 
@@ -58,6 +59,7 @@ RUN npx prisma generate
 COPY --from=backend-builder /app/dist ./dist
 # Optionnel: scripts si appelés dynamiquement
 COPY --from=backend-builder /app/scripts ./scripts
+COPY --from=backend-builder /app/docs ./docs
 RUN chmod +x scripts/start-prod.sh
 
 # Copier le dossier frontend compilé (le backend va le servir)

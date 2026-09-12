@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { sendMessage, sendTemplateMessage, WhatsAppTemplateComponent } from '../services/whatsappService';
 import prisma from '../lib/prisma';
 import { resolveOutgoingWhatsAppChannel } from '../services/whatsappConfigService';
+import { resolveTenantIdFromLegacyOrPublicApiKey } from '../services/publicApiKeyService';
+import { hashLogIdentifier } from '../utils/safeWebhookLogger';
 
 
 /**
@@ -15,30 +17,7 @@ async function authenticateExternalApi(req: Request): Promise<string | null> {
 
     const apiKey = authHeader.split(' ')[1];
 
-    // Find the tenant that has this API key in its config
-    // In production, an indexed field or separate ApiKey table is better.
-    // For this architecture, we filter through active tenants.
-    // Given the scale, this is acceptable, but could be cached.
-    
-    // As Prisma can't easily query inside unstructured JSON across rows efficiently 
-    // without raw SQL on JSONB, we'll do a simple raw query or fetch and filter.
-    // Using raw SQL for PostgreSQL JSONB:
-    try {
-        const tenants: any[] = await prisma.$queryRaw`
-            SELECT id FROM "Tenant" 
-            WHERE config->>'inboundApiKey' = ${apiKey}
-            AND status = 'ACTIVE'
-            LIMIT 1
-        `;
-
-        if (tenants && tenants.length > 0) {
-            return tenants[0].id;
-        }
-    } catch (e) {
-        console.error("External Auth Error:", e);
-    }
-    
-    return null;
+    return resolveTenantIdFromLegacyOrPublicApiKey(apiKey, 'messages:send');
 }
 
 /**
@@ -55,6 +34,8 @@ async function authenticateExternalApi(req: Request): Promise<string | null> {
 export const sendNotification = async (req: Request, res: Response): Promise<void> => {
     try {
         console.log('🔔 [External API] Received notification request');
+        res.setHeader('Deprecation', 'true');
+        res.setHeader('Link', '</api/v1/messages>; rel="successor-version"');
         
         const tenantId = await authenticateExternalApi(req);
         
@@ -98,7 +79,9 @@ export const sendNotification = async (req: Request, res: Response): Promise<voi
         });
 
         if (!employee) {
-            console.log(`⚠️ [External API] Employee not found for phone: ${formattedPhone}`);
+            console.log('⚠️ [External API] Employee not found', {
+                phoneHash: hashLogIdentifier(formattedPhone)
+            });
             res.status(404).json({ success: false, error: 'Employee not found in this organization' });
             return;
         }
@@ -108,7 +91,10 @@ export const sendNotification = async (req: Request, res: Response): Promise<voi
 
         // 3. Send the message
         if (templateName) {
-            console.log(`✉️ Sending Template [${templateName}] to ${formattedPhone}`);
+            console.log('✉️ Sending External API template notification', {
+                templateName,
+                phoneHash: hashLogIdentifier(formattedPhone)
+            });
 
             const components: WhatsAppTemplateComponent[] = Array.isArray(templateComponents)
                 ? templateComponents
@@ -131,7 +117,9 @@ export const sendNotification = async (req: Request, res: Response): Promise<voi
             );
         } else {
             // Send free text
-            console.log(`✉️ Sending Free Text to ${formattedPhone}`);
+            console.log('✉️ Sending External API text notification', {
+                phoneHash: hashLogIdentifier(formattedPhone)
+            });
             await sendMessage(formattedPhone, message, senderCredentials);
         }
 

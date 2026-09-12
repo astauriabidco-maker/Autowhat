@@ -20,6 +20,7 @@ import * as integrationController from '../controllers/integrationController';
 import * as externalApiController from '../controllers/externalApiController';
 import * as whatsappNumberController from '../controllers/whatsappNumberController';
 import * as onboardingController from '../controllers/onboardingController';
+import * as publicApiAdminController from '../controllers/publicApiAdminController';
 import { authenticateManager } from '../middlewares/authMiddleware';
 import { authenticateSuperAdmin } from '../middlewares/adminMiddleware';
 import { requireLegacyOperations } from '../middlewares/legacyOperationsMiddleware';
@@ -32,6 +33,7 @@ import {
     webhookRateLimit
 } from '../middlewares/rateLimitMiddleware';
 import debugRoutes from './debugRoutes';
+import publicApiV1Routes from './publicApiV1Routes';
 
 const router = Router();
 
@@ -41,6 +43,7 @@ router.post('/webhook', webhookRateLimit, webhookController.handleMessage);
 
 // External API Routes (Inbound from ERPs)
 router.post('/api/external/notify', externalNotifyRateLimit, externalApiController.sendNotification);
+router.use('/api/v1', publicApiV1Routes);
 
 // Auth Routes (Public)
 router.post('/auth/login', authRateLimit, authController.login);
@@ -199,6 +202,12 @@ router.put('/admin/config', authenticateSuperAdmin, adminController.updateConfig
 router.get('/admin/admins', authenticateSuperAdmin, adminController.getAdmins);
 router.post('/admin/admins', authenticateSuperAdmin, adminController.createAdmin);
 router.get('/admin/health', authenticateSuperAdmin, adminController.getHealth);
+
+// Public API Keys (SuperAdmin)
+router.get('/admin/api/scopes', authenticateSuperAdmin, publicApiAdminController.getPublicApiScopes);
+router.get('/admin/api/keys', authenticateSuperAdmin, publicApiAdminController.getPublicApiKeys);
+router.post('/admin/tenants/:tenantId/api-keys', authenticateSuperAdmin, publicApiAdminController.createTenantPublicApiKey);
+router.post('/admin/tenants/:tenantId/api-keys/:id/revoke', authenticateSuperAdmin, publicApiAdminController.revokeTenantPublicApiKey);
 
 // CRM Leads / Sales
 import * as crmController from '../controllers/superAdminCrmController';

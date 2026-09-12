@@ -48,6 +48,7 @@ export default function SuperAdminLayout() {
         { icon: <History size={20} />, label: 'Journal', path: '/superadmin/logs' },
         { icon: <Settings size={20} />, label: 'Paramètres', path: '/superadmin/settings' },
         { icon: <Key size={20} />, label: 'Intégrations', path: '/superadmin/integrations' },
+        { icon: <Key size={20} />, label: 'Clés API', path: '/superadmin/api-keys' },
         { icon: <MessageSquare size={20} />, label: 'Numéros WhatsApp', path: '/superadmin/whatsapp-numbers' },
         { icon: <DollarSign size={20} />, label: 'Tarifs', path: '/superadmin/plans' },
         { icon: <Globe size={20} />, label: 'Prix Internationaux', path: '/superadmin/pricing-matrix' },
