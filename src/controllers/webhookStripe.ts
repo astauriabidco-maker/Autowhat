@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
 import prisma from '../lib/prisma';
+import { provisionDedicatedNumber } from '../services/numberAllocationService';
+import { hashLogIdentifier, logWebhookEvent, sanitizeError } from '../utils/safeWebhookLogger';
 
 
 // Initialize Stripe only if key is configured
@@ -20,13 +22,13 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
     const sig = req.headers['stripe-signature'] as string;
 
     if (!stripe) {
-        console.error('❌ Stripe not configured');
+        logWebhookEvent('error', 'stripe.not_configured');
         res.status(500).json({ error: 'Stripe not configured' });
         return;
     }
 
     if (!WEBHOOK_SECRET) {
-        console.error('❌ STRIPE_WEBHOOK_SECRET not configured');
+        logWebhookEvent('error', 'stripe.secret_missing');
         res.status(500).json({ error: 'Webhook secret not configured' });
         return;
     }
@@ -37,12 +39,18 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
         // Verify signature
         event = stripe.webhooks.constructEvent(req.body, sig, WEBHOOK_SECRET);
     } catch (err: any) {
-        console.error(`⚠️ Webhook signature verification failed:`, err.message);
+        logWebhookEvent('warn', 'stripe.signature_invalid', {
+            error: sanitizeError(err),
+            hasSignature: Boolean(sig)
+        });
         res.status(400).json({ error: `Webhook Error: ${err.message}` });
         return;
     }
 
-    console.log(`📩 Stripe webhook received: ${event.type}`);
+    logWebhookEvent('info', 'stripe.received', {
+        eventType: event.type,
+        eventIdHash: hashLogIdentifier(event.id)
+    });
 
     try {
         switch (event.type) {
@@ -78,13 +86,13 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
             }
 
             default:
-                console.log(`ℹ️ Unhandled event type: ${event.type}`);
+                logWebhookEvent('info', 'stripe.unhandled_event', { eventType: event.type });
         }
 
         res.status(200).json({ received: true });
 
     } catch (error: any) {
-        console.error(`❌ Webhook handler error:`, error);
+        logWebhookEvent('error', 'stripe.handler_failed', { error: sanitizeError(error) });
         res.status(500).json({ error: 'Webhook handler failed' });
     }
 };
@@ -99,7 +107,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     const planLimit = session.metadata?.planLimit;
 
     if (!tenantId) {
-        console.error('❌ No tenantId in checkout session metadata');
+        logWebhookEvent('error', 'stripe.checkout_missing_tenant');
         return;
     }
 
@@ -121,7 +129,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
         }
     });
 
-    console.log(`✅ Tenant ${tenantId} upgraded to ${planName} (limit: ${limit}, Customer: ${customerId})`);
+    logWebhookEvent('info', 'stripe.checkout_completed', {
+        tenantId,
+        planName: planName || 'PRO',
+        maxEmployees: limit,
+        customerIdHash: hashLogIdentifier(customerId),
+        subscriptionIdHash: hashLogIdentifier(subscriptionId)
+    });
 }
 
 /**
@@ -151,7 +165,10 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
     }
 
     if (!tenant) {
-        console.error('❌ Cannot find tenant for subscription update');
+        logWebhookEvent('error', 'stripe.subscription_tenant_not_found', {
+            subscriptionIdHash: hashLogIdentifier(subscription.id),
+            hasMetadataTenantId: Boolean(tenantId)
+        });
         return;
     }
 
@@ -184,9 +201,11 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
         // Si le client passe sur un plan Enterprise, on lui achète un numéro !
         // ------------------------------------------------------------------
         if (finalPlanName === 'ENTERPRISE') {
-            const { provisionDedicatedNumber } = require('../services/numberAllocationService');
             // We run this asynchronously without awaiting to ensure we return 200 to Stripe quickly (avoiding timeouts)
-            provisionDedicatedNumber(tenant.id, 'FR').catch((err: any) => console.error('Failed to provision dynamic number via webhook:', err));
+            provisionDedicatedNumber(tenant.id, 'FR').catch((err: any) => logWebhookEvent('error', 'stripe.dynamic_number_provision_failed', {
+                tenantId: tenant.id,
+                error: sanitizeError(err)
+            }));
         }
     }
 
@@ -195,8 +214,13 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
         data: updateData
     });
 
-    const planInfo = plan ? `Plan: ${plan.name} (limit: ${plan.maxEmployees})` : `Status: ${subscription.status}`;
-    console.log(`🔄 Subscription updated for tenant ${tenant.id} - ${planInfo}`);
+    logWebhookEvent('info', 'stripe.subscription_updated', {
+        tenantId: tenant.id,
+        subscriptionIdHash: hashLogIdentifier(subscription.id),
+        status: subscription.status,
+        planName: plan?.name,
+        maxEmployees: plan?.maxEmployees
+    });
 }
 
 /**
@@ -210,7 +234,9 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
     });
 
     if (!tenant) {
-        console.error('❌ Cannot find tenant for subscription deletion');
+        logWebhookEvent('error', 'stripe.subscription_delete_tenant_not_found', {
+            subscriptionIdHash: hashLogIdentifier(subscription.id)
+        });
         return;
     }
 
@@ -225,7 +251,11 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
         }
     });
 
-    console.log(`⚠️ Tenant ${tenant.id} downgraded to TRIAL (subscription canceled)`);
+    logWebhookEvent('warn', 'stripe.subscription_deleted', {
+        tenantId: tenant.id,
+        subscriptionIdHash: hashLogIdentifier(subscription.id),
+        nextPlan: 'TRIAL'
+    });
 }
 
 /**
@@ -247,7 +277,9 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
     }
 
     if (!tenant) {
-        console.error('❌ Cannot find tenant for failed payment');
+        logWebhookEvent('error', 'stripe.payment_failed_tenant_not_found', {
+            customerIdHash: hashLogIdentifier(customerId)
+        });
         return;
     }
 
@@ -262,8 +294,12 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 
     const paymentUrl = invoice.hosted_invoice_url;
 
-    console.log(`💳 [NO-TOUCH SALES] Payment failed for tenant ${tenant.id}.`);
-    console.log(`🚨 Tenant Suspended (API Disabled). Payment Link to send: ${paymentUrl}`);
+    logWebhookEvent('warn', 'stripe.payment_failed', {
+        tenantId: tenant.id,
+        customerIdHash: hashLogIdentifier(customerId),
+        hasHostedInvoiceUrl: Boolean(paymentUrl),
+        nextStatus: 'SUSPENDED'
+    });
 
     // Ici on intègrerait SendGrid/Postmark :
     // await sendEmail(tenant.adminEmail, "Paiement échoué - Action requise", `Veuillez régler votre facture pour réactiver vos services : ${paymentUrl}`);
@@ -296,6 +332,17 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
         }
     });
 
-    console.log(`✅ [NO-TOUCH SALES] Payment succeeded for tenant ${tenant.id}. Account fully REACTIVATED.`);
+    logWebhookEvent('info', 'stripe.payment_succeeded', {
+        tenantId: tenant.id,
+        customerIdHash: hashLogIdentifier(customerId),
+        nextStatus: 'ACTIVE'
+    });
 }
 
+export const __stripeWebhookTestables = {
+    handleCheckoutCompleted,
+    handleSubscriptionUpdated,
+    handleSubscriptionDeleted,
+    handlePaymentFailed,
+    handlePaymentSucceeded
+};

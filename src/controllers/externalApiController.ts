@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { sendMessage, sendTemplateMessage, WhatsAppTemplateComponent } from '../services/whatsappService';
 import prisma from '../lib/prisma';
+import { getCredentialsForTenant } from '../services/whatsappConfigService';
 
 
 /**
@@ -102,18 +103,8 @@ export const sendNotification = async (req: Request, res: Response): Promise<voi
             return;
         }
 
-        // 2. Identify the WhatsApp Sender Number (Platform or Custom BYON)
-        // Fallback to a default if multi-tenant pool is used
-        let senderPhoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-
-        // Try to get BYON config if it exists
-        const waConfig = await prisma.whatsAppConfig.findUnique({
-            where: { tenantId }
-        });
-        
-        if (waConfig && waConfig.isActive) {
-            senderPhoneNumberId = waConfig.phoneNumberId;
-        }
+        // 2. Identify WhatsApp credentials (BYON, assigned pool number, or default).
+        const senderCredentials = await getCredentialsForTenant(tenantId);
 
         // 3. Send the message
         if (templateName) {
@@ -136,12 +127,12 @@ export const sendNotification = async (req: Request, res: Response): Promise<voi
                 templateName,
                 templateLanguage || 'fr',
                 components,
-                senderPhoneNumberId
+                senderCredentials
             );
         } else {
             // Send free text
             console.log(`✉️ Sending Free Text to ${formattedPhone}`);
-            await sendMessage(formattedPhone, message, senderPhoneNumberId);
+            await sendMessage(formattedPhone, message, senderCredentials);
         }
 
         res.status(200).json({ 

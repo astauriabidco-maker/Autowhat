@@ -341,7 +341,7 @@ export default function Settings() {
             {/* Header */}
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-gray-900">Paramètres</h1>
-                <p className="text-gray-500 mt-1">Configurez votre espace de travail et le comportement du Bot</p>
+                <p className="text-gray-500 mt-1">Configurez votre espace de travail et le comportement du bot</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -356,7 +356,7 @@ export default function Settings() {
                                 </div>
                                 <div>
                                     <h2 className="text-lg font-semibold text-gray-900">Identité Entreprise</h2>
-                                    <p className="text-sm text-gray-500">Informations légales et logo</p>
+                                    <p className="text-sm text-gray-500">Informations légales et logo de l'espace manager</p>
                                 </div>
                             </div>
                             
@@ -565,7 +565,7 @@ export default function Settings() {
                     </div>
                     <div>
                         <h2 className="text-lg font-bold text-blue-950">Intelligence Artificielle (WhatsPoint Brain)</h2>
-                        <p className="text-sm text-blue-800/70">Pilotez les capacités cognitives de votre bot WhatsApp</p>
+                        <p className="text-sm text-blue-800/70">Pilotez les capacités d'aide interne du bot</p>
                     </div>
                 </div>
 
@@ -588,7 +588,7 @@ export default function Settings() {
 
                 <div className="mt-6 pt-6 border-t border-blue-200/50 relative z-10">
                     <label className="block text-sm font-bold text-blue-900 mb-2">
-                        Personnalité de l'Assistant
+                        Ton des réponses internes
                     </label>
                     <textarea 
                         value={settings.config.botPersonality || ''}
@@ -596,7 +596,9 @@ export default function Settings() {
                         className="w-full h-20 p-3 bg-white/80 border border-blue-200 rounded-xl text-sm text-slate-700 font-mono focus:ring-2 focus:ring-blue-500 transition-all resize-none shadow-inner"
                         placeholder="Ex: Tu es un assistant strict, réponds très brièvement et de façon professionnelle..."
                     />
-                    <p className="mt-1 text-xs text-blue-800/60 font-medium">Les employés interagiront avec cette personnalité dynamique.</p>
+                    <p className="mt-1 text-xs text-blue-800/60 font-medium">
+                        Ajuste le style des réponses du bot; cela ne modifie ni le numéro WhatsApp ni le nom affiché.
+                    </p>
                 </div>
             </div>
             
@@ -706,8 +708,8 @@ export default function Settings() {
                         <MessageSquare size={22} className="text-purple-600" />
                     </div>
                     <div>
-                        <h2 className="text-lg font-semibold text-gray-900">Langage Personnalisé</h2>
-                        <p className="text-sm text-gray-500">Adaptez les termes du bot à votre métier</p>
+                        <h2 className="text-lg font-semibold text-gray-900">Langage personnalisé</h2>
+                        <p className="text-sm text-gray-500">Adaptez les termes métier du bot, sans modifier l'identité du numéro WhatsApp</p>
                     </div>
                 </div>
 

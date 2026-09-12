@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { InterventionRequestStatus } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
+import { areLegacyOperationsEnabled } from '../middlewares/legacyOperationsMiddleware';
 
 type InboxKind = 'INTERVENTION' | 'SUPPORT' | 'LEAVE' | 'EXPENSE' | 'NOTIFICATION';
 
@@ -101,7 +102,8 @@ export const getInbox = async (req: Request, res: Response): Promise<any> => {
         const limit = clampLimit(req.query.limit);
         const kinds = parseKinds(req.query.kind);
         const includeResolved = req.query.status === 'all';
-        const wants = (kind: InboxKind) => !kinds || kinds.has(kind);
+        const legacyOperationsEnabled = areLegacyOperationsEnabled();
+        const wants = (kind: InboxKind) => (!kinds || kinds.has(kind)) && (kind !== 'INTERVENTION' || legacyOperationsEnabled);
         const interventionWhere: Prisma.InterventionRequestWhereInput = {
             tenantId,
             ...(includeResolved ? {} : { status: { in: [InterventionRequestStatus.PENDING, InterventionRequestStatus.APPROVED] } }),
@@ -186,7 +188,9 @@ export const getInbox = async (req: Request, res: Response): Promise<any> => {
                     take: limit,
                 })
                 : Promise.resolve([]),
-            prisma.interventionRequest.count({ where: interventionWhere }),
+            legacyOperationsEnabled
+                ? prisma.interventionRequest.count({ where: interventionWhere })
+                : Promise.resolve(0),
             prisma.ticket.count({ where: ticketWhere }),
             prisma.leaveRequest.count({ where: leaveWhere }),
             prisma.expense.count({ where: expenseWhere }),

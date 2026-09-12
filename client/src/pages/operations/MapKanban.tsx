@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
 import {
@@ -6,32 +6,14 @@ import {
     Building2, User, MapPin, Filter, X,
     ChevronRight, ChevronLeft, ArrowRight
 } from 'lucide-react';
+import type { ApiEmployeesResponse, ApiEmployeeSummary } from '../../types/api/employees';
+import type { ApiIntervention, ApiInterventionStatusPayload, InterventionStatus } from '../../types/api/operations';
 
 // ─── Types ───────────────────────────────
 
-interface Intervention {
-    id: string;
-    title: string;
-    description?: string;
-    status: string;
-    scheduledStart: string;
-    scheduledEnd: string;
-    realStart?: string;
-    realEnd?: string;
-    customer?: { id: string; companyName: string; contactName: string; address?: string; phone?: string };
-    customerSite?: { id: string; name: string; address: string; city: string; postalCode: string; latitude?: number; longitude?: number };
-    interventionType?: { id: string; name: string; color: string; icon?: string | null };
-    employee?: { id: string; name: string };
-}
-
-interface Employee {
-    id: string;
-    name: string;
-}
-
 // ─── Constants ───────────────────────────
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
+const STATUS_CONFIG: Record<InterventionStatus, { label: string; color: string; bg: string; border: string }> = {
     SCHEDULED: { label: 'Planifié', color: '#475569', bg: '#f1f5f9', border: '#94a3b8' },
     EN_ROUTE: { label: 'En route', color: '#1d4ed8', bg: '#dbeafe', border: '#3b82f6' },
     IN_PROGRESS: { label: 'En cours', color: '#b45309', bg: '#fef3c7', border: '#f59e0b' },
@@ -39,13 +21,14 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
     CANCELED: { label: 'Annulé', color: '#991b1b', bg: '#fee2e2', border: '#ef4444' },
 };
 
-const KANBAN_COLUMNS = ['SCHEDULED', 'EN_ROUTE', 'IN_PROGRESS', 'COMPLETED'];
+const KANBAN_COLUMNS = ['SCHEDULED', 'EN_ROUTE', 'IN_PROGRESS', 'COMPLETED'] as const satisfies readonly InterventionStatus[];
+type KanbanStatus = typeof KANBAN_COLUMNS[number];
 
 // ─── Component ───────────────────────────
 
 export default function MapKanban() {
-    const [interventions, setInterventions] = useState<Intervention[]>([]);
-    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [interventions, setInterventions] = useState<ApiIntervention[]>([]);
+    const [employees, setEmployees] = useState<ApiEmployeeSummary[]>([]);
     const [view, setView] = useState<'kanban' | 'map'>('kanban');
     const [loading, setLoading] = useState(true);
     const [filterEmployee, setFilterEmployee] = useState('');
@@ -53,11 +36,9 @@ export default function MapKanban() {
     const [showFilters, setShowFilters] = useState(false);
 
     const token = localStorage.getItem('token');
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
-    useEffect(() => { fetchData(); }, [filterDate, filterEmployee]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const from = `${filterDate}T00:00:00`;
@@ -66,21 +47,24 @@ export default function MapKanban() {
             if (filterEmployee) params.employeeId = filterEmployee;
 
             const [intRes, empRes] = await Promise.all([
-                axios.get('/api/interventions', { headers, params }),
-                axios.get('/api/employees', { headers }),
+                axios.get<ApiIntervention[]>('/api/interventions', { headers, params }),
+                axios.get<ApiEmployeesResponse>('/api/employees', { headers }),
             ]);
             setInterventions(intRes.data);
-            setEmployees(empRes.data);
+            setEmployees(empRes.data.employees || []);
         } catch (err) {
             console.error('Error loading data:', err);
         } finally {
             setLoading(false);
         }
-    };
+    }, [filterDate, filterEmployee, headers]);
 
-    const handleStatusChange = async (id: string, newStatus: string) => {
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    const handleStatusChange = async (id: string, newStatus: InterventionStatus) => {
         try {
-            await axios.patch(`/api/interventions/${id}/status`, { status: newStatus }, { headers });
+            const payload: ApiInterventionStatusPayload = { status: newStatus };
+            await axios.patch<ApiIntervention>(`/api/interventions/${id}/status`, payload, { headers });
             fetchData();
         } catch (err) {
             console.error('Error changing status:', err);
@@ -101,11 +85,14 @@ export default function MapKanban() {
 
     // Kanban columns
     const columns = useMemo(() => {
-        const result: Record<string, Intervention[]> = {};
-        KANBAN_COLUMNS.forEach(s => { result[s] = []; });
+        const result: Record<KanbanStatus, ApiIntervention[]> = {
+            SCHEDULED: [],
+            EN_ROUTE: [],
+            IN_PROGRESS: [],
+            COMPLETED: []
+        };
         interventions.forEach(i => {
-            if (result[i.status]) result[i.status].push(i);
-            else if (i.status === 'CANCELED') { /* skip canceled from kanban */ }
+            if (i.status !== 'CANCELED') result[i.status].push(i);
         });
         return result;
     }, [interventions]);
@@ -302,10 +289,10 @@ export default function MapKanban() {
 // ─── Kanban Card ─────────────────────────
 
 function KanbanCard({ intervention, onStatusChange }: {
-    intervention: Intervention;
-    onStatusChange: (id: string, status: string) => void;
+    intervention: ApiIntervention;
+    onStatusChange: (id: string, status: InterventionStatus) => void;
 }) {
-    const statusIndex = KANBAN_COLUMNS.indexOf(intervention.status);
+    const statusIndex = KANBAN_COLUMNS.findIndex(status => status === intervention.status);
     const nextStatus = statusIndex < KANBAN_COLUMNS.length - 1 ? KANBAN_COLUMNS[statusIndex + 1] : null;
 
     return (

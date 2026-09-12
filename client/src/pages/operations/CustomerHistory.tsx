@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
 import {
@@ -14,10 +14,62 @@ interface CustomerHistoryProps {
     onClose: () => void;
 }
 
+interface HistoryEmployee {
+    name?: string | null;
+}
+
+interface HistoryIntervention {
+    id: string;
+    title: string;
+    status: string;
+    scheduledStart: string;
+    signatureUrl?: string | null;
+    interventionType?: {
+        name: string;
+        color: string;
+    } | null;
+    employee?: HistoryEmployee | null;
+}
+
+interface HistoryQuote {
+    id: string;
+    quoteNumber: string;
+    title: string;
+    status: string;
+    createdAt: string;
+    totalAmount?: number | null;
+    lineItems?: unknown[];
+}
+
+interface HistoryRecurringIntervention {
+    id: string;
+    title: string;
+    frequency: string;
+    isActive: boolean;
+    nextOccurrence?: string | null;
+    employee?: HistoryEmployee | null;
+    _count?: {
+        interventions: number;
+    };
+}
+
+interface HistoryTimelineItem {
+    type: 'intervention' | 'quote';
+    title: string;
+    status: string;
+    date: string;
+    employee?: HistoryEmployee | null;
+    partsCount?: number;
+    partsCost?: number | null;
+    totalAmount?: number | null;
+    hasSignature?: boolean;
+    hasReport?: boolean;
+}
+
 interface HistoryData {
-    interventions: any[];
-    quotes: any[];
-    recurringInterventions: any[];
+    interventions: HistoryIntervention[];
+    quotes: HistoryQuote[];
+    recurringInterventions: HistoryRecurringIntervention[];
     stats: {
         totalInterventions: number;
         completedInterventions: number;
@@ -30,7 +82,7 @@ interface HistoryData {
         avgDuration: number;
         activeRecurring: number;
     };
-    timeline: any[];
+    timeline: HistoryTimelineItem[];
 }
 
 const TAB_ITEMS = ['timeline', 'interventions', 'quotes', 'recurring'] as const;
@@ -55,7 +107,7 @@ export default function CustomerHistory({ customerId, customerName, onClose }: C
     const [activeTab, setActiveTab] = useState<TabType>('timeline');
 
     const token = localStorage.getItem('token');
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -67,7 +119,7 @@ export default function CustomerHistory({ customerId, customerName, onClose }: C
             finally { setLoading(false); }
         };
         fetchHistory();
-    }, [customerId]);
+    }, [customerId, headers]);
 
     if (loading) {
         return (
@@ -161,7 +213,7 @@ export default function CustomerHistory({ customerId, customerName, onClose }: C
                             <div className="space-y-4">
                                 {timeline.length === 0 ? (
                                     <div className="text-center py-10 text-gray-400">Aucun événement dans l'historique</div>
-                                ) : timeline.map((item: any, idx: number) => (
+                                ) : timeline.map((item, idx) => (
                                     <div key={idx} className="relative flex items-start gap-4 pl-2">
                                         <div className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${item.type === 'intervention' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'}`}>
                                             {item.type === 'intervention' ? <Wrench size={14} /> : <FileSpreadsheet size={14} />}
@@ -176,7 +228,7 @@ export default function CustomerHistory({ customerId, customerName, onClose }: C
                                             <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
                                                 <span className="flex items-center gap-1"><Calendar size={12} /> {format(new Date(item.date), 'dd/MM/yyyy HH:mm')}</span>
                                                 {item.employee && <span className="flex items-center gap-1"><User size={12} /> {item.employee.name}</span>}
-                                                {item.type === 'intervention' && item.partsCount > 0 && (
+                                                {item.type === 'intervention' && (item.partsCount ?? 0) > 0 && (
                                                     <span className="flex items-center gap-1"><Package size={12} /> {item.partsCount} pièce(s) — {item.partsCost?.toFixed(2)}€</span>
                                                 )}
                                                 {item.type === 'quote' && (
@@ -208,7 +260,7 @@ export default function CustomerHistory({ customerId, customerName, onClose }: C
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {interventions.map((i: any) => (
+                                        {interventions.map((i) => (
                                             <tr key={i.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
                                                 <td className="py-3 px-4">
                                                     <p className="font-medium text-gray-900 text-sm">{i.title}</p>
@@ -242,7 +294,7 @@ export default function CustomerHistory({ customerId, customerName, onClose }: C
                         <div className="space-y-3">
                             {quotes.length === 0 ? (
                                 <div className="text-center py-10 text-gray-400">Aucun devis</div>
-                            ) : quotes.map((q: any) => (
+                            ) : quotes.map((q) => (
                                 <div key={q.id} className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md transition-all">
                                     <div className="flex items-center justify-between">
                                         <div>
@@ -272,7 +324,7 @@ export default function CustomerHistory({ customerId, customerName, onClose }: C
                         <div className="space-y-3">
                             {recurringInterventions.length === 0 ? (
                                 <div className="text-center py-10 text-gray-400">Aucune récurrence</div>
-                            ) : recurringInterventions.map((r: any) => (
+                            ) : recurringInterventions.map((r) => (
                                 <div key={r.id} className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md transition-all">
                                     <div className="flex items-center justify-between">
                                         <div>

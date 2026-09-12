@@ -181,7 +181,12 @@ export const getStatus = async (req: Request, res: Response): Promise<void> => {
             select: {
                 id: true,
                 name: true,
-                country: true
+                country: true,
+                plan: true,
+                status: true,
+                trialEndsAt: true,
+                subscriptionStatus: true,
+                maxEmployees: true
             }
         });
 
@@ -191,11 +196,12 @@ export const getStatus = async (req: Request, res: Response): Promise<void> => {
         }
 
         res.status(200).json({
-            plan: 'TRIAL', // Default - would come from subscription data
-            status: 'active',
-            trialEndsAt: null,
-            subscriptionStatus: null,
-            maxEmployees: 10
+            plan: tenant.plan,
+            status: tenant.status,
+            trialEndsAt: tenant.trialEndsAt,
+            subscriptionStatus: tenant.subscriptionStatus,
+            maxEmployees: tenant.maxEmployees,
+            source: tenant.subscriptionStatus ? 'stripe_webhook' : 'local_tenant_state'
         });
 
     } catch (error: any) {

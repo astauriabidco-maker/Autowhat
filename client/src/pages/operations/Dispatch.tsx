@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar';
+import type { EventPropGetter, View } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
+import type { EventInteractionArgs } from 'react-big-calendar/lib/addons/dragAndDrop';
 import { format, parse, startOfWeek, getDay, addHours, addMinutes } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -11,53 +13,63 @@ import {
     Filter, Send, MessageCircle, Check, Download, Zap
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import type { ApiCustomer } from '../../types/api/customers';
+import type { ApiEmployeesResponse, ApiEmployeeSummary } from '../../types/api/employees';
+import type {
+    ApiIntervention,
+    ApiInterventionCreatePayload,
+    ApiInterventionNotificationPayload,
+    ApiInterventionSchedulePayload,
+    ApiInterventionStatusPayload,
+    ApiInterventionType,
+    InterventionNotificationType,
+    InterventionStatus
+} from '../../types/api/operations';
 
 const locales = { fr };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }), getDay, locales });
-const DnDCalendar = withDragAndDrop(Calendar as any);
 
-interface CustomerSite { id: string; name: string; isMainSite: boolean; address: string; city: string; postalCode: string; contactName?: string; accessCode?: string; }
-interface Customer { id: string; companyName: string; contactName: string; address?: string; phone?: string; sites?: CustomerSite[]; }
-interface Employee { id: string; name: string; phoneNumber: string; }
-interface Intervention {
-    id: string;
-    title: string;
-    description?: string;
-    status: string;
-    scheduledStart: string;
-    scheduledEnd: string;
-    realStart?: string;
-    realEnd?: string;
-    customer: { id: string; companyName: string; contactName: string; address?: string; phone?: string };
-    customerSite?: { id: string; name: string; address: string; city: string; postalCode?: string; contactName?: string; accessCode?: string } | null;
-    interventionType?: { id: string; name: string; color: string; icon?: string | null } | null;
-    employee: { id: string; name: string; phoneNumber: string };
-}
-
-interface IntType { id: string; name: string; color: string; icon?: string | null; defaultDuration: number; }
-
-const STATUS_COLORS: Record<string, { bg: string; border: string; text: string; label: string }> = {
+const STATUS_COLORS: Record<InterventionStatus, { bg: string; border: string; text: string; label: string }> = {
     SCHEDULED: { bg: '#f1f5f9', border: '#94a3b8', text: '#475569', label: 'Prévu' },
     EN_ROUTE: { bg: '#dbeafe', border: '#3b82f6', text: '#1d4ed8', label: 'En route' },
     IN_PROGRESS: { bg: '#fef3c7', border: '#f59e0b', text: '#b45309', label: 'En cours' },
     COMPLETED: { bg: '#dcfce7', border: '#22c55e', text: '#15803d', label: 'Terminé' },
     CANCELED: { bg: '#fee2e2', border: '#ef4444', text: '#b91c1c', label: 'Annulé' },
 };
+const STATUS_COLOR_ENTRIES = Object.entries(STATUS_COLORS) as Array<[InterventionStatus, typeof STATUS_COLORS[InterventionStatus]]>;
+const NOTIFICATION_ACTIONS: Array<{ type: InterventionNotificationType; label: string }> = [
+    { type: 'reminder', label: '📅 Rappel J-1' },
+    { type: 'en_route', label: '🚗 En route' },
+    { type: 'signature', label: '✍️ Signature' },
+    { type: 'completed', label: '✅ Terminé' },
+];
 
 const emptyForm = { title: '', description: '', customerId: '', customerSiteId: '', interventionTypeId: '', employeeId: '', scheduledStart: '', scheduledEnd: '' };
 
+interface CalendarEvent {
+    id: string;
+    title: string;
+    start: Date;
+    end: Date;
+    resource: ApiIntervention;
+}
+
+const DnDCalendar = withDragAndDrop<CalendarEvent, object>(Calendar);
+
+const toDate = (value: string | Date) => value instanceof Date ? value : new Date(value);
+
 export default function Dispatch() {
-    const [interventions, setInterventions] = useState<Intervention[]>([]);
-    const [customers, setCustomers] = useState<Customer[]>([]);
-    const [employees, setEmployees] = useState<Employee[]>([]);
-    const [interventionTypes, setInterventionTypes] = useState<IntType[]>([]);
+    const [interventions, setInterventions] = useState<ApiIntervention[]>([]);
+    const [customers, setCustomers] = useState<ApiCustomer[]>([]);
+    const [employees, setEmployees] = useState<ApiEmployeeSummary[]>([]);
+    const [interventionTypes, setInterventionTypes] = useState<ApiInterventionType[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const [showDetail, setShowDetail] = useState<Intervention | null>(null);
+    const [showDetail, setShowDetail] = useState<ApiIntervention | null>(null);
     const [form, setForm] = useState(emptyForm);
     const [saving, setSaving] = useState(false);
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [currentView, setCurrentView] = useState<any>(Views.WEEK);
+    const [currentView, setCurrentView] = useState<View>(Views.WEEK);
 
     // Filters
     const [filterEmployee, setFilterEmployee] = useState<string>('');
@@ -71,30 +83,29 @@ export default function Dispatch() {
     const [notifSuccess, setNotifSuccess] = useState<string | null>(null);
 
     const token = localStorage.getItem('token');
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
-    const fetchAll = async () => {
+    const fetchAll = useCallback(async () => {
         try {
             setLoading(true);
             const [intRes, custRes, empRes, typesRes] = await Promise.all([
-                axios.get('/api/interventions', { headers }),
-                axios.get('/api/customers', { headers }),
-                axios.get('/api/employees', { headers }),
-                axios.get('/api/intervention-types', { headers }),
+                axios.get<ApiIntervention[]>('/api/interventions', { headers }),
+                axios.get<ApiCustomer[]>('/api/customers', { headers }),
+                axios.get<ApiEmployeesResponse>('/api/employees', { headers }),
+                axios.get<ApiInterventionType[]>('/api/intervention-types', { headers }),
             ]);
             setInterventions(Array.isArray(intRes.data) ? intRes.data : []);
-            const custData = Array.isArray(custRes.data) ? custRes.data : [];
-            setCustomers(custData);
-            setEmployees(Array.isArray(empRes.data) ? empRes.data : empRes.data?.employees || []);
+            setCustomers(Array.isArray(custRes.data) ? custRes.data : []);
+            setEmployees(empRes.data.employees || []);
             setInterventionTypes(Array.isArray(typesRes.data) ? typesRes.data : []);
         } catch (e) {
             console.error('Error fetching data', e);
         } finally {
             setLoading(false);
         }
-    };
+    }, [headers]);
 
-    useEffect(() => { fetchAll(); }, []);
+    useEffect(() => { fetchAll(); }, [fetchAll]);
 
     // Filtered interventions
     const filteredInterventions = useMemo(() => {
@@ -109,7 +120,7 @@ export default function Dispatch() {
 
     const activeFiltersCount = [filterEmployee, filterType, filterCustomer, filterStatus].filter(Boolean).length;
 
-    const calendarEvents = useMemo(() =>
+    const calendarEvents = useMemo<CalendarEvent[]>(() =>
         filteredInterventions.map(i => ({
             id: i.id,
             title: `${i.title} — ${i.customer.companyName}`,
@@ -119,9 +130,9 @@ export default function Dispatch() {
         })),
         [filteredInterventions]);
 
-    const eventStyleGetter = useCallback((event: any) => {
+    const eventStyleGetter = useCallback<EventPropGetter<CalendarEvent>>((event) => {
         const status = event.resource.status;
-        const colors = STATUS_COLORS[status] || STATUS_COLORS.SCHEDULED;
+        const colors = STATUS_COLORS[status];
         const typeColor = event.resource.interventionType?.color;
         return {
             style: {
@@ -149,56 +160,63 @@ export default function Dispatch() {
         setShowModal(true);
     }, []);
 
-    const handleSelectEvent = useCallback((event: any) => {
+    const handleSelectEvent = useCallback((event: CalendarEvent) => {
         setShowDetail(event.resource);
     }, []);
 
     // Drag & Drop handler
-    const handleEventDrop = useCallback(async ({ event, start, end }: any) => {
+    const handleEventDrop = useCallback(async ({ event, start, end }: EventInteractionArgs<CalendarEvent>) => {
+        const scheduledStart = toDate(start).toISOString();
+        const scheduledEnd = toDate(end).toISOString();
         try {
-            await axios.put(`/api/interventions/${event.id}`, {
-                scheduledStart: (start as Date).toISOString(),
-                scheduledEnd: (end as Date).toISOString(),
-            }, { headers });
+            const payload: ApiInterventionSchedulePayload = {
+                scheduledStart,
+                scheduledEnd,
+            };
+            await axios.put<ApiIntervention>(`/api/interventions/${event.id}`, payload, { headers });
             // Optimistic update
             setInterventions(prev => prev.map(i =>
                 i.id === event.id
-                    ? { ...i, scheduledStart: (start as Date).toISOString(), scheduledEnd: (end as Date).toISOString() }
+                    ? { ...i, scheduledStart, scheduledEnd }
                     : i
             ));
         } catch (e) {
             console.error('Error moving event', e);
             fetchAll(); // Revert on error
         }
-    }, []);
+    }, [headers, fetchAll]);
 
     // Resize handler
-    const handleEventResize = useCallback(async ({ event, start, end }: any) => {
+    const handleEventResize = useCallback(async ({ event, start, end }: EventInteractionArgs<CalendarEvent>) => {
+        const scheduledStart = toDate(start).toISOString();
+        const scheduledEnd = toDate(end).toISOString();
         try {
-            await axios.put(`/api/interventions/${event.id}`, {
-                scheduledStart: (start as Date).toISOString(),
-                scheduledEnd: (end as Date).toISOString(),
-            }, { headers });
+            const payload: ApiInterventionSchedulePayload = {
+                scheduledStart,
+                scheduledEnd,
+            };
+            await axios.put<ApiIntervention>(`/api/interventions/${event.id}`, payload, { headers });
             setInterventions(prev => prev.map(i =>
                 i.id === event.id
-                    ? { ...i, scheduledStart: (start as Date).toISOString(), scheduledEnd: (end as Date).toISOString() }
+                    ? { ...i, scheduledStart, scheduledEnd }
                     : i
             ));
         } catch (e) {
             console.error('Error resizing event', e);
             fetchAll();
         }
-    }, []);
+    }, [headers, fetchAll]);
 
     const handleSave = async () => {
         if (!form.title || !form.customerId || !form.employeeId || !form.scheduledStart || !form.scheduledEnd) return;
         setSaving(true);
         try {
-            await axios.post('/api/interventions', {
+            const payload: ApiInterventionCreatePayload = {
                 ...form,
                 scheduledStart: new Date(form.scheduledStart).toISOString(),
                 scheduledEnd: new Date(form.scheduledEnd).toISOString(),
-            }, { headers });
+            };
+            await axios.post<ApiIntervention>('/api/interventions', payload, { headers });
             setShowModal(false);
             setForm(emptyForm);
             fetchAll();
@@ -209,9 +227,10 @@ export default function Dispatch() {
         }
     };
 
-    const handleStatusChange = async (id: string, status: string) => {
+    const handleStatusChange = async (id: string, status: InterventionStatus) => {
         try {
-            await axios.patch(`/api/interventions/${id}/status`, { status }, { headers });
+            const payload: ApiInterventionStatusPayload = { status };
+            await axios.patch<ApiIntervention>(`/api/interventions/${id}/status`, payload, { headers });
 
             // Auto-send WhatsApp notification on status change
             if (status === 'EN_ROUTE') {
@@ -239,7 +258,7 @@ export default function Dispatch() {
     };
 
     const downloadInterventionPdf = async (id: string) => {
-        const response = await axios.get(`/api/interventions/${id}/pdf`, {
+        const response = await axios.get<Blob>(`/api/interventions/${id}/pdf`, {
             headers,
             responseType: 'blob'
         });
@@ -249,10 +268,11 @@ export default function Dispatch() {
     };
 
     // WhatsApp notification
-    const sendNotification = async (id: string, type: string) => {
+    const sendNotification = async (id: string, type: InterventionNotificationType) => {
         setNotifSending(type);
         try {
-            await axios.post(`/api/interventions/${id}/notify`, { type }, { headers });
+            const payload: ApiInterventionNotificationPayload = { type };
+            await axios.post(`/api/interventions/${id}/notify`, payload, { headers });
             setNotifSuccess(type);
             setTimeout(() => setNotifSuccess(null), 3000);
         } catch (e) {
@@ -264,7 +284,7 @@ export default function Dispatch() {
 
     // Stats
     const statusCounts = useMemo(() => {
-        const counts: Record<string, number> = {};
+        const counts: Partial<Record<InterventionStatus, number>> = {};
         filteredInterventions.forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1; });
         return counts;
     }, [filteredInterventions]);
@@ -400,7 +420,7 @@ export default function Dispatch() {
                                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
                             >
                                 <option value="">Tous</option>
-                                {Object.entries(STATUS_COLORS).map(([key, val]) => (
+                                {STATUS_COLOR_ENTRIES.map(([key, val]) => (
                                     <option key={key} value={key}>{val.label}</option>
                                 ))}
                             </select>
@@ -411,7 +431,7 @@ export default function Dispatch() {
 
             {/* Status Legend */}
             <div className="flex flex-wrap gap-3">
-                {Object.entries(STATUS_COLORS).map(([key, val]) => (
+                {STATUS_COLOR_ENTRIES.map(([key, val]) => (
                     <div
                         key={key}
                         className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all hover:scale-105"
@@ -506,7 +526,7 @@ export default function Dispatch() {
                                                     if (isSelected) {
                                                         setForm({ ...form, interventionTypeId: '' });
                                                     } else {
-                                                        const updates: any = { interventionTypeId: t.id };
+                                                        const updates: Partial<typeof emptyForm> = { interventionTypeId: t.id };
                                                         if (!form.title) updates.title = t.name;
                                                         if (form.scheduledStart) {
                                                             const start = new Date(form.scheduledStart);
@@ -734,33 +754,31 @@ export default function Dispatch() {
                                     NOTIFICATIONS WHATSAPP
                                 </p>
                                 <div className="flex flex-wrap gap-2">
-                                    {[
-                                        { type: 'reminder', label: '📅 Rappel J-1', disabled: !showDetail.customer.phone },
-                                        { type: 'en_route', label: '🚗 En route', disabled: !showDetail.customer.phone },
-                                        { type: 'signature', label: '✍️ Signature', disabled: !showDetail.customer.phone },
-                                        { type: 'completed', label: '✅ Terminé', disabled: !showDetail.customer.phone },
-                                    ].map(n => (
-                                        <button
-                                            key={n.type}
-                                            onClick={() => sendNotification(showDetail.id, n.type)}
-                                            disabled={n.disabled || notifSending === n.type}
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition border flex items-center gap-1.5 ${notifSuccess === n.type
-                                                ? 'bg-green-50 border-green-200 text-green-700'
-                                                : n.disabled
-                                                    ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
-                                                    : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
-                                                }`}
-                                        >
-                                            {notifSending === n.type ? (
-                                                <div className="w-3 h-3 border border-green-500 border-t-transparent rounded-full animate-spin" />
-                                            ) : notifSuccess === n.type ? (
-                                                <Check size={12} />
-                                            ) : (
-                                                <Send size={10} />
-                                            )}
-                                            {n.label}
-                                        </button>
-                                    ))}
+                                    {NOTIFICATION_ACTIONS.map(n => {
+                                        const disabled = !showDetail.customer.phone || notifSending === n.type;
+                                        return (
+                                            <button
+                                                key={n.type}
+                                                onClick={() => sendNotification(showDetail.id, n.type)}
+                                                disabled={disabled}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition border flex items-center gap-1.5 ${notifSuccess === n.type
+                                                    ? 'bg-green-50 border-green-200 text-green-700'
+                                                    : disabled
+                                                        ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
+                                                        : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+                                                    }`}
+                                            >
+                                                {notifSending === n.type ? (
+                                                    <div className="w-3 h-3 border border-green-500 border-t-transparent rounded-full animate-spin" />
+                                                ) : notifSuccess === n.type ? (
+                                                    <Check size={12} />
+                                                ) : (
+                                                    <Send size={10} />
+                                                )}
+                                                {n.label}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                                 {!showDetail.customer.phone && (
                                     <p className="text-xs text-amber-600 mt-2">⚠️ Pas de téléphone client renseigné</p>
@@ -771,7 +789,7 @@ export default function Dispatch() {
                             <div className="border-t border-gray-100 pt-4">
                                 <p className="text-xs font-medium text-gray-400 mb-2">CHANGER LE STATUT</p>
                                 <div className="flex flex-wrap gap-2">
-                                    {Object.entries(STATUS_COLORS).map(([key, val]) => (
+                                    {STATUS_COLOR_ENTRIES.map(([key, val]) => (
                                         <button
                                             key={key}
                                             onClick={() => handleStatusChange(showDetail.id, key)}

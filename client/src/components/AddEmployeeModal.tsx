@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, User, Phone, Briefcase, Loader2, Building2, Globe } from 'lucide-react';
 import { getErrorMessage } from '../utils/errors';
+import type { ApiEmployeeCreatePayload, EmployeeLanguage, EmployeeWorkProfile } from '../types/api/employees';
+import type { ApiSitesResponse, ApiTenantSite } from '../types/api/sites';
 
 interface AddEmployeeModalProps {
     isOpen: boolean;
@@ -9,7 +11,16 @@ interface AddEmployeeModalProps {
 }
 
 export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmployeeModalProps) {
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        firstName: string;
+        lastName: string;
+        phoneNumber: string;
+        countryCode: string;
+        position: string;
+        workProfile: EmployeeWorkProfile;
+        siteId: string;
+        language: EmployeeLanguage;
+    }>({
         firstName: '',
         lastName: '',
         phoneNumber: '',
@@ -21,7 +32,7 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [sites, setSites] = useState<{ id: string, name: string }[]>([]);
+    const [sites, setSites] = useState<Pick<ApiTenantSite, 'id' | 'name'>[]>([]);
 
     // Charger les sites disponibles
     useEffect(() => {
@@ -32,7 +43,7 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
                     const res = await fetch('/api/sites', {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
-                    const data = await res.json();
+                    const data = await res.json() as ApiSitesResponse;
                     if (data.sites) setSites(data.sites);
                 } catch (e) {
                     console.error('Failed to load sites:', e);
@@ -56,21 +67,23 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
             // Combine country code and phone number
             const fullPhone = `${formData.countryCode}${formData.phoneNumber}`;
 
+            const payload: ApiEmployeeCreatePayload = {
+                name: fullName,
+                phoneNumber: fullPhone,
+                position: formData.position || 'Employé',
+                role: 'EMPLOYEE',
+                workProfile: formData.workProfile,
+                siteId: formData.siteId || null,
+                language: formData.language
+            };
+
             const response = await fetch('/api/employees', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({
-                    name: fullName,
-                    phoneNumber: fullPhone,
-                    position: formData.position || 'Employé',
-                    role: 'EMPLOYEE',
-                    workProfile: formData.workProfile,
-                    siteId: formData.siteId || null,
-                    language: formData.language
-                })
+                body: JSON.stringify(payload)
             });
 
             const data = await response.json();
@@ -286,7 +299,7 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
                             </label>
                             <select
                                 value={formData.language}
-                                onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+                                onChange={(e) => setFormData({ ...formData, language: e.target.value as EmployeeLanguage })}
                                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
                             >
                                 <option value="fr">🇫🇷 Français</option>

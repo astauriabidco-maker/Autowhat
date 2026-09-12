@@ -10,7 +10,6 @@ import {
     FolderOpen,
     Settings,
     LogOut,
-    Inbox,
     MessageCircle,
     ChevronLeft,
     ChevronRight,
@@ -18,15 +17,8 @@ import {
     X,
     Shield,
     Headphones,
-    Building2,
-    CalendarClock,
-    FileText,
-    SquareStack,
-    BarChart3,
-    RefreshCw,
-    Map,
     MapPin,
-    Network
+    Network,
 } from 'lucide-react';
 import SiteSelector from './components/SiteSelector';
 import TrialBanner from './components/TrialBanner';
@@ -57,24 +49,10 @@ const navSections: NavSection[] = [
         ],
     },
     {
-        title: 'PLANNING & DEMANDES',
-        items: [
-            { icon: <BarChart3 size={20} />, label: 'Vue opérations', path: '/operations/dashboard' },
-            { icon: <Inbox size={20} />, label: 'Boîte de demandes', path: '/inbox' },
-            { icon: <Building2 size={20} />, label: 'Clients', path: '/operations/customers' },
-            { icon: <SquareStack size={20} />, label: 'Types d\'intervention', path: '/operations/intervention-types' },
-            { icon: <CalendarClock size={20} />, label: 'Planning', path: '/operations/dispatch' },
-            { icon: <MessageCircle size={20} />, label: 'Demandes d\'intervention', path: '/operations/requests' },
-            { icon: <RefreshCw size={20} />, label: 'Récurrences', path: '/operations/recurring' },
-            { icon: <Map size={20} />, label: 'Carte / Kanban', path: '/operations/map' },
-            { icon: <FileText size={20} />, label: 'Rapports', path: '/operations/reports' },
-        ],
-    },
-    {
         title: 'CONNEXIONS',
         items: [
             { icon: <Network size={20} />, label: 'Connexions', path: '/settings/integrations' },
-            { icon: <MessageCircle size={20} />, label: 'WhatsApp Bot', path: '/settings/whatsapp' },
+            { icon: <MessageCircle size={20} />, label: 'Canal WhatsApp', path: '/settings/whatsapp' },
         ],
     },
 ];
@@ -91,7 +69,7 @@ const mobileNavItems: NavItem[] = [
     { icon: <Users size={20} />, label: 'Équipe', path: '/employees' },
     { icon: <Clock size={20} />, label: 'Présence', path: '/attendance' },
     { icon: <MapPin size={20} />, label: 'GPS', path: '/sites-gps' },
-    { icon: <Inbox size={20} />, label: 'Demandes', path: '/inbox' },
+    { icon: <Settings size={20} />, label: 'Réglages', path: '/settings' },
 ];
 
 const getAttendanceGpsPendingCount = (data: unknown) => {
@@ -150,9 +128,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     const navigate = useNavigate();
     const location = useLocation();
     const [collapsed, setCollapsed] = useState(false);
-    const [user, setUser] = useState<{ name: string; tenant: string } | null>(null);
+    const [user] = useState<{ name: string; tenant: string } | null>(() => {
+        const userData = localStorage.getItem('user');
+        return userData ? JSON.parse(userData) : null;
+    });
     const [tenantInfo, setTenantInfo] = useState<{ plan?: string; trialEndsAt?: string | null; maxEmployees?: number } | null>(null);
-    const [pendingRequests, setPendingRequests] = useState(0);
     const [pendingGpsProposals, setPendingGpsProposals] = useState(0);
     const [pendingAttendanceGpsChecks, setPendingAttendanceGpsChecks] = useState(0);
 
@@ -162,10 +142,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     const [impersonatedManager, setImpersonatedManager] = useState<string | null>(null);
 
     useEffect(() => {
-        const userData = localStorage.getItem('user');
-        if (userData) {
-            setUser(JSON.parse(userData));
-        }
         // Fetch tenant info for trial banner
         const fetchTenantInfo = async () => {
             try {
@@ -199,21 +175,17 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         };
         checkOnboarding();
 
-        // Fetch pending intervention requests count
+        // Fetch presence and GPS review badges
         const fetchPendingBadges = async () => {
             try {
                 const token = localStorage.getItem('token');
                 if (!token) return;
                 const headers = { Authorization: `Bearer ${token}` };
-                const [requestsRes, gpsRes, dashboardRes] = await Promise.allSettled([
-                    axios.get('/api/intervention-requests/stats', { headers }),
+                const [gpsRes, dashboardRes] = await Promise.allSettled([
                     axios.get('/api/sites/gps-activity', { headers }),
                     axios.get('/api/dashboard/stats', { headers })
                 ]);
 
-                if (requestsRes.status === 'fulfilled') {
-                    setPendingRequests(requestsRes.value.data.pending || 0);
-                }
                 if (gpsRes.status === 'fulfilled') {
                     setPendingGpsProposals(gpsRes.value.data.pendingProposals?.length || 0);
                 }
@@ -390,11 +362,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                                                 {!collapsed && (
                                                     <>
                                                         <span className="text-sm flex-1">{item.label}</span>
-                                                        {(item.path === '/operations/requests' || item.path === '/inbox') && pendingRequests > 0 && (
-                                                            <span className="ml-auto px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[20px] text-center animate-pulse">
-                                                                {pendingRequests}
-                                                            </span>
-                                                        )}
                                                         {item.path === '/sites-gps' && pendingGpsProposals > 0 && (
                                                             <span className="ml-auto px-2 py-0.5 bg-amber-500 text-white text-[10px] font-bold rounded-full min-w-[20px] text-center animate-pulse">
                                                                 {pendingGpsProposals}
@@ -406,11 +373,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                                                             </span>
                                                         )}
                                                     </>
-                                                )}
-                                                {collapsed && (item.path === '/operations/requests' || item.path === '/inbox') && pendingRequests > 0 && (
-                                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
-                                                        {pendingRequests}
-                                                    </span>
                                                 )}
                                                 {collapsed && item.path === '/sites-gps' && pendingGpsProposals > 0 && (
                                                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
@@ -575,11 +537,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                             >
                                 {item.icon}
                                 <span>{item.label}</span>
-                                {item.path === '/inbox' && pendingRequests > 0 && (
-                                    <span className="absolute top-1 right-5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
-                                        {pendingRequests}
-                                    </span>
-                                )}
                                 {item.path === '/sites-gps' && pendingGpsProposals > 0 && (
                                     <span className="absolute top-1 right-5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center">
                                         {pendingGpsProposals}

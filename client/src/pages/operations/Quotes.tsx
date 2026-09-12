@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
 import {
@@ -74,11 +74,9 @@ export default function Quotes() {
     const [parts, setParts] = useState<Part[]>([]);
 
     const token = localStorage.getItem('token');
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
-    useEffect(() => { fetchAll(); }, []);
-
-    const fetchAll = async () => {
+    const fetchAll = useCallback(async () => {
         try {
             setLoading(true);
             const [qRes, cRes, pRes] = await Promise.all([
@@ -91,7 +89,9 @@ export default function Quotes() {
             setParts(pRes.data);
         } catch (e) { console.error('Error', e); }
         finally { setLoading(false); }
-    };
+    }, [headers]);
+
+    useEffect(() => { fetchAll(); }, [fetchAll]);
 
     const filtered = useMemo(() => {
         return quotes.filter(q => {

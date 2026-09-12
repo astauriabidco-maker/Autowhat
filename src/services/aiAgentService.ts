@@ -7,6 +7,9 @@
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import { isDemoMode, isFlagEnabled, requireDemoFallbackAllowed } from '../utils/featureFlags';
+
+const ENABLE_AI_AGENTS = 'ENABLE_AI_AGENTS';
 
 interface ExpenseExtractionResult {
     amount: number | null;
@@ -27,8 +30,13 @@ export async function extractExpenseDataFromImage(imageUrl: string): Promise<Exp
     console.log(`🧠 [Vision Agent] Analyzing receipt image: ${imageUrl.substring(0, 50)}...`);
 
     const apiKey = process.env.OPENAI_API_KEY;
+    const aiEnabled = isFlagEnabled(ENABLE_AI_AGENTS, process.env.NODE_ENV !== 'production');
 
-    if (apiKey) {
+    if (!aiEnabled) {
+        requireDemoFallbackAllowed(ENABLE_AI_AGENTS, 'Expense OCR');
+    }
+
+    if (apiKey && aiEnabled) {
         try {
             console.log(`🚀 Calling OpenAI Vision (GPT-4o) Real API...`);
             
@@ -69,12 +77,14 @@ export async function extractExpenseDataFromImage(imageUrl: string): Promise<Exp
             };
         } catch (error: any) {
             console.error(`❌ [Vision Agent] API failure:`, error.response?.data || error.message);
-            console.log(`⚠️ Falling back to mocked extraction...`);
+            requireDemoFallbackAllowed(ENABLE_AI_AGENTS, 'Expense OCR');
+            console.log(`⚠️ [DEMO] Falling back to mocked extraction...`);
         }
     }
 
     // --- FALLBACK / DEMO IMPLEMENTATION ---
     // If no key is provided, simulate processing
+    requireDemoFallbackAllowed(ENABLE_AI_AGENTS, 'Expense OCR');
     await new Promise(resolve => setTimeout(resolve, 2500));
 
     // Simulated Intelligence
@@ -105,6 +115,8 @@ interface MedicalCertificateResult {
  */
 export async function extractMedicalCertificateDataFromImage(imageUrl: string): Promise<MedicalCertificateResult> {
     console.log(`🧠 [Medical Agent] Analyzing medical certificate: ${imageUrl.substring(0, 50)}...`);
+
+    requireDemoFallbackAllowed(ENABLE_AI_AGENTS, 'Medical certificate OCR');
 
     // Simulate LLM processing time
     await new Promise(resolve => setTimeout(resolve, 3000));
@@ -139,8 +151,13 @@ export interface NaturalLeaveResult {
 export async function parseNaturalLanguageLeave(text: string): Promise<NaturalLeaveResult> {
     console.log(`🧠 [NLP Agent] Parsing leave request dates: "${text}"`);
     const apiKey = process.env.OPENAI_API_KEY;
+    const aiEnabled = isFlagEnabled(ENABLE_AI_AGENTS, process.env.NODE_ENV !== 'production');
 
-    if (apiKey) {
+    if (!aiEnabled) {
+        requireDemoFallbackAllowed(ENABLE_AI_AGENTS, 'Leave NLP');
+    }
+
+    if (apiKey && aiEnabled) {
         try {
             console.log(`🚀 Calling OpenAI (GPT-4o) Real API for NLP...`);
             const today = new Date().toISOString().split('T')[0];
@@ -173,10 +190,12 @@ export async function parseNaturalLanguageLeave(text: string): Promise<NaturalLe
             };
         } catch (error: any) {
             console.error(`❌ [NLP Agent] LLM Parsing failed:`, error.response?.data || error.message);
+            requireDemoFallbackAllowed(ENABLE_AI_AGENTS, 'Leave NLP');
         }
     }
 
     // --- FALLBACK / DEMO IMPLEMENTATION ---
+    requireDemoFallbackAllowed(ENABLE_AI_AGENTS, 'Leave NLP');
     await new Promise(resolve => setTimeout(resolve, 1500));
     const today = new Date();
     const nextWeek = new Date();
@@ -208,6 +227,11 @@ export type IntentResult =
  */
 export async function detectUserIntent(userText: string): Promise<IntentResult> {
     console.log(`🧠 [Router Agent] Analyzing intent for: "${userText}"`);
+
+    if (!allowAiHeuristics()) {
+        console.warn(`[Router Agent] Disabled. Set ${ENABLE_AI_AGENTS}=true or DEMO_MODE=true to enable semantic routing.`);
+        return { intent: 'UNKNOWN' };
+    }
     
     const text = userText.toLowerCase();
 
@@ -251,6 +275,8 @@ export async function detectUserIntent(userText: string): Promise<IntentResult> 
 export async function answerHRQuestionViaRAG(question: string, tenantId: string): Promise<string> {
     console.log(`🧠 [RAG Agent] Searching knowledge base for Tenant: ${tenantId} | Q: "${question}"`);
 
+    requireDemoFallbackAllowed(ENABLE_AI_AGENTS, 'HR RAG');
+
     // In Production: 
     // 1. Embed the question -> [0.034, 0.551, ...]
     // 2. Vector Search (ex: pgvector) across the Tenant's 'Document' table (Règlement, Conventions)
@@ -284,6 +310,11 @@ export async function answerHRQuestionViaRAG(question: string, tenantId: string)
 export async function deflectSupportTicketViaRAG(subject: string, message: string): Promise<string | null> {
     console.log(`🧠 [Deflection Agent] Scanning new Support Ticket: "${subject}"`);
 
+    if (!allowAiHeuristics()) {
+        console.warn(`[Deflection Agent] Disabled. Set ${ENABLE_AI_AGENTS}=true or DEMO_MODE=true to enable support deflection.`);
+        return null;
+    }
+
     // In Production: We would embed the subject+message and query the platform's Technical KB.
     await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -305,3 +336,6 @@ export async function deflectSupportTicketViaRAG(subject: string, message: strin
     return null;
 }
 
+function allowAiHeuristics(): boolean {
+    return isFlagEnabled(ENABLE_AI_AGENTS, process.env.NODE_ENV !== 'production') || isDemoMode();
+}

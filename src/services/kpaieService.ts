@@ -6,6 +6,9 @@
 
 import axios from 'axios';
 import prisma from '../lib/prisma';
+import { isDemoMode, isFlagEnabled } from '../utils/featureFlags';
+
+const ENABLE_KPAIE = 'ENABLE_KPAIE';
 
 
 interface KPaieBalance {
@@ -30,6 +33,13 @@ export async function getKPaieBalances(tenantId: string, employeeExternalId: str
     console.log(`🔌 [KPaie] Fetching balances for Tenant: ${tenantId} | Employee: ${employeeExternalId}`);
 
     try {
+        const kpaieEnabled = isFlagEnabled(ENABLE_KPAIE, process.env.NODE_ENV !== 'production');
+        if (!kpaieEnabled) {
+            if (isDemoMode()) return getDemoKPaieBalances();
+            console.warn(`[KPaie] Disabled. Set ${ENABLE_KPAIE}=true for the real integration, or DEMO_MODE=true only for demos.`);
+            return { success: false, error: 'FEATURE_DISABLED' };
+        }
+
         // 1. Retrieve the secure API configuration for this tenant
         // In a real scenario, this would be fetched from the 'Integration' or 'Tenant' table
         const tenant = await prisma.tenant.findUnique({
@@ -43,6 +53,7 @@ export async function getKPaieBalances(tenantId: string, employeeExternalId: str
 
         if (!kpaieApiKey) {
             console.error(`❌ [KPaie] No API Key configured for Tenant: ${tenantId}`);
+            if (isDemoMode()) return getDemoKPaieBalances();
             return { success: false, error: 'NO_CONFIG' };
         }
 
@@ -72,21 +83,23 @@ export async function getKPaieBalances(tenantId: string, employeeExternalId: str
         // --- DEMO / FALLBACK LOGIC ---
         // For development/demo purposes, if KPaie is not reachable or not yet configured, 
         // we return mock data that *looks* like a real response.
-        if (process.env.NODE_ENV !== 'production' || error.code === 'ECONNREFUSED') {
-            console.log(`⚠️ [KPaie] Simulating response for demo...`);
-            return {
-                success: true,
-                data: {
-                    paid_leave: 14.5,
-                    rtt: 4,
-                    seniority_leave: 1,
-                    last_update: new Date().toISOString()
-                }
-            };
-        }
+        if (process.env.NODE_ENV !== 'production' || isDemoMode()) return getDemoKPaieBalances();
 
         return { success: false, error: 'API_ERROR' };
     }
+}
+
+function getDemoKPaieBalances(): KPaieServiceResponse<KPaieBalance> {
+    console.log(`⚠️ [KPaie][DEMO] Simulating response for demo...`);
+    return {
+        success: true,
+        data: {
+            paid_leave: 14.5,
+            rtt: 4,
+            seniority_leave: 1,
+            last_update: new Date().toISOString()
+        }
+    };
 }
 
 /**

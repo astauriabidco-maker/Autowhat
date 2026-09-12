@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
@@ -20,7 +20,7 @@ import {
     History,
     ShieldCheck
 } from 'lucide-react';
-import { useSiteContext } from '../context/SiteContext';
+import { useSiteContext } from '../context/useSiteContext';
 import ExportModal from '../components/ExportModal';
 
 interface Employee {
@@ -642,16 +642,7 @@ export default function Attendance() {
     const [period, setPeriod] = useState<AttendancePeriod>('today');
     const [quickFilter, setQuickFilter] = useState<AttendanceQuickFilter>('all');
 
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            navigate('/');
-            return;
-        }
-        fetchData();
-    }, [navigate, period, selectedDate, selectedSiteId]); // Refetch on site/date change
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
@@ -674,7 +665,16 @@ export default function Attendance() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [period, selectedDate, selectedSiteId]);
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            navigate('/');
+            return;
+        }
+        fetchData();
+    }, [fetchData, navigate]); // Refetch on site/date change
 
     const handleDecision = async (record: AttendanceRecord, action: AttendanceDecisionAction) => {
         setDecidingAction(action);

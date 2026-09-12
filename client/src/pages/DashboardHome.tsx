@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import clsx from 'clsx';
@@ -35,7 +35,7 @@ import {
     AreaChart,
     Area
 } from 'recharts';
-import { useSiteContext } from '../context/SiteContext';
+import { useSiteContext } from '../context/useSiteContext';
 import { getErrorStatus } from '../utils/errors';
 
 interface KPIData {
@@ -188,16 +188,7 @@ export default function DashboardHome() {
     const [attendanceSupervision, setAttendanceSupervision] = useState<AttendanceSupervision | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            navigate('/');
-            return;
-        }
-        fetchDashboardData();
-    }, [navigate, selectedSiteId]); // Refetch on site change
-
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
@@ -245,7 +236,16 @@ export default function DashboardHome() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [navigate, selectedSiteId]);
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            navigate('/');
+            return;
+        }
+        fetchDashboardData();
+    }, [fetchDashboardData, navigate]); // Refetch on site change
 
     // Calculate absent (total - active)
     const absentToday = kpis.totalEmployees - kpis.activeNow;

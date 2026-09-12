@@ -11,7 +11,7 @@ ${companyLegalInfo.address}
 Contact : ${companyLegalInfo.contactEmail}
 
 Finalités
-WhatsPoint traite les données nécessaires au pointage, à la présence, aux plannings, aux justificatifs, aux demandes terrain et à la transmission vers les outils métier des organisations clientes.
+WhatsPoint traite les données nécessaires au pointage, à la présence, aux plannings simples, aux justificatifs et à la transmission vers les outils RH ou paie des organisations clientes.
 
 Hébergement
 Les services sont hébergés chez ${companyLegalInfo.hostingProvider}, en ${companyLegalInfo.hostingCountry}.

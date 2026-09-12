@@ -11,7 +11,8 @@ import {
     ChevronDown,
     LogIn
 } from 'lucide-react';
-import { VisitorProvider, useVisitor } from '../context/VisitorContext';
+import { VisitorProvider } from '../context/VisitorContext';
+import { useVisitor } from '../context/useVisitor';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import HeroSection from '../components/landing/HeroSection';
 import Testimonials from '../components/landing/Testimonials';
@@ -66,6 +67,14 @@ function LandingContent() {
     const isCompactViewport = useMediaQuery('(max-width: 900px)');
     const isMobile = deviceType === 'mobile' || isCompactViewport;
 
+    const focusRequestAccess = () => {
+        const form = document.getElementById('request-access');
+        form?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        window.setTimeout(() => {
+            form?.querySelector<HTMLInputElement>('input[type="tel"]')?.focus();
+        }, 350);
+    };
+
     useEffect(() => {
         // Fetch geo-localized offer
         axios.get('/api/public/offer')
@@ -78,19 +87,19 @@ function LandingContent() {
                         {
                             id: 'plan_1', stripePriceId: '', name: 'Starter', description: 'Idéal pour les petites équipes.',
                             price: 49, currency: res.data.currency || 'EUR', maxEmployees: 10,
-                            features: ['Pointage WhatsApp', 'GPS Automatisé', 'Consultation planning', 'Support Email'],
+                            features: ['Pointage WhatsApp', 'Numéro WhatsPoint mutualisé', 'GPS Automatisé', 'Consultation planning', 'Support Email'],
                             isPopular: false, sortOrder: 1
                         },
                         {
                             id: 'plan_2', stripePriceId: '', name: 'Pro', description: 'Pour les PME en pleine croissance.',
                             price: 99, currency: res.data.currency || 'EUR', maxEmployees: 50,
-                            features: ['Pointage WhatsApp', 'Planning consultable', 'Transmission RH/paie', 'Support Stratégique WhatsApp'],
+                            features: ['Pointage WhatsApp', 'Numéro dédié fourni par WhatsPoint', 'Planning consultable', 'Transmission RH/paie', 'Support Stratégique WhatsApp'],
                             isPopular: true, sortOrder: 2
                         },
                         {
                             id: 'plan_3', stripePriceId: '', name: 'Enterprise', description: 'Pour les grands volumes.',
                             price: 199, currency: res.data.currency || 'EUR', maxEmployees: 200,
-                            features: ['Toutes les fonctions Pro', 'Multi-Managers', 'Accès API', 'Support prioritaire'],
+                            features: ['Toutes les fonctions Pro', 'BYON accompagné ou architecture WhatsApp sur mesure', 'Multi-Managers', 'Accès API', 'Support prioritaire'],
                             isPopular: false, sortOrder: 3
                         }
                     ]);
@@ -153,7 +162,7 @@ function LandingContent() {
                             {t('landing.nav.features')}
                         </a>
                         <a href="#operations" style={{ color: '#475569', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>
-                            {t('landing.nav.operations', 'Opérations')}
+                            {t('landing.nav.operations', 'Flux RH')}
                         </a>
                         <a href="#sectors" style={{ color: '#475569', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>
                             {t('landing.nav.sectors')}
@@ -267,7 +276,7 @@ function LandingContent() {
                         </button>
                     )}
                     <button
-                        onClick={() => navigate('/onboarding')}
+                        onClick={focusRequestAccess}
                         style={{
                             padding: isMobile ? '0.62rem 0.88rem' : '0.6rem 1.5rem',
                             background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
@@ -281,7 +290,7 @@ function LandingContent() {
                             boxShadow: isMobile ? '0 10px 24px rgba(79, 70, 229, 0.25)' : 'none'
                         }}
                     >
-                        {isMobile ? 'Créer' : 'Créer mon espace'}
+                        {isMobile ? 'Accès' : 'Recevoir mon accès'}
                     </button>
                 </div>
             </nav>
@@ -540,7 +549,7 @@ function LandingContent() {
                                 Un socle simple, des extensions utiles
                             </h3>
                             <p style={{ color: '#64748b', fontSize: '0.95rem', margin: 0, lineHeight: 1.5 }}>
-                                Commencez par présence + planning, puis ajoutez les demandes, justificatifs et connecteurs qui comptent.
+                                Commencez par présence + pointage GPS, puis ajoutez les justificatifs et connecteurs RH qui comptent.
                             </p>
                         </div>
                         <div style={{
@@ -598,7 +607,7 @@ function LandingContent() {
                         flexDirection: isMobile ? 'column' : 'row'
                     }}>
                         <button
-                            onClick={() => navigate('/onboarding')}
+                            onClick={focusRequestAccess}
                             style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -614,7 +623,7 @@ function LandingContent() {
                                 fontSize: '1rem'
                             }}
                         >
-                            Configurer mon environnement
+                            Recevoir mon accès WhatsApp
                         </button>
                         <a
                             href={whatsappDemoUrl}
@@ -669,7 +678,7 @@ function LandingContent() {
                             </div>
                         </div>
                         <p style={{ color: '#475569', fontSize: '0.92rem', lineHeight: 1.65, margin: '1rem 0 0', maxWidth: '360px' }}>
-                            Pointage, présence, planning et demandes terrain via WhatsApp, transmis aux bons services métier.
+                            Pointage, présence, planning simple et justificatifs via WhatsApp, transmis aux bons services RH.
                         </p>
                         <p style={{ color: '#64748b', fontSize: '0.84rem', lineHeight: 1.6, margin: '0.8rem 0 0', maxWidth: '380px' }}>
                             {productEditorStatement}
@@ -682,8 +691,8 @@ function LandingContent() {
                         </h3>
                         <nav style={{ display: 'grid', gap: '0.65rem' }}>
                             {[
-                                ['Suite terrain', '#features'],
-                                ['Flux métier', '#operations'],
+                                ['Pointage', '#features'],
+                                ['Flux RH', '#operations'],
                                 ['Secteurs', '#sectors'],
                                 ['Tarifs', '#pricing']
                             ].map(([label, href]) => (
@@ -699,8 +708,8 @@ function LandingContent() {
                             Accès
                         </h3>
                         <nav style={{ display: 'grid', gap: '0.65rem' }}>
-                            <a href="/onboarding" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>
-                                Créer mon espace
+                            <a href="#request-access" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>
+                                Recevoir mon accès
                             </a>
                             <a href="/login" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>
                                 Connexion

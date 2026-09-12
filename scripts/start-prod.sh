@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+echo "🔎 [Startup] Validating production environment..."
+node -e "require('./dist/config/envValidation').assertProductionEnv()"
+
 if [ -n "$PRISMA_RESOLVE_APPLIED_MIGRATION" ]; then
   echo "🛠️ [Startup] Resolving Prisma migration as applied: $PRISMA_RESOLVE_APPLIED_MIGRATION"
   RESOLVE_LOG="/tmp/prisma-migrate-resolve.log"
@@ -26,4 +29,4 @@ else
 fi
 
 echo "🚀 [Startup] Starting application..."
-node dist/app.js
+node dist/server.js

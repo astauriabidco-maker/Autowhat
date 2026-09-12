@@ -8,7 +8,7 @@ import { companyLegalInfo, productEditorStatement } from '../../config/company';
 const DEFAULT_CONTENT = `${productEditorStatement}
 
 Objet
-Les présentes conditions encadrent l'accès et l'utilisation de WhatsPoint, service de pointage, présence, planning et transmission de demandes métier via WhatsApp.
+Les présentes conditions encadrent l'accès et l'utilisation de WhatsPoint, service de pointage, présence, planning simple, justificatifs et transmission RH via WhatsApp.
 
 Éditeur
 ${companyLegalInfo.editorName}

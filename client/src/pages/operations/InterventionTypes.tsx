@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import {
     Wrench, Plus, X, Pencil, Trash2, Archive, Clock, FileText,
@@ -92,7 +93,7 @@ export default function InterventionTypes() {
     const [showInactive, setShowInactive] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-    const fetchTypes = async () => {
+    const fetchTypes = useCallback(async () => {
         try {
             const { data } = await axios.get(`/api/intervention-types${showInactive ? '?includeInactive=true' : ''}`, { headers });
             setTypes(Array.isArray(data) ? data : []);
@@ -101,9 +102,9 @@ export default function InterventionTypes() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [showInactive]);
 
-    useEffect(() => { fetchTypes(); }, [showInactive]);
+    useEffect(() => { fetchTypes(); }, [fetchTypes]);
 
     const openCreate = () => {
         setEditingId(null);

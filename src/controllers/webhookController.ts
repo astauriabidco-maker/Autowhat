@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
+import crypto from 'crypto';
 import prisma from '../lib/prisma';
 import { identifyUser } from '../services/authService';
-import { sendMessage, sendInteractiveList, sendInteractiveButtons, sendDocument, sendTemplateMessage, WhatsAppTemplateComponent } from '../services/whatsappService';
+import { registerWebhookChannelCredentials, sendMessage, sendInteractiveList, sendInteractiveButtons, sendDocument, sendTemplateMessage, WhatsAppTemplateComponent } from '../services/whatsappService';
 import { checkIn, checkOut } from '../services/attendanceService';
 import { createRequest, handleManagerResponse, formatDateForMessage } from '../services/leaveService';
 import { downloadAndSaveMetaImage } from '../services/storageService';
@@ -15,8 +16,11 @@ import { getBotMessage, getEmployeeLanguage } from '../config/i18nBot';
 import { getTemplate } from '../config/industryTemplates';
 import { dispatchWebhook, WEBHOOK_EVENTS } from '../services/webhookService';
 import { absoluteSignedUploadUrl, absoluteSignedUploadUrlIfNeeded } from '../utils/signedFileUrl';
-import { assignNumberToTenant } from '../services/numberAllocationService';
+import { assignNumberToTenant, recordDisabledSystemNumberWebhookTraffic } from '../services/numberAllocationService';
 import { createManagerMagicLoginLink } from '../services/managerMagicLoginService';
+import { areLegacyOperationsEnabled } from '../middlewares/legacyOperationsMiddleware';
+import { hashLogIdentifier, logWebhookEvent, sanitizeError } from '../utils/safeWebhookLogger';
+import { resolveIncomingWhatsAppChannel } from '../services/whatsappConfigService';
 
 // Anti-spam cooldown for Magic Link messages (in-memory cache)
 // In production, consider using Redis for persistence across restarts
@@ -53,8 +57,67 @@ interface SignupSession {
 }
 
 const SIGNUP_SESSION_KIND = 'SIGNUP_TRIAL';
+
+function getMetaAppSecret(): string | undefined {
+    return process.env.WHATSAPP_APP_SECRET || process.env.META_APP_SECRET || process.env.FACEBOOK_APP_SECRET;
+}
+
+function verifyMetaSignature(req: Request): boolean {
+    const appSecret = getMetaAppSecret();
+    if (!appSecret) {
+        return process.env.NODE_ENV !== 'production';
+    }
+
+    const signature = req.header('x-hub-signature-256');
+    const rawBody = (req as any).rawBody as Buffer | undefined;
+    if (!signature || !rawBody || !signature.startsWith('sha256=')) {
+        return false;
+    }
+
+    const expected = Buffer.from(
+        `sha256=${crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex')}`,
+        'utf8'
+    );
+    const received = Buffer.from(signature, 'utf8');
+
+    return expected.length === received.length && crypto.timingSafeEqual(expected, received);
+}
+
+function logWebhookSummary(body: any): void {
+    const entries = Array.isArray(body?.entry) ? body.entry : [];
+    const changes = entries.flatMap((entry: any) => Array.isArray(entry?.changes) ? entry.changes : []);
+    const messageCount = changes.reduce((count: number, change: any) => {
+        const messages = change?.value?.messages;
+        return count + (Array.isArray(messages) ? messages.length : 0);
+    }, 0);
+    const statusCount = changes.reduce((count: number, change: any) => {
+        const statuses = change?.value?.statuses;
+        return count + (Array.isArray(statuses) ? statuses.length : 0);
+    }, 0);
+    const phoneNumberIds = Array.from(new Set(
+        changes
+            .map((change: any) => change?.value?.metadata?.phone_number_id)
+            .filter(Boolean)
+    ));
+
+    logWebhookEvent('info', 'whatsapp.received', {
+        object: body?.object || 'unknown',
+        entryCount: entries.length,
+        changeCount: changes.length,
+        messageCount,
+        statusCount,
+        phoneNumberIdHashes: phoneNumberIds.map(hashLogIdentifier)
+    });
+}
 const TEST_REPLAY_OVERRIDE_KIND = 'TEST_REPLAY_OVERRIDE';
 const SIGNUP_SESSION_TTL_MS = 30 * 60 * 1000;
+
+function employeeLogFields(employee: any): Record<string, string | undefined> {
+    return {
+        employeeId: employee?.id,
+        tenantId: employee?.tenantId
+    };
+}
 
 // Expense category buttons (WhatsApp allows max 3 per message, so we use list)
 const EXPENSE_CATEGORY_BUTTONS = [
@@ -265,7 +328,7 @@ async function processCommand(
         case 'hello':
         case 'salut': {
             // Check-in
-            console.log(`⏰ Processing CHECK-IN for ${employee.name}`);
+            logWebhookEvent('info', 'whatsapp.command_checkin', employeeLogFields(employee));
             const result = await checkIn(employee, messageTimestamp);
 
             if (result.success) {
@@ -284,7 +347,7 @@ async function processCommand(
         case 'fin':
         case 'ciao': {
             // Check-out
-            console.log(`👋 Processing CHECK-OUT for ${employee.name}`);
+            logWebhookEvent('info', 'whatsapp.command_checkout', employeeLogFields(employee));
             const result = await checkOut(employee, messageTimestamp);
 
             if (result.success) {
@@ -299,13 +362,16 @@ async function processCommand(
         case 'bilan':
         case 'mes heures': {
             // Stats command - show weekly hours summary using statsService
-            console.log(`📊 Processing STATS for ${employee.name}`);
+            logWebhookEvent('info', 'whatsapp.command_stats', employeeLogFields(employee));
 
             try {
                 const summary = await getWeeklySummary(employee.id, employee.tenantId);
                 responseText = formatWeeklySummaryMessage(summary);
             } catch (error) {
-                console.error('Error getting weekly summary:', error);
+                logWebhookEvent('error', 'whatsapp.weekly_summary_failed', {
+                    ...employeeLogFields(employee),
+                    error: sanitizeError(error)
+                });
                 responseText = `❌ Erreur lors de la récupération de vos statistiques.`;
             }
             break;
@@ -313,13 +379,16 @@ async function processCommand(
 
         case 'historique': {
             // History command - show last 10 days of attendance
-            console.log(`📋 Processing HISTORIQUE for ${employee.name}`);
+            logWebhookEvent('info', 'whatsapp.command_history', employeeLogFields(employee));
 
             try {
                 const history = await getHistory(employee.id, employee.tenantId, 10);
                 responseText = formatHistoryMessage(history, employee.name || 'Employé');
             } catch (error) {
-                console.error('Error getting history:', error);
+                logWebhookEvent('error', 'whatsapp.history_failed', {
+                    ...employeeLogFields(employee),
+                    error: sanitizeError(error)
+                });
                 responseText = `❌ Erreur lors de la récupération de votre historique.`;
             }
             break;
@@ -327,7 +396,7 @@ async function processCommand(
 
         case 'leave_menu': {
             // Leave request guide
-            console.log(`🏖️ Processing LEAVE_MENU for ${employee.name}`);
+            logWebhookEvent('info', 'whatsapp.command_leave_menu', employeeLogFields(employee));
             responseText = `🏖️ *Demander un congé*\n\n` +
                 `Pour demander un congé, envoyez:\n` +
                 `*Congé DD/MM* (ex: Congé 25/12)\n\n` +
@@ -337,7 +406,7 @@ async function processCommand(
 
         case 'sos': {
             // SOS - Emergency notification
-            console.log(`🚨 Processing SOS from ${employee.name}`);
+            logWebhookEvent('warn', 'whatsapp.command_sos', employeeLogFields(employee));
 
             // Notify manager about the emergency
             const manager = await prisma.employee.findFirst({
@@ -369,7 +438,7 @@ async function processCommand(
         case 'contrat':
         case 'paie': {
             // Show employee documents
-            console.log(`📂 Processing DOCUMENTS for ${employee.name}`);
+            logWebhookEvent('info', 'whatsapp.command_documents', employeeLogFields(employee));
 
             try {
                 const documents = await getDocumentsForEmployee(employee.id, employee.tenantId, 5);
@@ -386,7 +455,10 @@ async function processCommand(
                     });
                 }
             } catch (error) {
-                console.error('Error fetching documents:', error);
+                logWebhookEvent('error', 'whatsapp.documents_failed', {
+                    ...employeeLogFields(employee),
+                    error: sanitizeError(error)
+                });
                 responseText = `❌ Erreur lors de la récupération de vos documents.`;
             }
             break;
@@ -395,7 +467,7 @@ async function processCommand(
         case 'expense':
         case 'frais': {
             // Start expense workflow
-            console.log(`🧾 Starting EXPENSE workflow for ${employee.name}`);
+            logWebhookEvent('info', 'whatsapp.command_expense_start', employeeLogFields(employee));
             await setConversationState(employee.id, 'WAITING_EXPENSE_PHOTO');
             responseText = `🧾 *Nouvelle note de frais*\n\n📸 Envoyez la photo du ticket.`;
             break;
@@ -403,7 +475,7 @@ async function processCommand(
 
         case 'maladie':
         case 'sick': {
-            console.log(`🤒 Starting SICK LEAVE workflow for ${employee.name}`);
+            logWebhookEvent('info', 'whatsapp.command_sick_leave_start', employeeLogFields(employee));
             await setConversationState(employee.id, 'WAITING_SICK_PHOTO');
             responseText = `🤒 *Déclaration d'arrêt maladie*\n\nPas besoin de taper les dates ! 📷 Envoyez-moi simplement *la photo de votre certificat médical*, je le lirai et l'enregistrerai pour vous.`;
             break;
@@ -412,7 +484,7 @@ async function processCommand(
         case 'balance':
         case 'solde':
         case 'droits': {
-            console.log(`📊 Interrogating KPaie for balances of ${employee.name}`);
+            logWebhookEvent('info', 'whatsapp.command_balance', employeeLogFields(employee));
             
             const softwareName = employee.tenant?.hrisName || "KPaie";
             
@@ -438,7 +510,10 @@ async function processCommand(
                 }
 
             } catch (err) {
-                 console.error('Error in balance connector:', err);
+                 logWebhookEvent('error', 'whatsapp.balance_connector_failed', {
+                     ...employeeLogFields(employee),
+                     error: sanitizeError(err)
+                 });
                  responseText = `❌ Une erreur technique est survenue lors de l'appel à ${softwareName}.`;
             }
             break;
@@ -446,7 +521,7 @@ async function processCommand(
 
         case 'documents':
         case 'docs': {
-            console.log(`📂 Fetching documents for ${employee.name}`);
+            logWebhookEvent('info', 'whatsapp.command_documents', employeeLogFields(employee));
             
             const docs = await getDocumentsForEmployee(employee.id, employee.tenantId, 5);
             
@@ -461,7 +536,10 @@ async function processCommand(
 
         default: {
             // Show interactive menu for unknown commands instead of plain text
-            console.log(`📋 Unknown command "${command}", showing menu to ${employee.name}`);
+            logWebhookEvent('info', 'whatsapp.command_unknown', {
+                ...employeeLogFields(employee),
+                commandHash: hashLogIdentifier(command)
+            });
             await sendMainMenu(from, phoneNumberId);
             return; // Don't send additional message
         }
@@ -474,7 +552,7 @@ async function processCommand(
  * Handles the Webhook verification challenge from Meta.
  */
 export const verifyWebhook = (req: Request, res: Response): any => {
-    console.log('🔍 [Webhook] Incoming verification request');
+    logWebhookEvent('info', 'whatsapp.verification_request');
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
@@ -483,10 +561,10 @@ export const verifyWebhook = (req: Request, res: Response): any => {
 
     if (mode && token) {
         if (mode === 'subscribe' && token === WEBHOOK_VERIFY_TOKEN) {
-            console.log('✅ Webhook Verified');
+            logWebhookEvent('info', 'whatsapp.verification_success');
             return res.status(200).send(challenge);
         } else {
-            console.error('❌ Webhook Verification Failed: Invalid Token');
+            logWebhookEvent('warn', 'whatsapp.verification_failed');
             return res.sendStatus(403);
         }
     }
@@ -673,7 +751,11 @@ async function sendManagerActivationAha(to: string, manager: any, phoneNumberId?
         const { url } = await createManagerMagicLoginLink(manager.id, { source: 'WHATSAPP_ADMIN_START' });
         dashboardLine = `\n\n🔐 Votre dashboard manager :\n${url}\n_Ce lien personnel expire dans 15 minutes._`;
     } catch (error) {
-        console.error('Manager activation magic link generation failed:', error);
+        logWebhookEvent('error', 'whatsapp.manager_magic_link_failed', {
+            managerId: manager.id,
+            tenantId: manager.tenantId,
+            error: sanitizeError(error)
+        });
     }
 
     await sendInteractiveButtons(
@@ -702,7 +784,9 @@ async function activateManagerWhatsApp(from: string, existingEmployee: any, phon
             `📞 Numéro reçu: +${from}`,
             phoneNumberId
         );
-        console.log(`❌ Unknown manager number: ${from}`);
+        logWebhookEvent('warn', 'whatsapp.manager_unknown_number', {
+            phoneHash: hashLogIdentifier(from)
+        });
         return true;
     }
 
@@ -715,12 +799,19 @@ async function activateManagerWhatsApp(from: string, existingEmployee: any, phon
             }
         });
     } catch (e) {
-        console.log('Manager activation update skipped:', e);
+        logWebhookEvent('warn', 'whatsapp.manager_activation_update_skipped', {
+            managerId: manager.id,
+            tenantId: manager.tenantId,
+            error: sanitizeError(e)
+        });
     }
 
     await sendManagerActivationAha(from, manager, phoneNumberId);
     await logOnboardingEvent(manager.tenantId, 'MANAGER_ACTIVATED', manager.id, { source: 'WHATSAPP' });
-    console.log(`✅ Manager ${manager.name} activated successfully`);
+    logWebhookEvent('info', 'whatsapp.manager_activated', {
+        managerId: manager.id,
+        tenantId: manager.tenantId
+    });
     return true;
 }
 
@@ -1430,7 +1521,7 @@ async function handleEmployeeSiteGpsLocationRequest(employee: any, message: any,
     );
 
     if (!manager?.phoneNumber) {
-        console.warn(`Site GPS employee location received but manager not found for employee ${employee.id}`);
+        logWebhookEvent('warn', 'whatsapp.site_gps_manager_missing', employeeLogFields(employee));
         return true;
     }
 
@@ -1632,7 +1723,10 @@ async function handleManagerInviteConversation(employee: any, messageBody: strin
         if (error.message === 'PHONE_ALREADY_MANAGER') {
             await sendMessage(from, `Ce numéro est déjà utilisé par un manager de votre espace.`, phoneNumberId);
         } else {
-            console.error('Error inviting employee from WhatsApp:', error);
+            logWebhookEvent('error', 'whatsapp.employee_invite_failed', {
+                ...employeeLogFields(employee),
+                error: sanitizeError(error)
+            });
             await sendMessage(from, `❌ Impossible d'ajouter ce collaborateur pour le moment. Réessayez ou tapez *Annuler*.`, phoneNumberId);
         }
     }
@@ -2009,7 +2103,10 @@ async function createWhatsAppTrialSpace(from: string, session: SignupSession, ph
     });
 
     assignNumberToTenant(result.tenant.id, country)
-        .catch(err => console.error('Number allocation failed after WhatsApp signup:', err));
+        .catch(err => logWebhookEvent('error', 'whatsapp.signup_number_allocation_failed', {
+            tenantId: result.tenant.id,
+            error: sanitizeError(err)
+        }));
 
     const { url: dashboardUrl } = await createManagerMagicLoginLink(result.manager.id, { source: 'WHATSAPP_SIGNUP' });
     await clearTestReplayOverride(from, phoneNumberId);
@@ -2359,7 +2456,19 @@ async function handleWhatsAppSignupSession(from: string, message: any, phoneNumb
 export const handleMessage = async (req: Request, res: Response): Promise<any> => {
     try {
         const body = req.body;
-        console.log('📩 [Webhook] Request received:', JSON.stringify(body, null, 2));
+        if (!getMetaAppSecret() && process.env.NODE_ENV === 'production') {
+            logWebhookEvent('error', 'whatsapp.meta_secret_missing');
+            return res.sendStatus(500);
+        }
+
+        if (!verifyMetaSignature(req)) {
+            logWebhookEvent('warn', 'whatsapp.meta_signature_invalid', {
+                hasSignature: Boolean(req.header('x-hub-signature-256'))
+            });
+            return res.sendStatus(403);
+        }
+
+        logWebhookSummary(body);
 
         // Check if it's a WhatsApp event
         if (body.object === 'whatsapp_business_account') {
@@ -2375,6 +2484,7 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                         const messageType = message.type; // 'text', 'image', etc.
                         const messageBody = message.text?.body || '';
                         const phoneNumberId = value.metadata?.phone_number_id;
+                        const incomingChannel = await resolveIncomingWhatsAppChannel(phoneNumberId);
 
                         // CRITICAL: Extract the real message timestamp for offline support
                         // WhatsApp sends Unix epoch timestamp (seconds since 1970)
@@ -2383,23 +2493,49 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                             ? new Date(parseInt(whatsappTimestamp) * 1000)
                             : new Date();
 
-                        console.log(`📩 Received ${messageType} message from ${from}`);
-                        console.log(`📱 Received on phone ID: ${phoneNumberId}`);
-                        console.log(`🕐 Message timestamp: ${messageTimestamp.toISOString()} (WhatsApp: ${whatsappTimestamp || 'none'})`);
+                        logWebhookEvent('info', 'whatsapp.message_received', {
+                            messageType,
+                            senderHash: hashLogIdentifier(from),
+                            phoneNumberIdHash: hashLogIdentifier(phoneNumberId),
+                            channelType: incomingChannel.type,
+                            tenantScopeCount: incomingChannel.tenantIds?.length,
+                            messageTimestamp,
+                            hasWhatsappTimestamp: Boolean(whatsappTimestamp)
+                        });
+
+                        if (incomingChannel.type === 'DISABLED') {
+                            await recordDisabledSystemNumberWebhookTraffic(phoneNumberId);
+                            logWebhookEvent('warn', 'whatsapp.disabled_channel_ignored', {
+                                senderHash: hashLogIdentifier(from),
+                                phoneNumberIdHash: hashLogIdentifier(phoneNumberId)
+                            });
+                            continue;
+                        }
+
+                        registerWebhookChannelCredentials(phoneNumberId, incomingChannel.config);
 
                         // 1. Identify User
                         const replayOverrideActive = await hasActiveTestReplayOverride(from, phoneNumberId);
                         if (replayOverrideActive) {
-                            console.log(`🧪 Test replay override active for ${from}`);
+                            logWebhookEvent('info', 'whatsapp.test_replay_override_active', {
+                                senderHash: hashLogIdentifier(from),
+                                phoneNumberIdHash: hashLogIdentifier(phoneNumberId)
+                            });
                         }
 
-                        const identifiedEmployee = replayOverrideActive ? null : await identifyUser(`+${from}`);
+                        const identifiedEmployee = replayOverrideActive
+                            ? null
+                            : await identifyUser(`+${from}`, { tenantIds: incomingChannel.tenantIds });
                         const employee = isFromResetTestTenant(identifiedEmployee) && !isAdminStart(messageBody)
                             ? null
                             : identifiedEmployee;
 
                         if (identifiedEmployee && !employee) {
-                            console.log(`🧪 Reset test profile treated as unknown for replay: ${from}`);
+                            logWebhookEvent('info', 'whatsapp.test_replay_reset_profile_ignored', {
+                                senderHash: hashLogIdentifier(from),
+                                employeeId: identifiedEmployee.id,
+                                tenantId: identifiedEmployee.tenantId
+                            });
                         }
 
                         if (await handleWhatsAppSignupSession(from, message, phoneNumberId)) {
@@ -2408,7 +2544,11 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                         // Handle "Admin Start" command for manager activation
                         if (messageType === 'text' && isAdminStart(messageBody)) {
-                            console.log(`🔑 Processing ADMIN START activation from ${from}`);
+                            logWebhookEvent('info', 'whatsapp.admin_start_activation', {
+                                senderHash: hashLogIdentifier(from),
+                                employeeId: employee?.id,
+                                tenantId: employee?.tenantId
+                            });
                             await activateManagerWhatsApp(from, employee, phoneNumberId);
                             continue;
                         }
@@ -2431,7 +2571,7 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                         // ─── FSM: CUSTOMER INTERVENTION REQUEST BOT ───────────────
                         // If the sender is NOT an employee, check if they're a known customer
-                        if (!employee && !replayOverrideActive) {
+                        if (areLegacyOperationsEnabled() && !employee && !replayOverrideActive) {
                             const senderPhoneNormalized = `+${from}`;
                             const customer = await prisma.customer.findFirst({
                                 where: {
@@ -2446,7 +2586,11 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                             });
 
                             if (customer) {
-                                console.log(`🏢 Customer detected: ${customer.companyName} (${customer.contactName})`);
+                                logWebhookEvent('info', 'whatsapp.legacy_customer_detected', {
+                                    customerId: customer.id,
+                                    tenantId: customer.tenant.id,
+                                    senderHash: hashLogIdentifier(from)
+                                });
                                 const senderProfile = value.contacts?.[0]?.profile?.name || customer.contactName;
 
                                 // Handle button replies from customer
@@ -2497,7 +2641,11 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                             const accessToken = process.env.WHATSAPP_API_TOKEN || process.env.WHATSAPP_TOKEN || '';
                                             photoUrl = await downloadAndSaveMetaImage(message.image.id, accessToken);
                                         } catch (e) {
-                                            console.error('Error downloading customer photo:', e);
+                                            logWebhookEvent('error', 'whatsapp.legacy_customer_photo_download_failed', {
+                                                customerId: customer.id,
+                                                tenantId: customer.tenant.id,
+                                                error: sanitizeError(e)
+                                            });
                                         }
                                     }
 
@@ -2558,7 +2706,12 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                         }
                                     }
 
-                                    console.log(`📩 Intervention request ${request.id} created for customer ${customer.companyName}`);
+                                    logWebhookEvent('info', 'whatsapp.legacy_intervention_request_created', {
+                                        requestId: request.id,
+                                        customerId: customer.id,
+                                        tenantId: customer.tenant.id,
+                                        urgency: request.urgency
+                                    });
                                     continue;
                                 }
 
@@ -2629,7 +2782,11 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     phoneNumberId
                                 );
                                 magicLinkCooldowns.set(cooldownKey, Date.now());
-                                console.log(`🏢 Customer greeting sent to ${customer.contactName} (${from})`);
+                                logWebhookEvent('info', 'whatsapp.legacy_customer_greeting_sent', {
+                                    customerId: customer.id,
+                                    tenantId: customer.tenant.id,
+                                    senderHash: hashLogIdentifier(from)
+                                });
                                 continue;
                             }
                         }
@@ -2649,7 +2806,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                         `Quel est le nom de votre entreprise ?`,
                                         phoneNumberId
                                     );
-                                    console.log(`🧭 WhatsApp signup started for ${from}`);
+                                    logWebhookEvent('info', 'whatsapp.signup_started', {
+                                        senderHash: hashLogIdentifier(from),
+                                        phoneNumberIdHash: hashLogIdentifier(phoneNumberId)
+                                    });
                                     continue;
                                 }
 
@@ -2662,13 +2822,18 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                         `Pour une présentation ou une question, répondez à ce message. Répondez *STOP* si vous ne souhaitez plus être contacté.`,
                                         phoneNumberId
                                     );
-                                    console.log(`ℹ️ Info message sent to ${from} after btn_info click`);
+                                    logWebhookEvent('info', 'whatsapp.info_message_sent', {
+                                        senderHash: hashLogIdentifier(from),
+                                        phoneNumberIdHash: hashLogIdentifier(phoneNumberId)
+                                    });
                                     continue;
                                 }
                             }
 
                             if (messageType === 'text' && isLandingDemoRequest(messageBody)) {
-                                console.log(`🎯 Landing demo request received from unknown number: ${from}`);
+                                logWebhookEvent('info', 'whatsapp.landing_demo_request', {
+                                    senderHash: hashLogIdentifier(from)
+                                });
                                 const platformConfig = await prisma.platformConfig.findFirst();
                                 const welcomeText = platformConfig?.botWelcomeText || DEFAULT_UNKNOWN_CONTACT_WELCOME;
                                 const btn1Label = (platformConfig?.botBtn1Label || DEFAULT_UNKNOWN_CONTACT_BTN_1).slice(0, 20);
@@ -2695,7 +2860,9 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                             const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
 
                             if (lastSent && (now - lastSent) < COOLDOWN_MS) {
-                                console.log(`⏳ Welcome already sent to ${from} within 24h, skipping`);
+                                logWebhookEvent('info', 'whatsapp.unknown_welcome_cooldown_skip', {
+                                    senderHash: hashLogIdentifier(from)
+                                });
                                 continue;
                             }
 
@@ -2718,13 +2885,18 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                             // Record cooldown
                             magicLinkCooldowns.set(cooldownKey, now);
-                            console.log(`📧 Interactive welcome buttons sent to unknown number: ${from}`);
+                            logWebhookEvent('info', 'whatsapp.unknown_welcome_sent', {
+                                senderHash: hashLogIdentifier(from)
+                            });
                             continue;
                         }
 
                         // 2. Handle LOCATION messages - Geographic validation with Geofencing
                         if (messageType === 'location' && message.location) {
-                            console.log(`📍 Processing LOCATION for ${employee.name} (workProfile: ${employee.workProfile || 'MOBILE'})`);
+                            logWebhookEvent('info', 'whatsapp.location_received', {
+                                ...employeeLogFields(employee),
+                                workProfile: employee.workProfile || 'MOBILE'
+                            });
                             const { latitude, longitude } = message.location;
 
                             const todayAttendance = await findOpenAttendanceForProof(employee, messageTimestamp || new Date());
@@ -2745,13 +2917,18 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 longitude
                             );
 
-                            console.log(`📍 Geofencing result for ${employee.name}: ${JSON.stringify(complianceResult)}`);
-
                             const nextAttendanceStatus = !complianceResult.isCompliant
                                 ? 'REJECTED'
                                 : complianceResult.warning
                                     ? 'WARNING'
                                     : 'PRESENT';
+                            logWebhookEvent('info', 'whatsapp.location_compliance_checked', {
+                                ...employeeLogFields(employee),
+                                attendanceId: todayAttendance.id,
+                                status: nextAttendanceStatus,
+                                warning: Boolean(complianceResult.warning),
+                                compliant: Boolean(complianceResult.isCompliant)
+                            });
                             const gpsCheckedAt = new Date();
 
                             // Update attendance record with GPS data and warning flag
@@ -2797,7 +2974,7 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                         if (messageType === 'image' && message.image?.id) {
                             // EXPENSE WORKFLOW: Photo step
                             if (employee.conversationState === 'WAITING_EXPENSE_PHOTO') {
-                                console.log(`🧾 Processing EXPENSE PHOTO for ${employee.name}`);
+                                logWebhookEvent('info', 'whatsapp.expense_photo_received', employeeLogFields(employee));
                                 try {
                                     const accessToken = process.env.WHATSAPP_API_TOKEN || process.env.WHATSAPP_TOKEN || '';
                                     const photoUrl = await downloadAndSaveMetaImage(message.image.id, accessToken);
@@ -2835,7 +3012,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                         );
                                     }
                                 } catch (error) {
-                                    console.error('❌ Error processing expense photo:', error);
+                                    logWebhookEvent('error', 'whatsapp.expense_photo_failed', {
+                                        ...employeeLogFields(employee),
+                                        error: sanitizeError(error)
+                                    });
                                     await sendMessage(from, `❌ Erreur lors du traitement de la photo. Réessayez.`, phoneNumberId);
                                 }
                                 continue;
@@ -2843,7 +3023,7 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                             // SICK LEAVE: Medical certificate upload
                             if (employee.conversationState === 'WAITING_SICK_PHOTO') {
-                                console.log(`🤒 Processing SICK LEAVE PHOTO for ${employee.name}`);
+                                logWebhookEvent('info', 'whatsapp.sick_photo_received', employeeLogFields(employee));
                                 try {
                                     const accessToken = process.env.WHATSAPP_API_TOKEN || process.env.WHATSAPP_TOKEN || '';
                                     const photoUrl = await downloadAndSaveMetaImage(message.image.id, accessToken);
@@ -2893,14 +3073,17 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                         await sendMessage(from, `❌ *Analyse Échouée*\nJe n'ai pas pu valider ce document comme un arrêt de travail CERFA.\nVeuillez contacter les RH manuellement.`, phoneNumberId);
                                     }
                                 } catch (error) {
-                                    console.error('❌ Error processing sick photo:', error);
+                                    logWebhookEvent('error', 'whatsapp.sick_photo_failed', {
+                                        ...employeeLogFields(employee),
+                                        error: sanitizeError(error)
+                                    });
                                     await sendMessage(from, `❌ Erreur de l'Agent lors de la lecture. Réessayez.`, phoneNumberId);
                                 }
                                 continue;
                             }
 
                             // ATTENDANCE: Photo for check-in
-                            console.log(`📷 Processing PHOTO ATTENDANCE for ${employee.name}`);
+                            logWebhookEvent('info', 'whatsapp.attendance_photo_received', employeeLogFields(employee));
 
                             const todayAttendance = await findOpenAttendanceForProof(employee, messageTimestamp || new Date());
 
@@ -2936,7 +3119,11 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     }
                                 });
 
-                                console.log(`✅ Photo saved for ${employee.name}: ${photoUrl}`);
+                                logWebhookEvent('info', 'whatsapp.attendance_photo_saved', {
+                                    ...employeeLogFields(employee),
+                                    attendanceId: todayAttendance.id,
+                                    hasPhotoUrl: Boolean(photoUrl)
+                                });
 
                                 await sendMessage(
                                     from,
@@ -2946,7 +3133,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     phoneNumberId
                                 );
                             } catch (error) {
-                                console.error('❌ Error processing photo:', error);
+                                logWebhookEvent('error', 'whatsapp.attendance_photo_failed', {
+                                    ...employeeLogFields(employee),
+                                    error: sanitizeError(error)
+                                });
                                 await sendMessage(
                                     from,
                                     `❌ Erreur lors du traitement de la photo. Réessayez.`,
@@ -3079,7 +3269,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                         // 4. Check for old leave request pattern first (Fallback)
                         const leaveDate = parseLeaveRequest(messageBody);
                         if (leaveDate) {
-                            console.log(`📅 Processing LEAVE REQUEST for ${employee.name}: ${leaveDate}`);
+                            logWebhookEvent('info', 'whatsapp.leave_request_detected', {
+                                ...employeeLogFields(employee),
+                                leaveDateHash: hashLogIdentifier(leaveDate)
+                            });
 
                             const result = await createRequest(employee, leaveDate);
 
@@ -3145,7 +3338,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                         // 3. Check for manager response pattern
                         if (employee.role === 'MANAGER' && isManagerResponse(messageBody)) {
-                            console.log(`👔 Processing MANAGER RESPONSE from ${employee.name}: ${messageBody}`);
+                            logWebhookEvent('info', 'whatsapp.manager_response_detected', {
+                                ...employeeLogFields(employee),
+                                messageHash: hashLogIdentifier(messageBody)
+                            });
 
                             const result = await handleManagerResponse(employee, messageBody);
 
@@ -3190,7 +3386,11 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                             if (selectedId && INTERACTIVE_ID_TO_COMMAND[selectedId]) {
                                 const mappedCommand = INTERACTIVE_ID_TO_COMMAND[selectedId];
-                                console.log(`🎛️ Interactive reply: ${selectedId} -> ${mappedCommand}`);
+                                logWebhookEvent('info', 'whatsapp.interactive_reply', {
+                                    ...employeeLogFields(employee),
+                                    selectedId,
+                                    mappedCommand
+                                });
 
                                 // Route to unified command processing
                                 await processCommand(mappedCommand, employee, from, phoneNumberId, messageTimestamp);
@@ -3200,7 +3400,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                             // Handle expense category selection
                             if (selectedId && EXPENSE_CATEGORY_MAPPING[selectedId]) {
                                 if (employee.conversationState === 'WAITING_EXPENSE_CATEGORY') {
-                                    console.log(`🧾 Processing EXPENSE CATEGORY for ${employee.name}: ${selectedId}`);
+                                    logWebhookEvent('info', 'whatsapp.expense_category_selected', {
+                                        ...employeeLogFields(employee),
+                                        selectedId
+                                    });
                                     const category = EXPENSE_CATEGORY_MAPPING[selectedId];
                                     const tempData = employee.tempExpenseData as Record<string, any>;
 
@@ -3230,21 +3433,24 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 }
                             }
 
-                            console.log(`⚠️ Unknown interactive ID: ${selectedId}`);
+                            logWebhookEvent('warn', 'whatsapp.interactive_unknown', {
+                                ...employeeLogFields(employee),
+                                selectedId: selectedId || 'none'
+                            });
                             await sendMessage(from, '❌ Action non reconnue.', phoneNumberId);
                             continue;
                         }
 
                         // 5. Check if user wants to see the menu (trigger words)
                         if (shouldShowMenu(messageBody)) {
-                            console.log(`📋 Showing MENU to ${employee.name}`);
+                            logWebhookEvent('info', 'whatsapp.menu_shown', employeeLogFields(employee));
                             await sendMainMenu(from, phoneNumberId);
                             continue;
                         }
 
                         // 5.5 Check for "frais" trigger to start expense workflow
                         if (messageBody.toLowerCase().trim() === 'frais') {
-                            console.log(`🧾 Starting EXPENSE workflow for ${employee.name}`);
+                            logWebhookEvent('info', 'whatsapp.expense_start', employeeLogFields(employee));
                             await setConversationState(employee.id, 'WAITING_EXPENSE_PHOTO');
                             await sendMessage(
                                 from,
@@ -3256,7 +3462,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                         // 5.6 Handle WAITING_EXPENSE_AMOUNT state (parse amount from text)
                         if (employee.conversationState === 'WAITING_EXPENSE_AMOUNT') {
-                            console.log(`💰 Processing EXPENSE AMOUNT for ${employee.name}: ${messageBody}`);
+                            logWebhookEvent('info', 'whatsapp.expense_amount_received', {
+                                ...employeeLogFields(employee),
+                                messageHash: hashLogIdentifier(messageBody)
+                            });
                             const amountStr = messageBody.replace(',', '.').trim();
                             const amount = parseFloat(amountStr);
 
@@ -3285,7 +3494,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
 
                         // 5.7 Handle WAITING_DOC_SELECTION state (user selects document by number)
                         if (employee.conversationState === 'WAITING_DOC_SELECTION') {
-                            console.log(`📂 Processing DOC SELECTION for ${employee.name}: ${messageBody}`);
+                            logWebhookEvent('info', 'whatsapp.document_selection_received', {
+                                ...employeeLogFields(employee),
+                                messageHash: hashLogIdentifier(messageBody)
+                            });
                             const docIndex = parseInt(messageBody.trim()) - 1; // Convert to 0-indexed
                             const tempData = employee.tempExpenseData as Record<string, any>;
                             const documentIds = tempData?.documentIds as string[];
@@ -3321,9 +3533,18 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     `📄 ${document.name}`,
                                     phoneNumberId
                                 );
-                                console.log(`📤 Document sent to ${employee.name}: ${document.name}`);
+                                logWebhookEvent('info', 'whatsapp.document_sent', {
+                                    ...employeeLogFields(employee),
+                                    documentId: document.id,
+                                    documentNameHash: hashLogIdentifier(document.name),
+                                    hasSignedUrl: Boolean(documentUrl)
+                                });
                             } catch (docError) {
-                                console.error('❌ Error sending document:', docError);
+                                logWebhookEvent('error', 'whatsapp.document_send_failed', {
+                                    ...employeeLogFields(employee),
+                                    documentId: document.id,
+                                    error: sanitizeError(docError)
+                                });
                                 await sendMessage(from, `❌ Erreur lors de l'envoi du document. Réessayez plus tard.`, phoneNumberId);
                             }
 
@@ -3338,7 +3559,7 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                         const normalizedMessage = messageBody.toLowerCase().trim();
 
                         if (normalizedMessage === 'stop') {
-                            console.log(`🛑 Processing OPT-OUT for ${employee.name}`);
+                            logWebhookEvent('info', 'whatsapp.opt_out_requested', employeeLogFields(employee));
 
                             try {
                                 await prisma.employee.update({
@@ -3353,15 +3574,18 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     `Pour vous réinscrire, envoyez *REPRENDRE* ou *START*.`,
                                     phoneNumberId
                                 );
-                                console.log(`✅ Employee ${employee.name} opted out successfully`);
+                                logWebhookEvent('info', 'whatsapp.opt_out_success', employeeLogFields(employee));
                             } catch (optError) {
-                                console.error('❌ Error processing opt-out:', optError);
+                                logWebhookEvent('error', 'whatsapp.opt_out_failed', {
+                                    ...employeeLogFields(employee),
+                                    error: sanitizeError(optError)
+                                });
                             }
                             continue;
                         }
 
                         if (normalizedMessage === 'reprendre' || normalizedMessage === 'start') {
-                            console.log(`✅ Processing OPT-IN for ${employee.name}`);
+                            logWebhookEvent('info', 'whatsapp.opt_in_requested', employeeLogFields(employee));
 
                             try {
                                 await prisma.employee.update({
@@ -3375,9 +3599,12 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                     `Tapez *Menu* pour voir vos options.`,
                                     phoneNumberId
                                 );
-                                console.log(`✅ Employee ${employee.name} opted in successfully`);
+                                logWebhookEvent('info', 'whatsapp.opt_in_success', employeeLogFields(employee));
                             } catch (optError) {
-                                console.error('❌ Error processing opt-in:', optError);
+                                logWebhookEvent('error', 'whatsapp.opt_in_failed', {
+                                    ...employeeLogFields(employee),
+                                    error: sanitizeError(optError)
+                                });
                             }
                             continue;
                         }
@@ -3431,7 +3658,10 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                     } else if (value.statuses) {
                         // Status update (sent, delivered, read) - just log
                         const status = value.statuses[0];
-                        console.log(`ℹ️ Status update for ${status.recipient_id}: ${status.status}`);
+                        logWebhookEvent('info', 'whatsapp.status_update', {
+                            recipientHash: hashLogIdentifier(status.recipient_id),
+                            status: status.status
+                        });
                     }
                 }
             }
@@ -3447,7 +3677,11 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                     // Handle phone_number_quality_update events from Meta
                     if (change.field === 'phone_number_quality_update') {
                         const qualityData = change.value;
-                        console.log(`📊 Meta Quality Update received:`, JSON.stringify(qualityData));
+                        logWebhookEvent('info', 'whatsapp.quality_update_received', {
+                            displayPhoneNumberHash: hashLogIdentifier(qualityData?.display_phone_number),
+                            phoneNumberIdHash: hashLogIdentifier(qualityData?.phone_number_id),
+                            event: qualityData?.event
+                        });
 
                         const newScore = qualityData?.current_limit?.toUpperCase() || 'GREEN';
 
@@ -3471,19 +3705,26 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
                                 }
                             });
 
-                            console.log(`📊 WhatsApp quality score updated to: ${scoreValue}`);
+                            logWebhookEvent('info', 'whatsapp.quality_score_updated', {
+                                score: scoreValue
+                            });
 
                             // Send critical alert if YELLOW or RED
                             if (scoreValue !== 'GREEN') {
                                 const alertEmail = process.env.SUPERADMIN_ALERT_EMAIL;
                                 if (alertEmail) {
-                                    console.log(`🚨 CRITICAL: WhatsApp quality is ${scoreValue}! Alert email would be sent to: ${alertEmail}`);
+                                    logWebhookEvent('warn', 'whatsapp.quality_alert_pending', {
+                                        score: scoreValue,
+                                        alertEmailHash: hashLogIdentifier(alertEmail)
+                                    });
                                     // TODO: Integrate with email service to send alert
                                     // await sendCriticalAlert(alertEmail, scoreValue);
                                 }
                             }
                         } catch (updateError) {
-                            console.error('❌ Error updating quality score:', updateError);
+                            logWebhookEvent('error', 'whatsapp.quality_score_update_failed', {
+                                error: sanitizeError(updateError)
+                            });
                         }
                     }
                 }
@@ -3493,7 +3734,9 @@ export const handleMessage = async (req: Request, res: Response): Promise<any> =
         // Not a recognized event
         return res.sendStatus(200);
     } catch (error) {
-        console.error('❌ Error in webhook handler:', error);
+        logWebhookEvent('error', 'whatsapp.handler_failed', {
+            error: sanitizeError(error)
+        });
         return res.sendStatus(500);
     }
 };

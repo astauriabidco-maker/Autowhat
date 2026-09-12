@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     Activity,
     AlertTriangle,
@@ -41,7 +41,7 @@ export default function ServerHealth() {
 
     const token = localStorage.getItem('superadmin_token');
 
-    const fetchHealth = async () => {
+    const fetchHealth = useCallback(async () => {
         try {
             setError(null);
             const res = await fetch('/admin/queue/health', {
@@ -59,14 +59,14 @@ export default function ServerHealth() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [token]);
 
     useEffect(() => {
         fetchHealth();
         // Auto-refresh every 10 seconds
         const interval = setInterval(fetchHealth, 10000);
         return () => clearInterval(interval);
-    }, []);
+    }, [fetchHealth]);
 
     const handlePause = async () => {
         if (!confirm('⚠️ Êtes-vous sûr de vouloir METTRE EN PAUSE la queue WhatsApp ?')) return;

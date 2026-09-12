@@ -1,6 +1,6 @@
 /**
  * IntegrationWhatsApp Page
- * BYON (Bring Your Own Number) configuration for Enterprise tenants.
+ * WhatsApp channel modes for shared, dedicated, and assisted BYON setups.
  */
 
 import { useState, useEffect } from 'react';
@@ -15,9 +15,9 @@ import {
     Eye,
     EyeOff,
     Trash2,
-    ExternalLink,
     Briefcase,
-    PhoneCall
+    PhoneCall,
+    ExternalLink
 } from 'lucide-react';
 import { getErrorMessage } from '../utils/errors';
 
@@ -48,7 +48,7 @@ export default function IntegrationWhatsApp() {
     const [wabaId, setWabaId] = useState('');
     const [displayName, setDisplayName] = useState('');
     const [testPhone, setTestPhone] = useState('');
-    const [selectedMethod, setSelectedMethod] = useState<'meta' | 'twilio' | 'concierge' | null>(null);
+    const [selectedMethod, setSelectedMethod] = useState<'shared' | 'pro' | 'enterprise' | null>(null);
 
     useEffect(() => {
         fetchConfig();
@@ -121,37 +121,6 @@ export default function IntegrationWhatsApp() {
         }
     };
 
-    const handleEmbeddedSignup = async () => {
-        setSaving(true);
-        setError(null);
-        setSuccess(null);
-        
-        try {
-            // Simulation de l'appel Oauth Front-End Facebook JS SDK
-            // Normalement : FB.login(..., { scope: 'whatsapp_business_management' })
-            
-            const token = localStorage.getItem('token');
-            const response = await fetch('/api/whatsapp-config/embedded-signup', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ code: 'fb_oauth_sandbox_code_xyz' })
-            });
-            
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error);
-
-            setSuccess('Connexion automatique réussie !');
-            fetchConfig(); // Reload from DB
-        } catch (err: unknown) {
-            setError(getErrorMessage(err, 'Connexion automatique impossible'));
-        } finally {
-            setSaving(false);
-        }
-    };
-
     const handleTest = async () => {
         if (!phoneNumberId || !accessToken) {
             setError('Veuillez remplir les champs avant de tester');
@@ -193,7 +162,7 @@ export default function IntegrationWhatsApp() {
     };
 
     const handleDelete = async () => {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer cette configuration ? Vos employés utiliseront le numéro partagé.')) {
+        if (!confirm('Êtes-vous sûr de vouloir supprimer cette configuration ? Vos employés repasseront sur le numéro WhatsPoint mutualisé.')) {
             return;
         }
 
@@ -209,7 +178,7 @@ export default function IntegrationWhatsApp() {
 
             if (!response.ok) throw new Error('Erreur lors de la suppression');
 
-            setSuccess('Configuration supprimée. Vous utilisez maintenant le numéro partagé.');
+            setSuccess('Configuration supprimée. Vous utilisez maintenant le numéro WhatsPoint mutualisé.');
             setPhoneNumberId('');
             setWabaId('');
             setDisplayName('');
@@ -229,48 +198,66 @@ export default function IntegrationWhatsApp() {
         );
     }
 
-    // Feature gating - not enterprise
     if (!config?.isEnterprise) {
         return (
-            <div className="max-w-2xl mx-auto py-12 px-4">
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-200">
+            <div className="max-w-4xl mx-auto py-12 px-4">
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-8 border border-blue-200">
                     <div className="flex items-center gap-4 mb-6">
                         <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center">
                             <MessageSquare className="w-7 h-7 text-blue-600" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-gray-900">WhatsApp Marque Blanche</h2>
-                            <p className="text-gray-600">Fonctionnalité Enterprise</p>
+                            <h2 className="text-xl font-bold text-gray-900">Canal WhatsApp</h2>
+                            <p className="text-gray-600">Démarrez sans configuration Meta côté client</p>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-xl p-6 mb-6">
-                        <p className="text-gray-700 mb-4">
-                            Connectez votre propre numéro WhatsApp Business API pour :
-                        </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div className="bg-white rounded-lg p-5 border border-blue-100">
+                            <h3 className="font-semibold text-gray-900 mb-2">MVP: numéro WhatsPoint mutualisé</h3>
+                            <p className="text-sm text-gray-600">
+                                Le mode le plus rapide pour lancer le pointage. Le numéro et le nom affiché ne sont pas personnalisés.
+                            </p>
+                        </div>
+                        <div className="bg-white rounded-lg p-5 border border-blue-100">
+                            <h3 className="font-semibold text-gray-900 mb-2">Pro: numéro dédié WhatsPoint</h3>
+                            <p className="text-sm text-gray-600">
+                                WhatsPoint fournit et opère un numéro séparé. Le nom affiché dépend de la validation Meta.
+                            </p>
+                        </div>
+                        <div className="bg-white rounded-lg p-5 border border-blue-100">
+                            <h3 className="font-semibold text-gray-900 mb-2">Enterprise: BYON accompagné</h3>
+                            <p className="text-sm text-gray-600">
+                                Votre propre compte ou numéro WhatsApp Business, avec cadrage technique WhatsPoint.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-6 mb-6">
+                        <p className="text-gray-700 mb-4">Inclus dès maintenant :</p>
                         <ul className="space-y-2 text-gray-600">
                             <li className="flex items-center gap-2">
                                 <Check className="w-4 h-4 text-green-500" />
-                                Messages envoyés depuis votre numéro
+                                Pointage WhatsApp opérationnel via le numéro WhatsPoint
                             </li>
                             <li className="flex items-center gap-2">
                                 <Check className="w-4 h-4 text-green-500" />
-                                Votre marque visible par vos employés
+                                Aucun compte Meta Business à connecter pour démarrer
                             </li>
                             <li className="flex items-center gap-2">
                                 <Check className="w-4 h-4 text-green-500" />
-                                Historique dans votre compte Meta Business
+                                Passage vers un numéro dédié ou BYON traité avec accompagnement
                             </li>
                             <li className="flex items-center gap-2">
                                 <Shield className="w-4 h-4 text-green-500" />
-                                Pas de risque de bannissement partagé
+                                Promesse claire: pas de nom affiché personnalisé garanti sans validation Meta
                             </li>
                         </ul>
                     </div>
 
                     <div className="text-center">
                         <p className="text-sm text-gray-500 mb-3">
-                            Cette fonctionnalité nécessite un plan Enterprise
+                            Les options dédiées et BYON sont activées avec WhatsPoint selon votre offre.
                         </p>
                         <a
                             href="/billing"
@@ -287,18 +274,16 @@ export default function IntegrationWhatsApp() {
 
     return (
         <div className="max-w-3xl mx-auto py-8 px-4">
-            {/* Header */}
             <div className="flex items-center gap-4 mb-8">
                 <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
                     <MessageSquare className="w-6 h-6 text-green-600" />
                 </div>
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">WhatsApp Marque Blanche</h1>
-                    <p className="text-gray-600">Connectez votre propre numéro WhatsApp Business API</p>
+                    <h1 className="text-2xl font-bold text-gray-900">Canal WhatsApp</h1>
+                    <p className="text-gray-600">Choisissez le mode d'envoi adapté à votre offre</p>
                 </div>
             </div>
 
-            {/* Status Card */}
             <div className={`rounded-xl p-4 mb-6 border ${config?.exists && config?.isActive
                     ? 'bg-green-50 border-green-200'
                     : 'bg-blue-50 border-blue-200'
@@ -309,14 +294,14 @@ export default function IntegrationWhatsApp() {
                             <>
                                 <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
                                 <span className="font-medium text-green-800">
-                                    🟢 Connecté en Marque Blanche
+                                    Numéro Enterprise connecté
                                 </span>
                             </>
                         ) : (
                             <>
                                 <div className="w-3 h-3 bg-blue-500 rounded-full" />
                                 <span className="font-medium text-blue-800">
-                                    🔵 Utilise le numéro partagé
+                                    MVP: numéro WhatsPoint mutualisé
                                 </span>
                             </>
                         )}
@@ -335,7 +320,8 @@ export default function IntegrationWhatsApp() {
 
                 {config?.displayName && config?.isActive && (
                     <p className="mt-2 text-sm text-green-700">
-                        Affichage: <strong>{config.displayName}</strong>
+                        Nom d'affichage souhaité: <strong>{config.displayName}</strong>
+                        <span className="text-green-600"> (soumis à validation Meta)</span>
                     </p>
                 )}
             </div>
@@ -355,98 +341,89 @@ export default function IntegrationWhatsApp() {
                 </div>
             )}
 
-            {/* If no config, Show 3 Options */}
             {!config?.exists && (
                 <div className="mb-8">
-                    <h2 className="text-xl font-bold text-gray-900 mb-4">Choisissez votre méthode d'intégration</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">Modes disponibles</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* Option 1: Meta */}
                         <div 
-                            onClick={() => setSelectedMethod('meta')}
-                            className={`p-5 rounded-xl border-2 cursor-pointer transition-all ${selectedMethod === 'meta' ? 'border-[#1877F2] bg-blue-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
+                            onClick={() => setSelectedMethod('shared')}
+                            className={`p-5 rounded-xl border-2 cursor-pointer transition-all ${selectedMethod === 'shared' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
                         >
-                            <div className="w-10 h-10 bg-[#1877F2]/10 text-[#1877F2] rounded-lg flex items-center justify-center mb-3">
-                                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                            <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center mb-3">
+                                <MessageSquare className="w-5 h-5" />
                             </div>
-                            <h3 className="font-semibold text-gray-900 mb-1">Connexion Meta</h3>
-                            <p className="text-sm text-gray-500 mb-2">Gratuit et instané via "Embedded Signup". Nécessite d'avoir déjà une Page Facebook vitrine.</p>
-                            <span className="text-xs font-bold text-[#1877F2] uppercase tracking-wider">Le plus rapide</span>
+                            <h3 className="font-semibold text-gray-900 mb-1">MVP: numéro WhatsPoint mutualisé</h3>
+                            <p className="text-sm text-gray-500 mb-2">Vos équipes pointent tout de suite via le numéro WhatsPoint. Aucune configuration Meta à prévoir.</p>
+                            <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">Déjà actif</span>
                         </div>
 
-                        {/* Option 2: Twilio */}
                         <div 
-                            onClick={() => setSelectedMethod('twilio')}
-                            className={`p-5 rounded-xl border-2 cursor-pointer transition-all ${selectedMethod === 'twilio' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
+                            onClick={() => setSelectedMethod('pro')}
+                            className={`p-5 rounded-xl border-2 cursor-pointer transition-all ${selectedMethod === 'pro' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
                         >
                             <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center mb-3">
                                 <PhoneCall className="w-5 h-5" />
                             </div>
-                            <h3 className="font-semibold text-gray-900 mb-1">Intégration Manuelle</h3>
-                            <p className="text-sm text-gray-500 mb-2">Pour brancher un numéro Twilio, Sinch, ou un compte Meta Dev existant (Clés d'API requises).</p>
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Alternative Experte</span>
+                            <h3 className="font-semibold text-gray-900 mb-1">Pro: numéro dédié WhatsPoint</h3>
+                            <p className="text-sm text-gray-500 mb-2">WhatsPoint fournit et opère un numéro séparé. Le nom affiché reste soumis à validation Meta.</p>
+                            <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Activation accompagnée</span>
                         </div>
 
-                        {/* Option 3: Concierge */}
                         <div 
-                            onClick={() => setSelectedMethod('concierge')}
-                            className={`p-5 rounded-xl border-2 cursor-pointer transition-all ${selectedMethod === 'concierge' ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
+                            onClick={() => setSelectedMethod('enterprise')}
+                            className={`p-5 rounded-xl border-2 cursor-pointer transition-all ${selectedMethod === 'enterprise' ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
                         >
                             <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center mb-3">
                                 <Briefcase className="w-5 h-5" />
                             </div>
-                            <h3 className="font-semibold text-gray-900 mb-1">Service Conciergerie</h3>
-                            <p className="text-sm text-gray-500 mb-2">Technophobe ? Laissez l'équipe WhatsPoint acheter et activer la ligne WhatsApp pour vous.</p>
-                            <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Tranquillité Totale (150€)</span>
+                            <h3 className="font-semibold text-gray-900 mb-1">Enterprise: BYON accompagné</h3>
+                            <p className="text-sm text-gray-500 mb-2">Votre propre compte ou numéro WhatsApp Business, cadré avec WhatsPoint avant activation.</p>
+                            <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Cadrage requis</span>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Blocks Conditionnels */}
-            
-            {/* 1 - META */}
-            {selectedMethod === 'meta' && !config?.exists && (
-                <div className="bg-white rounded-xl shadow-sm border-2 border-[#1877F2] p-6 mb-6">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900 mb-1">Connexion Facebook Express</h2>
-                            <p className="text-gray-600 text-sm">
-                                L'assistant "Embedded Signup" va configurer automatiquement votre ligne en arrière-plan.
-                            </p>
-                        </div>
-                        <button
-                            onClick={handleEmbeddedSignup}
-                            disabled={saving}
-                            className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-[#1877F2] text-white rounded-lg hover:bg-[#166FE5] transition-colors shadow-sm font-medium whitespace-nowrap"
-                        >
-                            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>}
-                            Connecter avec Facebook
-                        </button>
-                    </div>
+            {selectedMethod === 'shared' && !config?.exists && (
+                <div className="bg-blue-50 rounded-xl border border-blue-200 p-6 mb-6">
+                    <h2 className="text-lg font-semibold text-blue-950 mb-2">Démarrage immédiat confirmé</h2>
+                    <p className="text-blue-800 text-sm">
+                        Aucun paramétrage n'est nécessaire: le pointage utilise le numéro WhatsPoint mutualisé. C'est le mode recommandé pour éviter toute friction de lancement.
+                    </p>
                 </div>
             )}
 
-            {/* 2 - CONCIERGERIE */}
-            {selectedMethod === 'concierge' && !config?.exists && (
+            {selectedMethod === 'pro' && !config?.exists && (
+                <div className="bg-indigo-50 rounded-xl shadow-sm border border-indigo-200 p-6 mb-6">
+                    <h2 className="text-lg font-semibold text-indigo-950 mb-2">Activation Pro accompagnée</h2>
+                    <p className="text-indigo-800 text-sm leading-relaxed">
+                        WhatsPoint peut fournir un numéro dédié à votre organisation. Le numéro est séparé des autres clients, mais le nom affiché WhatsApp dépend de Meta et ne doit pas être promis comme garanti.
+                    </p>
+                </div>
+            )}
+
+            {selectedMethod === 'enterprise' && !config?.exists && (
                 <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl shadow-sm border border-amber-200 p-8 mb-6 text-center">
-                    <h2 className="text-2xl font-bold text-amber-900 mb-3">Service Clés en Main</h2>
+                    <h2 className="text-2xl font-bold text-amber-900 mb-3">BYON accompagné</h2>
                     <p className="text-amber-800 mb-6 max-w-lg mx-auto leading-relaxed">
-                        Notre équipe se charge de tout : achat du numéro auprès d'un opérateur, paramétrage de l'API locale, et validation finale sur les serveurs Meta. Vous n'avez aucune manipulation technique à faire.
+                        Votre propre numéro ou compte WhatsApp Business peut être connecté après cadrage technique. WhatsPoint vous accompagne sur Meta Business, webhooks, templates et mise en production.
                     </p>
                     <button className="px-8 py-3 bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-700 transition shadow-lg flex items-center justify-center gap-2 mx-auto">
                         <Briefcase className="w-5 h-5" />
-                        Payer les frais de mise en service (150€)
+                        Demander le cadrage WhatsPoint
                     </button>
-                    <p className="text-xs text-amber-600 mt-4 opacity-80">Génère un ticket prioritaire auprès du SuperAdmin.</p>
+                    <p className="text-xs text-amber-600 mt-4 opacity-80">Réservé aux déploiements validés avec WhatsPoint.</p>
                 </div>
             )}
 
-            {/* 3 - TWILIO / MANUEL (Ou si config existante) */}
-            {((selectedMethod === 'twilio' && !config?.exists) || config?.exists) && (
+            {((selectedMethod === 'enterprise' && !config?.exists) || config?.exists) && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 opacity-100 transition-opacity">
                     <h2 className="text-lg font-semibold text-gray-900 mb-6">
-                        {config?.exists ? 'Configuration de Connexion Actuelle' : 'Saisie des Clés d\'API'}
+                        {config?.exists ? 'Configuration technique actuelle' : 'Configuration technique accompagnée'}
                     </h2>
+                    <p className="text-sm text-gray-600 mb-6">
+                        Ces champs sont réservés aux déploiements Enterprise validés avec WhatsPoint. Ils ne remplacent pas le cadrage Meta et le nom d'affichage reste soumis à validation.
+                    </p>
 
                 <div className="space-y-5">
                     {/* Phone Number ID */}
@@ -511,7 +488,7 @@ export default function IntegrationWhatsApp() {
                     {/* Display Name */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Nom d'affichage (optionnel)
+                            Nom d'affichage souhaité (optionnel)
                         </label>
                         <input
                             type="text"
@@ -521,7 +498,7 @@ export default function IntegrationWhatsApp() {
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                         <p className="mt-1 text-xs text-gray-500">
-                            Identité visible dans les messages de test
+                            Soumis à validation Meta, non garanti.
                         </p>
                     </div>
 
@@ -575,10 +552,9 @@ export default function IntegrationWhatsApp() {
 
             {/* Help Section */}
             <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <h3 className="font-medium text-amber-800 mb-2">⚠️ Configuration Importante</h3>
+                <h3 className="font-medium text-amber-800 mb-2">Configuration importante</h3>
                 <p className="text-sm text-amber-700">
-                    Pour que les messages entrants soient routés vers votre numéro, vous devez configurer le webhook
-                    dans la console Meta Developer pour pointer vers notre endpoint webhook.
+                    Pour connecter un numéro Enterprise, WhatsPoint vous accompagne dans la configuration Meta, les webhooks et les templates. Le parcours n'est pas prévu en self-service pour le MVP.
                 </p>
             </div>
         </div>

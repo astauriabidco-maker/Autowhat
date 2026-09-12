@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
     Building2, Plus, Search, Upload, Edit3, Trash2, X,
@@ -6,39 +6,14 @@ import {
     Navigation, Clock
 } from 'lucide-react';
 import CustomerHistory from './CustomerHistory';
-
-interface CustomerSite {
-    id: string;
-    name: string;
-    isMainSite: boolean;
-    address: string;
-    address2?: string;
-    city: string;
-    postalCode: string;
-    country: string;
-    latitude?: number;
-    longitude?: number;
-    contactName?: string;
-    contactPhone?: string;
-    contactEmail?: string;
-    accessCode?: string;
-    accessNotes?: string;
-    _count?: { interventions: number };
-}
-
-interface Customer {
-    id: string;
-    companyName: string;
-    contactName: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-    country?: string;
-    accessCode?: string;
-    notes?: string;
-    sites?: CustomerSite[];
-    _count?: { interventions: number; sites: number };
-}
+import type {
+    ApiCustomer,
+    ApiCustomerCreatePayload,
+    ApiCustomerImportPayload,
+    ApiCustomerSite,
+    ApiCustomerSiteUpsertPayload,
+    ApiCustomerUpdatePayload
+} from '../../types/api/customers';
 
 const COUNTRIES = [
     { code: 'FR', label: '🇫🇷 France', format: 'NPA + Ville' },
@@ -70,42 +45,42 @@ const emptySiteForm = {
 };
 
 export default function Customers() {
-    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [customers, setCustomers] = useState<ApiCustomer[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [showSiteModal, setShowSiteModal] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
-    const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-    const [editingCustomerForSite, setEditingCustomerForSite] = useState<Customer | null>(null);
-    const [editingSite, setEditingSite] = useState<CustomerSite | null>(null);
+    const [editingCustomer, setEditingCustomer] = useState<ApiCustomer | null>(null);
+    const [editingCustomerForSite, setEditingCustomerForSite] = useState<ApiCustomer | null>(null);
+    const [editingSite, setEditingSite] = useState<ApiCustomerSite | null>(null);
     const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
     const [form, setForm] = useState(emptyCustomerForm);
     const [siteForm, setSiteForm] = useState(emptySiteForm);
     const [csvText, setCsvText] = useState('');
     const [saving, setSaving] = useState(false);
-    const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
+    const [historyCustomer, setHistoryCustomer] = useState<ApiCustomer | null>(null);
 
     const token = localStorage.getItem('token');
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
-    const fetchCustomers = async (q = '') => {
+    const fetchCustomers = useCallback(async (q = '') => {
         try {
             setLoading(true);
-            const res = await axios.get('/api/customers', { headers, params: q ? { search: q } : {} });
+            const res = await axios.get<ApiCustomer[]>('/api/customers', { headers, params: q ? { search: q } : {} });
             setCustomers(Array.isArray(res.data) ? res.data : []);
         } catch (e) {
             console.error('Error fetching customers', e);
         } finally {
             setLoading(false);
         }
-    };
+    }, [headers]);
 
-    useEffect(() => { fetchCustomers(); }, []);
-    useEffect(() => { const t = setTimeout(() => fetchCustomers(search), 300); return () => clearTimeout(t); }, [search]);
+    useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
+    useEffect(() => { const t = setTimeout(() => fetchCustomers(search), 300); return () => clearTimeout(t); }, [search, fetchCustomers]);
 
     // --- Customer CRUD ---
-    const openCustomerModal = (customer?: Customer) => {
+    const openCustomerModal = (customer?: ApiCustomer) => {
         if (customer) {
             setEditingCustomer(customer);
             setForm({
@@ -125,10 +100,11 @@ export default function Customers() {
         if (!form.companyName || !form.contactName) return;
         setSaving(true);
         try {
+            const payload: ApiCustomerCreatePayload | ApiCustomerUpdatePayload = form;
             if (editingCustomer) {
-                await axios.put(`/api/customers/${editingCustomer.id}`, form, { headers });
+                await axios.put<ApiCustomer>(`/api/customers/${editingCustomer.id}`, payload, { headers });
             } else {
-                await axios.post('/api/customers', form, { headers });
+                await axios.post<ApiCustomer>('/api/customers', payload, { headers });
             }
             setShowModal(false);
             fetchCustomers(search);
@@ -145,7 +121,7 @@ export default function Customers() {
     };
 
     // --- Site CRUD ---
-    const openSiteModal = (customer: Customer, site?: CustomerSite) => {
+    const openSiteModal = (customer: ApiCustomer, site?: ApiCustomerSite) => {
         setEditingCustomerForSite(customer);
         if (site) {
             setEditingSite(site);
@@ -170,16 +146,16 @@ export default function Customers() {
         if (!editingCustomerForSite) return;
         setSaving(true);
         try {
-            const payload = {
+            const payload: ApiCustomerSiteUpsertPayload = {
                 ...siteForm,
                 latitude: siteForm.latitude ? parseFloat(siteForm.latitude) : null,
                 longitude: siteForm.longitude ? parseFloat(siteForm.longitude) : null,
             };
 
             if (editingSite) {
-                await axios.put(`/api/customers/${editingCustomerForSite.id}/sites/${editingSite.id}`, payload, { headers });
+                await axios.put<ApiCustomerSite>(`/api/customers/${editingCustomerForSite.id}/sites/${editingSite.id}`, payload, { headers });
             } else {
-                await axios.post(`/api/customers/${editingCustomerForSite.id}/sites`, payload, { headers });
+                await axios.post<ApiCustomerSite>(`/api/customers/${editingCustomerForSite.id}/sites`, payload, { headers });
             }
             setShowSiteModal(false);
             fetchCustomers(search);
@@ -217,14 +193,15 @@ export default function Customers() {
         if (parsedCustomers.length === 0) return;
 
         try {
-            await axios.post('/api/customers/import-csv', { customers: parsedCustomers }, { headers });
+            const payload: ApiCustomerImportPayload = { customers: parsedCustomers };
+            await axios.post('/api/customers/import-csv', payload, { headers });
             setShowImportModal(false);
             setCsvText('');
             fetchCustomers();
         } catch (e) { console.error('Error importing', e); }
     };
 
-    const getCountryFlag = (code?: string) => {
+    const getCountryFlag = (code?: string | null) => {
         return COUNTRIES.find(c => c.code === code)?.label.split(' ')[0] || '🌍';
     };
 

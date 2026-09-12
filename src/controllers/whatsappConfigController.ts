@@ -12,6 +12,9 @@ import {
 } from '../services/whatsappConfigService';
 import { testConnection } from '../services/whatsappService';
 import prisma from '../lib/prisma';
+import { isDemoMode, isFlagEnabled } from '../utils/featureFlags';
+
+const ENABLE_META_EMBEDDED_SIGNUP = 'ENABLE_META_EMBEDDED_SIGNUP';
 
 
 /**
@@ -117,10 +120,23 @@ export const embeddedSignup = async (req: Request, res: Response): Promise<any> 
         console.log(`🔗 [EMBEDDED SIGNUP] Processing OAuth Code for Tenant ${tenantId}`);
         console.log(`🔗 Token Exchange initialized...`);
 
+        const embeddedSignupEnabled = isFlagEnabled(ENABLE_META_EMBEDDED_SIGNUP, process.env.NODE_ENV !== 'production');
+        if (!embeddedSignupEnabled && !isDemoMode()) {
+            return res.status(503).json({
+                error: `Meta Embedded Signup désactivé. Activez ${ENABLE_META_EMBEDDED_SIGNUP}=true pour une intégration réelle, ou DEMO_MODE=true uniquement pour une démo.`
+            });
+        }
+
+        if (process.env.NODE_ENV === 'production' && embeddedSignupEnabled && !isDemoMode()) {
+            return res.status(501).json({
+                error: 'Meta Embedded Signup réel non implémenté côté serveur. Utilisez DEMO_MODE=true uniquement pour une démo déclarée.'
+            });
+        }
+
         // PRODUCTION: Exchange the code for the System User Token via Meta Graph API:
         // const tokenResponse = await axios.get('https://graph.facebook.com/v17.0/oauth/access_token?client_id=...&code=' + code);
         
-        // Simulating API Latency
+        // DEMO: Simulating API Latency
         await new Promise(resolve => setTimeout(resolve, 2000)); 
         
         const mockPhoneId = "102345678901234_META_PROVISIONED";
@@ -205,7 +221,7 @@ export const removeConfig = async (req: Request, res: Response): Promise<any> =>
             console.log(`🗑️ BYON config deleted for tenant ${tenantId}`);
             return res.json({
                 success: true,
-                message: 'Configuration supprimée. Vous utilisez maintenant le numéro partagé.'
+                message: 'Configuration supprimée. Vous utilisez maintenant le numéro WhatsPoint mutualisé.'
             });
         } else {
             return res.status(404).json({ error: 'Configuration non trouvée' });
@@ -244,8 +260,8 @@ export const toggleConfig = async (req: Request, res: Response): Promise<any> =>
         return res.json({
             success: true,
             message: isActive
-                ? 'WhatsApp marque blanche activé'
-                : 'Basculé sur le numéro partagé'
+                ? 'Canal WhatsApp Enterprise activé'
+                : 'Basculé sur le numéro WhatsPoint mutualisé'
         });
     } catch (error) {
         console.error('❌ Error toggling WhatsApp config:', error);

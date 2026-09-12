@@ -18,32 +18,44 @@ import * as billingController from '../controllers/billingController';
 import * as webhookStripe from '../controllers/webhookStripe';
 import * as integrationController from '../controllers/integrationController';
 import * as externalApiController from '../controllers/externalApiController';
+import * as whatsappNumberController from '../controllers/whatsappNumberController';
+import * as onboardingController from '../controllers/onboardingController';
 import { authenticateManager } from '../middlewares/authMiddleware';
 import { authenticateSuperAdmin } from '../middlewares/adminMiddleware';
+import { requireLegacyOperations } from '../middlewares/legacyOperationsMiddleware';
+import {
+    authRateLimit,
+    externalNotifyRateLimit,
+    onboardingAccessRateLimit,
+    otpRateLimit,
+    resetPasswordRateLimit,
+    webhookRateLimit
+} from '../middlewares/rateLimitMiddleware';
 import debugRoutes from './debugRoutes';
 
 const router = Router();
 
 // Webhook Routes
 router.get('/webhook', webhookController.verifyWebhook);
-router.post('/webhook', webhookController.handleMessage);
+router.post('/webhook', webhookRateLimit, webhookController.handleMessage);
 
 // External API Routes (Inbound from ERPs)
-router.post('/api/external/notify', externalApiController.sendNotification);
+router.post('/api/external/notify', externalNotifyRateLimit, externalApiController.sendNotification);
 
 // Auth Routes (Public)
-router.post('/auth/login', authController.login);
-router.post('/auth/register', authController.register);
-router.post('/auth/forgot-password', authController.forgotPassword);
-router.post('/auth/reset-password', authController.resetPassword);
-router.post('/auth/request-otp', authController.requestOtp);
-router.post('/auth/verify-otp', authController.verifyOtp);
-router.post('/auth/magic-login', authController.magicLogin);
+router.post('/auth/login', authRateLimit, authController.login);
+router.post('/auth/register', authRateLimit, authController.register);
+router.post('/auth/forgot-password', resetPasswordRateLimit, authController.forgotPassword);
+router.post('/auth/reset-password', resetPasswordRateLimit, authController.resetPassword);
+router.post('/auth/request-otp', otpRateLimit, authController.requestOtp);
+router.post('/auth/verify-otp', otpRateLimit, authController.verifyOtp);
+router.post('/auth/magic-login', authRateLimit, authController.magicLogin);
 router.post('/auth/logout', authController.logout);
 router.post('/auth/logout-manager', authController.logoutManager);
 
 // Public Config Routes (No Auth)
 router.get('/api/config/legal', adminController.getLegalContent);
+router.post('/api/onboarding/request-access', onboardingAccessRateLimit, onboardingController.requestAccess);
 
 // Dashboard API Routes (Protected - Manager only)
 router.get('/api/attendance', authenticateManager, dashboardController.getAttendance);
@@ -155,7 +167,7 @@ router.get('/api/privacy/preview', authenticateManager, privacyController.getAno
 router.post('/api/privacy/purge', authenticateManager, privacyController.triggerPurge);
 
 // Admin Routes (Super Admin only)
-router.post('/admin/login', adminController.adminLogin);
+router.post('/admin/login', authRateLimit, adminController.adminLogin);
 router.get('/admin/tenants', authenticateSuperAdmin, adminController.getAllTenants);
 router.get('/admin/tenants/list', authenticateSuperAdmin, adminController.getTenantsWithDetails);
 router.get('/admin/tenants/:id/invoices', authenticateSuperAdmin, billingController.getTenantInvoices);
@@ -224,6 +236,14 @@ router.get('/admin/integrations', authenticateSuperAdmin, integrationController.
 router.put('/admin/integrations', authenticateSuperAdmin, integrationController.upsertIntegration);
 router.delete('/admin/integrations', authenticateSuperAdmin, integrationController.deleteIntegration);
 
+// WhatsApp System Numbers (SuperAdmin manual operations)
+router.get('/admin/whatsapp-numbers', authenticateSuperAdmin, whatsappNumberController.getSystemNumbers);
+router.post('/admin/whatsapp-numbers', authenticateSuperAdmin, whatsappNumberController.createSystemNumber);
+router.post('/admin/whatsapp-numbers/health/check', authenticateSuperAdmin, whatsappNumberController.triggerPoolHealthAlert);
+router.post('/admin/whatsapp-numbers/tenants/:tenantId/unassign', authenticateSuperAdmin, whatsappNumberController.unassignTenantSystemNumber);
+router.patch('/admin/whatsapp-numbers/:id', authenticateSuperAdmin, whatsappNumberController.patchSystemNumber);
+router.post('/admin/whatsapp-numbers/:id/assign', authenticateSuperAdmin, whatsappNumberController.assignSystemNumber);
+
 // Subscription Plans Management (SuperAdmin)
 router.get('/admin/plans', authenticateSuperAdmin, planController.getAllPlans);
 router.get('/admin/plans/:id', authenticateSuperAdmin, planController.getPlanById);
@@ -277,6 +297,18 @@ router.use('/debug', authenticateSuperAdmin, debugRoutes);
 // FIELD SERVICE MANAGEMENT (FSM) Routes
 // =============================================
 import * as opsController from '../controllers/opsController';
+
+router.use([
+    '/api/customers',
+    '/api/intervention-types',
+    '/api/interventions',
+    '/api/operations',
+    '/api/parts',
+    '/api/quotes',
+    '/api/recurring-interventions',
+    '/api/intervention-requests',
+    '/api/public/intervention'
+], requireLegacyOperations);
 
 // Customer CRM Routes (Protected - Manager only)
 router.get('/api/customers', authenticateManager, opsController.getCustomers);

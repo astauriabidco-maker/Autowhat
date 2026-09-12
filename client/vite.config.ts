@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import type { IncomingMessage } from 'node:http'
 
 const plugins = [
   react(),
@@ -103,7 +104,7 @@ export default defineConfig({
       '/superadmin': {
         target: 'http://localhost:3005',
         changeOrigin: true,
-        bypass: (req: any) => {
+        bypass: (req: IncomingMessage) => {
           if (req.headers.accept?.includes('text/html')) {
             return req.url; // Allows React Router to handle page loads like /superadmin/login
           }

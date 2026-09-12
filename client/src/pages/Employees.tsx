@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -17,43 +17,23 @@ import {
 } from 'lucide-react';
 import AddEmployeeModal from '../components/AddEmployeeModal';
 import { getErrorStatus } from '../utils/errors';
-
-interface Employee {
-    id: string;
-    name: string;
-    phoneNumber: string;
-    role: string;
-    position: string;
-    status: 'ACTIVE' | 'ARCHIVED' | 'NEVER_CONNECTED';
-    lastActivity: string | null;
-    lastActivityFormatted: string;
-}
+import type { ApiEmployeeArchivePayload, ApiEmployeeQuota, ApiEmployeesResponse, ApiEmployeeSummary } from '../types/api/employees';
 
 export default function Employees() {
     const navigate = useNavigate();
-    const [employees, setEmployees] = useState<Employee[]>([]);
-    const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
+    const [employees, setEmployees] = useState<ApiEmployeeSummary[]>([]);
+    const [filteredEmployees, setFilteredEmployees] = useState<ApiEmployeeSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [showToast, setShowToast] = useState(false);
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
-    const [quotaInfo, setQuotaInfo] = useState<{ maxEmployees: number; currentEmployees: number } | null>(null);
+    const [quotaInfo, setQuotaInfo] = useState<ApiEmployeeQuota | null>(null);
 
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            navigate('/');
-            return;
-        }
-        fetchEmployees();
-        fetchQuotaInfo();
-    }, [navigate]);
-
-    const fetchQuotaInfo = async () => {
+    const fetchQuotaInfo = useCallback(async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.get('/api/tenant/info', {
+            const res = await axios.get<ApiEmployeeQuota>('/api/tenant/info', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setQuotaInfo({
@@ -63,7 +43,7 @@ export default function Employees() {
         } catch (e) {
             console.log('Could not fetch quota info');
         }
-    };
+    }, []);
 
     useEffect(() => {
         // Filter employees based on search query
@@ -81,11 +61,11 @@ export default function Employees() {
         }
     }, [searchQuery, employees]);
 
-    const fetchEmployees = async () => {
+    const fetchEmployees = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get<{ employees: Employee[] }>('/api/employees', {
+            const response = await axios.get<ApiEmployeesResponse>('/api/employees', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setEmployees(response.data.employees);
@@ -97,13 +77,24 @@ export default function Employees() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [navigate]);
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            navigate('/');
+            return;
+        }
+        fetchEmployees();
+        fetchQuotaInfo();
+    }, [fetchEmployees, fetchQuotaInfo, navigate]);
 
     const handleArchive = async (id: string) => {
         try {
             const token = localStorage.getItem('token');
+            const payload: ApiEmployeeArchivePayload = { archived: true };
             await axios.patch(`/api/employees/${id}`,
-                { archived: true },
+                payload,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             fetchEmployees();
@@ -151,7 +142,7 @@ export default function Employees() {
         return phone;
     };
 
-    const getStatusBadge = (status: Employee['status']) => {
+    const getStatusBadge = (status: ApiEmployeeSummary['status']) => {
         switch (status) {
             case 'ACTIVE':
                 return (

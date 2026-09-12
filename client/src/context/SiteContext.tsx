@@ -1,26 +1,7 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import axios from 'axios';
-
-interface Site {
-    id: string;
-    name: string;
-    address: string | null;
-    country: string;
-    latitude: number | null;
-    longitude: number | null;
-    radius: number;
-    gpsMode: 'STRICT' | 'WARNING' | 'DISABLED';
-}
-
-interface SiteContextType {
-    sites: Site[];
-    selectedSiteId: string | null; // null = "Vue Globale" (tous les sites)
-    setSelectedSiteId: (id: string | null) => void;
-    isLoading: boolean;
-    isLocalManager: boolean; // True si user a un siteId fixe
-}
-
-const SiteContext = createContext<SiteContextType | undefined>(undefined);
+import { SiteContext, type Site } from './siteContextCore';
+import type { ApiSitesResponse } from '../types/api/sites';
 
 export function SiteProvider({ children }: { children: ReactNode }) {
     const [sites, setSites] = useState<Site[]>([]);
@@ -58,7 +39,7 @@ export function SiteProvider({ children }: { children: ReactNode }) {
                 }
 
                 // Fetch sites
-                const response = await axios.get<{ sites: Site[] }>('/api/sites', {
+                const response = await axios.get<ApiSitesResponse>('/api/sites', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSites(response.data.sites || []);
@@ -90,12 +71,4 @@ export function SiteProvider({ children }: { children: ReactNode }) {
             {children}
         </SiteContext.Provider>
     );
-}
-
-export function useSiteContext() {
-    const context = useContext(SiteContext);
-    if (context === undefined) {
-        throw new Error('useSiteContext must be used within a SiteProvider');
-    }
-    return context;
 }

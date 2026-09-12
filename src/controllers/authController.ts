@@ -20,6 +20,12 @@ const JWT_SECRET = (() => {
 })();
 const JWT_EXPIRES_IN = '24h';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5174';
+const DEV_OTP_BYPASS_PHONE = '33699999999';
+const DEV_OTP_BYPASS_CODE = '123456';
+
+function isOtpBypassAllowed(): boolean {
+    return process.env.NODE_ENV !== 'production';
+}
 
 function signManagerJwt(employee: { id: string; tenantId: string; role: string }): string {
     return jwt.sign(
@@ -504,9 +510,9 @@ export const requestOtp = async (req: Request, res: Response): Promise<void> => 
         // Generate 6-digit OTP
         let otpCode = String(Math.floor(100000 + Math.random() * 900000));
         
-        // DEV BYPASS: For test number, use a fixed code
-        if (cleanPhone === '33699999999') {
-            otpCode = '123456';
+        // DEV/TEST ONLY: fixed OTP for the local replay profile.
+        if (isOtpBypassAllowed() && cleanPhone === DEV_OTP_BYPASS_PHONE) {
+            otpCode = DEV_OTP_BYPASS_CODE;
         }
 
         const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
@@ -566,10 +572,10 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
             },
         });
 
-        // DEV BYPASS: If DB check fails, allow '123456' for test number
-        if (!employee && cleanPhone === '33699999999' && otpCode === '123456') {
+        // DEV/TEST ONLY: allow the local replay profile when no active OTP is present.
+        if (!employee && isOtpBypassAllowed() && cleanPhone === DEV_OTP_BYPASS_PHONE && otpCode === DEV_OTP_BYPASS_CODE) {
             employee = await prisma.employee.findFirst({
-                where: { phoneNumber: '33699999999' },
+                where: { phoneNumber: DEV_OTP_BYPASS_PHONE },
                 include: { tenant: true }
             }) as any;
         }

@@ -3,10 +3,11 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
     MessageCircle,
+    Send,
     Sparkles,
     Bot
 } from 'lucide-react';
-import { useVisitor } from '../../context/VisitorContext';
+import { useVisitor } from '../../context/useVisitor';
 import {
     getHeroImage,
     getHeroTitleKey
@@ -47,6 +48,41 @@ export default function HeroSection() {
     // WhatsApp Slides state
     const [currentSlide, setCurrentSlide] = useState(0);
     const [isHovered, setIsHovered] = useState(false);
+    const [accessPhone, setAccessPhone] = useState('');
+    const [accessStatus, setAccessStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+
+    const handleRequestAccess = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        if (!accessPhone.trim()) {
+            setAccessStatus('error');
+            return;
+        }
+
+        setAccessStatus('sending');
+        try {
+            const response = await fetch('/api/onboarding/request-access', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    phoneNumber: accessPhone,
+                    country: countryCode || 'FR',
+                    locale: 'fr',
+                    source: 'landing_hero'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Request failed');
+            }
+
+            setAccessStatus('sent');
+        } catch {
+            setAccessStatus('error');
+        }
+    };
 
     const SLIDES = [
         {
@@ -76,11 +112,11 @@ export default function HeroSection() {
         {
             id: 'manager',
             icon: <CheckCircle2 size={16} />,
-            h1: 'Les demandes terrain',
+            h1: 'Les écarts présence',
             h1Accent: 'remontent.',
-            label: '3. Demandes',
-            title: 'Absence, justificatif, incident, besoin client.',
-            desc: 'WhatsPoint collecte les demandes simples autour de la présence: absence, retard, justificatif, changement d’horaire, incident ou intervention.',
+            label: '3. Alertes',
+            title: 'Absence, retard, justificatif.',
+            desc: 'WhatsPoint collecte les signaux simples autour de la présence: absence, retard, justificatif ou changement d’horaire.',
             userText: 'Je serai en retard de 20 minutes, transport bloqué.',
             botText: '📝 Information reçue.\nManager notifié.\nStatut : en attente de prise en compte.',
             color: '#f97316'
@@ -94,7 +130,7 @@ export default function HeroSection() {
             title: 'Statut, document ou confirmation.',
             desc: 'L’utilisateur n’a pas besoin d’ouvrir un portail métier. Il reçoit le suivi, la décision ou le document directement dans la conversation.',
             userText: 'Avez-vous une mise à jour ?',
-            botText: '📩 Intervention planifiée demain à 09:30.\nTechnicien assigné.\nUn rappel sera envoyé automatiquement.',
+            botText: '📩 Planning confirmé demain à 09:30.\nSite assigné.\nUn rappel sera envoyé automatiquement.',
             color: '#8b5cf6'
         }
     ];
@@ -151,7 +187,7 @@ export default function HeroSection() {
                     }}>
                         <Sparkles size={isMobile ? 14 : 16} color="#2563eb" style={{ flexShrink: 0 }} />
                         <span style={{ color: '#1d4ed8', fontSize: isMobile ? '0.76rem' : '0.85rem', fontWeight: 600, whiteSpace: isMobile ? 'normal' : 'nowrap' }}>
-                            {isMobile ? 'Pointage, planning et demandes terrain' : `${t('landing.hero.badge')} • ${t(titleKey)}`}
+                            {isMobile ? 'Pointage, présence et GPS' : `${t('landing.hero.badge')} • ${t(titleKey)}`}
                         </span>
                     </div>
 
@@ -170,8 +206,8 @@ export default function HeroSection() {
                             </>
                         ) : (
                             <>
-                                WhatsApp pour pointer, planifier et remonter
-                                <span style={{ color: '#2563eb' }}> le terrain.</span>
+                                WhatsApp pour pointer, suivre et fiabiliser
+                                <span style={{ color: '#2563eb' }}> la présence.</span>
                             </>
                         )}
                     </h1>
@@ -184,8 +220,8 @@ export default function HeroSection() {
                         marginBottom: isMobile ? '0.65rem' : '1.1rem'
                     }}>
                         {isMobile
-                            ? 'Présences, horaires et demandes arrivent au bon service, sans nouvelle application.'
-                            : 'Vos équipes utilisent WhatsApp. WhatsPoint transforme leurs messages en présences, plannings, justificatifs et demandes exploitables par vos services métier.'}
+                            ? 'Présences, horaires et justificatifs arrivent au bon service, sans nouvelle application.'
+                            : 'Vos équipes utilisent WhatsApp. WhatsPoint transforme leurs messages en présences, pointages GPS, horaires et justificatifs exploitables par vos managers.'}
                     </p>
 
                     {isMobile ? null : (
@@ -251,42 +287,95 @@ export default function HeroSection() {
                         </motion.div>
                     )}
 
-                    {/* CTAs */}
+                    <form
+                        id="request-access"
+                        onSubmit={handleRequestAccess}
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: isMobile ? '1fr' : 'minmax(260px, 360px) auto',
+                            gap: isMobile ? '0.65rem' : '0.7rem',
+                            alignItems: 'stretch',
+                            maxWidth: isMobile ? (isTabletPortrait ? '540px' : '315px') : '620px',
+                            marginBottom: '0.8rem'
+                        }}
+                    >
+                        <input
+                            type="tel"
+                            value={accessPhone}
+                            onChange={(event) => {
+                                setAccessPhone(event.target.value);
+                                if (accessStatus !== 'idle') setAccessStatus('idle');
+                            }}
+                            placeholder="Votre numéro WhatsApp"
+                            autoComplete="tel"
+                            inputMode="tel"
+                            aria-label="Votre numéro WhatsApp professionnel"
+                            style={{
+                                width: '100%',
+                                minHeight: isMobile ? '48px' : '54px',
+                                padding: isMobile ? '0.78rem 1rem' : '0.95rem 1rem',
+                                borderRadius: '0.75rem',
+                                border: '1px solid rgba(148, 163, 184, 0.55)',
+                                background: 'rgba(255, 255, 255, 0.9)',
+                                color: '#0f172a',
+                                fontSize: isMobile ? '0.94rem' : '1rem',
+                                fontWeight: 650,
+                                outline: 'none',
+                                boxShadow: '0 14px 30px rgba(15, 23, 42, 0.08)'
+                            }}
+                        />
+                        <button
+                            type="submit"
+                            disabled={accessStatus === 'sending'}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                minHeight: isMobile ? '48px' : '54px',
+                                padding: isMobile ? '0.78rem 1rem' : '0.95rem 1.35rem',
+                                background: accessStatus === 'sending'
+                                    ? 'rgba(37, 99, 235, 0.62)'
+                                    : 'linear-gradient(135deg, #2563eb 0%, #0f766e 100%)',
+                                border: '1px solid rgba(37, 99, 235, 0.24)',
+                                borderRadius: '0.75rem',
+                                color: '#ffffff',
+                                cursor: accessStatus === 'sending' ? 'wait' : 'pointer',
+                                fontWeight: 800,
+                                fontSize: isMobile ? '0.92rem' : '0.98rem',
+                                whiteSpace: 'nowrap',
+                                boxShadow: '0 14px 30px rgba(37, 99, 235, 0.22)'
+                            }}
+                        >
+                            <Send size={18} style={{ flexShrink: 0 }} />
+                            {accessStatus === 'sending' ? 'Envoi...' : 'Recevoir mon accès'}
+                        </button>
+                    </form>
+
                     <div style={{
                         display: 'flex',
                         gap: isNarrowMobile ? '0.5rem' : (isMobile ? '0.65rem' : '1rem'),
                         flexWrap: 'wrap',
                         flexDirection: stackActions ? 'column' : 'row',
                         alignItems: isMobile ? 'stretch' : 'center',
-                        maxWidth: isNarrowMobile ? '315px' : 'none'
+                        maxWidth: isNarrowMobile ? '315px' : '620px'
                     }}>
-                        {isNarrowMobile ? (
-                            <a
-                                href={whatsappDemoUrl}
-                                target={isWhatsappDemoExternal ? '_blank' : undefined}
-                                rel={isWhatsappDemoExternal ? 'noopener noreferrer' : undefined}
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '0.45rem',
-                                    padding: '0.78rem 1rem',
-                                    background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-                                    border: '1px solid rgba(34, 197, 94, 0.35)',
-                                    borderRadius: '0.75rem',
-                                    color: '#ffffff',
-                                    textDecoration: 'none',
-                                    fontWeight: 800,
-                                    fontSize: '0.92rem',
-                                    width: '100%',
-                                    boxShadow: '0 12px 26px rgba(22, 163, 74, 0.22)'
-                                }}
-                            >
-                                <MessageCircle size={18} style={{ flexShrink: 0 }} />
-                                Démo WhatsApp
-                            </a>
-                        ) : (
-                            <>
+                        <span
+                            role={accessStatus === 'error' ? 'alert' : 'status'}
+                            style={{
+                                color: accessStatus === 'error' ? '#b91c1c' : '#475569',
+                                fontSize: isMobile ? '0.78rem' : '0.88rem',
+                                lineHeight: 1.45,
+                                minHeight: isMobile ? '34px' : '22px',
+                                flex: '1 1 260px'
+                            }}
+                        >
+                            {accessStatus === 'sent'
+                                ? 'Demande reçue. Regardez vos messages WhatsApp dans quelques instants.'
+                                : accessStatus === 'error'
+                                    ? 'Vérifiez le numéro ou réessayez dans quelques instants.'
+                                    : 'Un seul message de démarrage, sans compte Meta à configurer.'}
+                        </span>
                         <a
                             href={whatsappDemoUrl}
                             target={isWhatsappDemoExternal ? '_blank' : undefined}
@@ -296,77 +385,43 @@ export default function HeroSection() {
                                 alignItems: 'center',
                                 justifyContent: isMobile ? 'flex-start' : 'center',
                                 gap: '0.5rem',
-                                padding: isMobile ? '0.78rem 1rem 0.78rem 1.1rem' : '1rem 2rem',
-                                background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                                padding: isMobile ? '0.7rem 0.95rem' : '0.78rem 1rem',
+                                background: 'rgba(255, 255, 255, 0.76)',
+                                border: '1px solid rgba(34, 197, 94, 0.3)',
                                 borderRadius: '0.75rem',
-                                color: 'white',
+                                color: '#15803d',
                                 textDecoration: 'none',
-                                fontWeight: 700,
-                                fontSize: isMobile ? '0.94rem' : '1rem',
-                                boxShadow: '0 10px 30px rgba(34, 197, 94, 0.3)',
+                                fontWeight: 800,
+                                fontSize: isMobile ? '0.86rem' : '0.9rem',
                                 width: stackActions ? '100%' : 'auto',
-                                transition: 'transform 0.2s ease'
+                                whiteSpace: 'nowrap'
                             }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                         >
-                            <MessageCircle size={20} style={{ flexShrink: 0 }} />
+                            <MessageCircle size={18} style={{ flexShrink: 0 }} />
                             Démo WhatsApp
                         </a>
-                        <button
-                            onClick={() => navigate('/onboarding')}
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: isMobile ? 'flex-start' : 'center',
-                                gap: '0.5rem',
-                                padding: isMobile ? '0.78rem 1rem 0.78rem 1.1rem' : '1rem 2rem',
-                                background: 'rgba(255, 255, 255, 0.78)',
-                                border: '1px solid rgba(148, 163, 184, 0.45)',
-                                borderRadius: '0.75rem',
-                                color: '#0f172a',
-                                cursor: 'pointer',
-                                fontWeight: 700,
-                                fontSize: isMobile ? '0.94rem' : '1rem',
-                                width: stackActions ? '100%' : 'auto',
-                                transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.background = '#ffffff';
-                                e.currentTarget.style.borderColor = 'rgba(37, 99, 235, 0.45)';
-                                e.currentTarget.style.transform = 'translateY(-2px)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.78)';
-                                e.currentTarget.style.borderColor = 'rgba(148, 163, 184, 0.45)';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                            }}
-                        >
-                            {isMobile ? 'Créer mon espace' : 'Créer mon environnement'}
-                        </button>
                         {isMobile && (
                             <button
+                                type="button"
                                 onClick={() => navigate('/login')}
                                 style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'flex-start',
                                     gap: '0.5rem',
-                                    padding: '0.76rem 1rem 0.76rem 1.1rem',
+                                    padding: '0.7rem 0.95rem',
                                     background: 'rgba(255, 255, 255, 0.55)',
                                     border: '1px solid rgba(148, 163, 184, 0.45)',
                                     borderRadius: '0.75rem',
                                     color: '#334155',
                                     cursor: 'pointer',
                                     fontWeight: 700,
-                                    fontSize: '0.94rem',
+                                    fontSize: '0.86rem',
                                     width: stackActions ? '100%' : 'auto'
                                 }}
                             >
                                 Connexion
                             </button>
-                        )}
-                            </>
                         )}
                     </div>
 
@@ -844,8 +899,8 @@ export default function HeroSection() {
                             {[
                                 { icon: <MapPin size={15} />, title: 'Pointage GPS', detail: 'Service Urgences validé' },
                                 { icon: <CalendarDays size={15} />, title: 'Planning', detail: '2 remplacements à confirmer' },
-                                { icon: <UsersRound size={15} />, title: 'Demande client', detail: 'Intervention à qualifier' },
-                                { icon: <ArrowRightLeft size={15} />, title: 'Transmission', detail: 'Flux prêt pour outil métier' },
+                                { icon: <UsersRound size={15} />, title: 'Justificatif', detail: 'À valider RH' },
+                                { icon: <ArrowRightLeft size={15} />, title: 'Transmission', detail: 'Flux prêt pour paie' },
                             ].filter((_, index) => !isMobile || index < 2).map((item) => (
                             <div key={item.title} style={{
                                 display: 'flex',

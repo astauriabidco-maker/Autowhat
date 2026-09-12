@@ -96,13 +96,13 @@
             "title": "Ready for large accounts.",
             "subtitle": "A progressive deployment, connected to your tools and adapted to your field teams.",
             "byon": {
-                "title": "Controlled WhatsApp line",
-                "desc": "Connect your official WhatsApp Business line when your Meta configuration is ready.",
-                "highlight": "Guided setup"
+                "title": "Assisted BYON",
+                "desc": "Connect your WhatsApp Business line with WhatsPoint framing, depending on Meta eligibility and deployment constraints.",
+                "highlight": "WhatsPoint framing"
             },
             "global": {
                 "title": "Multi-site deployment",
-                "desc": "Organize several sites, services or teams with rules adapted to field operations.",
+                "desc": "Organize several sites, services or teams with rules adapted to field teams.",
                 "highlight": "Sites and roles"
             },
             "antiban": {
@@ -144,11 +144,11 @@
             "subtitle": "Customized vocabulary and features by profession",
             "btp": {
                 "label": "🏗️ Construction",
-                "desc": "Site attendance with GPS and progress photos."
+                "desc": "Site attendance with GPS and shift proof."
             },
             "cleaning": {
                 "label": "🧹 Cleaning",
-                "desc": "Site-by-site intervention validation."
+                "desc": "Site-by-site attendance validation."
             },
             "security": {
                 "label": "🛡️ Security",
@@ -190,7 +190,7 @@
         "nav": {
             "features": "Field suite",
             "sectors": "Sectors",
-            "operations": "Operations",
+            "operations": "HR flows",
             "pricing": "Pricing",
             "testimonials": "Testimonials",
             "enterprise": "Enterprise"

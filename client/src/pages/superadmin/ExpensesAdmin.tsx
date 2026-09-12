@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import {
     Receipt,
@@ -82,11 +82,7 @@ export default function ExpensesAdmin() {
     const [filterTenant, setFilterTenant] = useState<string>('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
 
-    useEffect(() => {
-        fetchData();
-    }, [filterTenant, filterStatus]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('superadmin_token');
@@ -115,7 +111,11 @@ export default function ExpensesAdmin() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [filterTenant, filterStatus]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('fr-FR', {

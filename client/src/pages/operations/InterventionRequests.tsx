@@ -10,64 +10,41 @@ import {
     type LucideIcon
 } from 'lucide-react';
 import { getErrorMessage } from '../../utils/errors';
+import type { ApiCustomer } from '../../types/api/customers';
+import type { ApiEmployeesResponse, ApiEmployeeSummary } from '../../types/api/employees';
+import type {
+    ApiIntervention,
+    ApiInterventionRequest,
+    ApiInterventionRequestAssignmentPayload,
+    ApiInterventionRequestCommentPayload,
+    ApiInterventionRequestPlanPayload,
+    ApiInterventionRequestRejectPayload,
+    ApiInterventionRequestSlaPayload,
+    ApiInterventionRequestStats,
+    ApiInterventionRequestUpdatePayload,
+    ApiInterventionType,
+    ApiRequestEvent,
+    ApiRequestEventsResponse,
+    InterventionRequestStatus,
+    RequestEventType
+} from '../../types/api/operations';
 
-interface IntRequest {
-    id: string;
-    message: string;
-    photoUrl?: string | null;
-    urgency: string;
-    senderPhone: string;
-    senderName?: string | null;
-    customerId?: string | null;
-    customerSiteId?: string | null;
-    interventionTypeId?: string | null;
-    status: string;
-    managerNotes?: string | null;
-    rejectionReason?: string | null;
-    interventionId?: string | null;
-    createdAt: string;
-    customer?: { id: string; companyName: string; contactName: string; phone?: string | null } | null;
-    customerSite?: { id: string; name: string; address: string; city: string } | null;
-    interventionType?: { id: string; name: string; color: string } | null;
-    intervention?: { id: string; title: string; status: string; scheduledStart: string } | null;
-    assignedToId?: string | null;
-    assignedTo?: { id: string; name: string | null; phoneNumber: string } | null;
-    slaDueAt?: string | null;
-    slaBreachedAt?: string | null;
-    lastInternalCommentAt?: string | null;
-    lastEventAt?: string | null;
-}
-
-interface RequestEvent {
-    id: string;
-    type: string;
-    actorType: string;
-    actorId?: string | null;
-    message?: string | null;
-    metadata?: Record<string, unknown> | null;
-    createdAt: string;
-}
-
-interface Stats {
-    pending: number;
-    approved: number;
-    planned: number;
-    rejected: number;
-    total: number;
-}
-
-interface Customer { id: string; companyName: string; contactName: string; sites?: { id: string; name: string; address: string; city: string }[] }
-interface Employee { id: string; name: string; phoneNumber: string; }
-interface IntType { id: string; name: string; color: string; }
-
-const STATUS_CONFIG: Record<string, { bg: string; border: string; text: string; label: string; icon: LucideIcon }> = {
+const STATUS_CONFIG: Record<InterventionRequestStatus, { bg: string; border: string; text: string; label: string; icon: LucideIcon }> = {
     PENDING: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e', label: 'En attente', icon: Clock },
     APPROVED: { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af', label: 'Approuvée', icon: Check },
     PLANNED: { bg: '#dcfce7', border: '#22c55e', text: '#166534', label: 'Planifiée', icon: Calendar },
     REJECTED: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b', label: 'Refusée', icon: X },
 };
 
-const EVENT_LABELS: Record<string, string> = {
+type RequestStatusFilter = InterventionRequestStatus | '';
+interface StatsCard {
+    key: RequestStatusFilter;
+    label: string;
+    icon: LucideIcon;
+    count: number;
+}
+
+const EVENT_LABELS: Record<RequestEventType, string> = {
     UPDATED: 'Mise à jour',
     ASSIGNED: 'Assignation',
     UNASSIGNED: 'Désassignation',
@@ -99,7 +76,7 @@ function formatEventDate(value: unknown) {
     return format(date, 'dd/MM/yyyy HH:mm');
 }
 
-function getEventDetail(event: RequestEvent) {
+function getEventDetail(event: ApiRequestEvent) {
     if (event.message) return event.message;
 
     const metadata = event.metadata || {};
@@ -117,28 +94,28 @@ function getEventDetail(event: RequestEvent) {
 export default function InterventionRequests() {
     const [searchParams] = useSearchParams();
     const targetRequestId = searchParams.get('request') || searchParams.get('requestId');
-    const [requests, setRequests] = useState<IntRequest[]>([]);
-    const [stats, setStats] = useState<Stats | null>(null);
-    const [customers, setCustomers] = useState<Customer[]>([]);
-    const [employees, setEmployees] = useState<Employee[]>([]);
-    const [intTypes, setIntTypes] = useState<IntType[]>([]);
+    const [requests, setRequests] = useState<ApiInterventionRequest[]>([]);
+    const [stats, setStats] = useState<ApiInterventionRequestStats | null>(null);
+    const [customers, setCustomers] = useState<ApiCustomer[]>([]);
+    const [employees, setEmployees] = useState<ApiEmployeeSummary[]>([]);
+    const [intTypes, setIntTypes] = useState<ApiInterventionType[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [filterStatus, setFilterStatus] = useState('');
+    const [filterStatus, setFilterStatus] = useState<InterventionRequestStatus | ''>('');
     const [expanded, setExpanded] = useState<string | null>(null);
-    const [eventsByRequest, setEventsByRequest] = useState<Record<string, RequestEvent[]>>({});
+    const [eventsByRequest, setEventsByRequest] = useState<Record<string, ApiRequestEvent[]>>({});
     const [eventsLoadingId, setEventsLoadingId] = useState<string | null>(null);
     const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
     const [slaDrafts, setSlaDrafts] = useState<Record<string, string>>({});
     const [savingKey, setSavingKey] = useState<string | null>(null);
 
     // Plan modal
-    const [planModal, setPlanModal] = useState<IntRequest | null>(null);
+    const [planModal, setPlanModal] = useState<ApiInterventionRequest | null>(null);
     const [planForm, setPlanForm] = useState({ employeeId: '', scheduledStart: '', scheduledEnd: '', title: '', description: '' });
     const [planSaving, setPlanSaving] = useState(false);
 
     // Reject modal
-    const [rejectModal, setRejectModal] = useState<IntRequest | null>(null);
+    const [rejectModal, setRejectModal] = useState<ApiInterventionRequest | null>(null);
     const [rejectReason, setRejectReason] = useState('');
 
     const token = localStorage.getItem('token');
@@ -148,16 +125,16 @@ export default function InterventionRequests() {
         try {
             setLoading(true);
             const [reqRes, statsRes, custRes, empRes, typesRes] = await Promise.all([
-                axios.get('/api/intervention-requests', { headers }),
-                axios.get('/api/intervention-requests/stats', { headers }),
-                axios.get('/api/customers', { headers }),
-                axios.get('/api/employees', { headers }),
-                axios.get('/api/intervention-types', { headers }),
+                axios.get<ApiInterventionRequest[]>('/api/intervention-requests', { headers }),
+                axios.get<ApiInterventionRequestStats>('/api/intervention-requests/stats', { headers }),
+                axios.get<ApiCustomer[]>('/api/customers', { headers }),
+                axios.get<ApiEmployeesResponse>('/api/employees', { headers }),
+                axios.get<ApiInterventionType[]>('/api/intervention-types', { headers }),
             ]);
             setRequests(Array.isArray(reqRes.data) ? reqRes.data : []);
             setStats(statsRes.data);
             setCustomers(Array.isArray(custRes.data) ? custRes.data : []);
-            setEmployees(Array.isArray(empRes.data) ? empRes.data : empRes.data?.employees || []);
+            setEmployees(empRes.data.employees || []);
             setIntTypes(Array.isArray(typesRes.data) ? typesRes.data : []);
         } catch (e) {
             console.error('Error fetching data', e);
@@ -169,7 +146,7 @@ export default function InterventionRequests() {
     const fetchRequestEvents = useCallback(async (reqId: string) => {
         setEventsLoadingId(reqId);
         try {
-            const res = await axios.get(`/api/intervention-requests/${reqId}/events`, { headers });
+            const res = await axios.get<ApiRequestEventsResponse>(`/api/intervention-requests/${reqId}/events`, { headers });
             setEventsByRequest(prev => ({ ...prev, [reqId]: res.data.events || [] }));
         } catch (e: unknown) {
             console.error('Error fetching request events', e);
@@ -227,9 +204,20 @@ export default function InterventionRequests() {
         });
     }, [requests, filterStatus, search]);
 
+    const statsCards = useMemo<StatsCard[]>(() => {
+        if (!stats) return [];
+        return [
+            { key: 'PENDING', label: 'En attente', icon: Clock, count: stats.pending },
+            { key: 'APPROVED', label: 'Approuvées', icon: Check, count: stats.approved },
+            { key: 'PLANNED', label: 'Planifiées', icon: Calendar, count: stats.planned },
+            { key: 'REJECTED', label: 'Refusées', icon: X, count: stats.rejected },
+            { key: '', label: 'Total', icon: MessageCircle, count: stats.total },
+        ];
+    }, [stats]);
+
     const handleApprove = async (id: string) => {
         try {
-            await axios.post(`/api/intervention-requests/${id}/approve`, {}, { headers });
+            await axios.post<ApiInterventionRequest>(`/api/intervention-requests/${id}/approve`, {}, { headers });
             fetchAll();
         } catch (e: unknown) {
             alert(getErrorMessage(e, 'Erreur'));
@@ -239,7 +227,8 @@ export default function InterventionRequests() {
     const handleReject = async () => {
         if (!rejectModal) return;
         try {
-            await axios.post(`/api/intervention-requests/${rejectModal.id}/reject`, { rejectionReason: rejectReason }, { headers });
+            const payload: ApiInterventionRequestRejectPayload = { rejectionReason: rejectReason };
+            await axios.post<ApiInterventionRequest>(`/api/intervention-requests/${rejectModal.id}/reject`, payload, { headers });
             setRejectModal(null);
             setRejectReason('');
             fetchAll();
@@ -252,7 +241,8 @@ export default function InterventionRequests() {
         if (!planModal || !planForm.employeeId || !planForm.scheduledStart || !planForm.scheduledEnd) return;
         setPlanSaving(true);
         try {
-            await axios.post(`/api/intervention-requests/${planModal.id}/plan`, planForm, { headers });
+            const payload: ApiInterventionRequestPlanPayload = planForm;
+            await axios.post<ApiIntervention>(`/api/intervention-requests/${planModal.id}/plan`, payload, { headers });
             setPlanModal(null);
             setPlanForm({ employeeId: '', scheduledStart: '', scheduledEnd: '', title: '', description: '' });
             fetchAll();
@@ -275,7 +265,8 @@ export default function InterventionRequests() {
 
     const handleAssignCustomer = async (reqId: string, customerId: string) => {
         try {
-            await axios.put(`/api/intervention-requests/${reqId}`, { customerId }, { headers });
+            const payload: ApiInterventionRequestUpdatePayload = { customerId: customerId || null };
+            await axios.put<ApiInterventionRequest>(`/api/intervention-requests/${reqId}`, payload, { headers });
             fetchAll();
         } catch (e: unknown) {
             alert(getErrorMessage(e, 'Erreur'));
@@ -284,7 +275,8 @@ export default function InterventionRequests() {
 
     const handleAssignType = async (reqId: string, interventionTypeId: string) => {
         try {
-            await axios.put(`/api/intervention-requests/${reqId}`, { interventionTypeId: interventionTypeId || null }, { headers });
+            const payload: ApiInterventionRequestUpdatePayload = { interventionTypeId: interventionTypeId || null };
+            await axios.put<ApiInterventionRequest>(`/api/intervention-requests/${reqId}`, payload, { headers });
             fetchAll();
         } catch (e: unknown) {
             alert(getErrorMessage(e, 'Erreur'));
@@ -294,7 +286,8 @@ export default function InterventionRequests() {
     const handleAssignOwner = async (reqId: string, employeeId: string) => {
         setSavingKey(`${reqId}:assignment`);
         try {
-            await axios.patch(`/api/intervention-requests/${reqId}/assignment`, { employeeId: employeeId || null }, { headers });
+            const payload: ApiInterventionRequestAssignmentPayload = { employeeId: employeeId || null };
+            await axios.patch<ApiInterventionRequest>(`/api/intervention-requests/${reqId}/assignment`, payload, { headers });
             await fetchAll();
             await fetchRequestEvents(reqId);
         } catch (e: unknown) {
@@ -309,7 +302,8 @@ export default function InterventionRequests() {
         try {
             const value = valueOverride ?? slaDrafts[reqId] ?? '';
             const slaDueAt = value ? new Date(value).toISOString() : null;
-            const res = await axios.patch(`/api/intervention-requests/${reqId}/sla`, { slaDueAt }, { headers });
+            const payload: ApiInterventionRequestSlaPayload = { slaDueAt };
+            const res = await axios.patch<ApiInterventionRequest>(`/api/intervention-requests/${reqId}/sla`, payload, { headers });
             setSlaDrafts(prev => ({ ...prev, [reqId]: toDateTimeLocalValue(res.data.slaDueAt) }));
             await fetchAll();
             await fetchRequestEvents(reqId);
@@ -326,7 +320,8 @@ export default function InterventionRequests() {
 
         setSavingKey(`${reqId}:comment`);
         try {
-            await axios.post(`/api/intervention-requests/${reqId}/comments`, { message }, { headers });
+            const payload: ApiInterventionRequestCommentPayload = { message };
+            await axios.post<{ success: boolean }>(`/api/intervention-requests/${reqId}/comments`, payload, { headers });
             setCommentDrafts(prev => ({ ...prev, [reqId]: '' }));
             await fetchAll();
             await fetchRequestEvents(reqId);
@@ -337,7 +332,7 @@ export default function InterventionRequests() {
         }
     };
 
-    const openPlan = (req: IntRequest) => {
+    const openPlan = (req: ApiInterventionRequest) => {
         const now = new Date();
         const in2h = new Date(now.getTime() + 2 * 60 * 60 * 1000);
         setPlanForm({
@@ -377,34 +372,32 @@ export default function InterventionRequests() {
             {/* Stats */}
             {stats && (
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                    {[
-                        { key: 'pending', label: 'En attente', color: 'orange', icon: Clock, count: stats.pending },
-                        { key: 'approved', label: 'Approuvées', color: 'blue', icon: Check, count: stats.approved },
-                        { key: 'planned', label: 'Planifiées', color: 'green', icon: Calendar, count: stats.planned },
-                        { key: 'rejected', label: 'Refusées', color: 'red', icon: X, count: stats.rejected },
-                        { key: '', label: 'Total', color: 'gray', icon: MessageCircle, count: stats.total },
-                    ].map(s => (
-                        <button
-                            key={s.key}
-                            onClick={() => setFilterStatus(filterStatus === s.key ? '' : s.key)}
-                            className={`p-4 rounded-2xl border transition-all hover:scale-[1.02] text-left ${filterStatus === s.key
-                                ? `bg-${s.color}-50 border-${s.color}-300 ring-2 ring-${s.color}-200`
-                                : 'bg-white border-gray-100 hover:border-gray-200'
-                                }`}
-                            style={filterStatus === s.key ? {
-                                backgroundColor: STATUS_CONFIG[s.key]?.bg || '#f9fafb',
-                                borderColor: STATUS_CONFIG[s.key]?.border || '#e5e7eb',
-                            } : {}}
-                        >
-                            <div className="flex items-center justify-between">
-                                <s.icon size={18} style={{ color: STATUS_CONFIG[s.key]?.border || '#6b7280' }} />
-                                <span className="text-2xl font-bold" style={{ color: STATUS_CONFIG[s.key]?.text || '#374151' }}>
-                                    {s.count}
-                                </span>
-                            </div>
-                            <p className="text-xs font-medium text-gray-500 mt-1">{s.label}</p>
-                        </button>
-                    ))}
+                    {statsCards.map(s => {
+                        const config = s.key ? STATUS_CONFIG[s.key] : null;
+                        const isSelected = filterStatus === s.key;
+                        return (
+                            <button
+                                key={s.key || 'total'}
+                                onClick={() => setFilterStatus(isSelected ? '' : s.key)}
+                                className={`p-4 rounded-2xl border transition-all hover:scale-[1.02] text-left ${isSelected
+                                    ? 'ring-2 ring-orange-200'
+                                    : 'bg-white border-gray-100 hover:border-gray-200'
+                                    }`}
+                                style={isSelected ? {
+                                    backgroundColor: config?.bg || '#f9fafb',
+                                    borderColor: config?.border || '#e5e7eb',
+                                } : {}}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <s.icon size={18} style={{ color: config?.border || '#6b7280' }} />
+                                    <span className="text-2xl font-bold" style={{ color: config?.text || '#374151' }}>
+                                        {s.count}
+                                    </span>
+                                </div>
+                                <p className="text-xs font-medium text-gray-500 mt-1">{s.label}</p>
+                            </button>
+                        );
+                    })}
                 </div>
             )}
 
@@ -423,14 +416,14 @@ export default function InterventionRequests() {
             {filtered.length === 0 ? (
                 <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
                     <MessageCircle size={48} className="mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-500 font-medium">Aucune demande {filterStatus ? `(${STATUS_CONFIG[filterStatus]?.label})` : ''}</p>
+                    <p className="text-gray-500 font-medium">Aucune demande {filterStatus ? `(${STATUS_CONFIG[filterStatus].label})` : ''}</p>
                     <p className="text-gray-400 text-sm mt-1">Les demandes WhatsApp des clients apparaîtront ici</p>
                 </div>
             ) : (
                 <div className="space-y-3">
                     {filtered.map(req => {
                         const isExpanded = expanded === req.id;
-                        const sc = STATUS_CONFIG[req.status] || STATUS_CONFIG.PENDING;
+                        const sc = STATUS_CONFIG[req.status];
                         const StatusIcon = sc.icon;
 
                         return (
@@ -687,8 +680,7 @@ export default function InterventionRequests() {
                                                         />
                                                         <button
                                                             onClick={() => {
-                                                                const input = document.getElementById(`request-sla-${req.id}`) as HTMLInputElement | null;
-                                                                handleSaveSla(req.id, input?.value);
+                                                                handleSaveSla(req.id);
                                                             }}
                                                             disabled={savingKey === `${req.id}:sla`}
                                                             className="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-50"

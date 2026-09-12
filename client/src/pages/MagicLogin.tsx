@@ -9,21 +9,15 @@ type MagicLoginStatus = 'loading' | 'success' | 'error';
 export default function MagicLogin() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const token = searchParams.get('token');
     const hasConsumedToken = useRef(false);
-    const [status, setStatus] = useState<MagicLoginStatus>('loading');
-    const [message, setMessage] = useState('Connexion au dashboard manager...');
+    const [status, setStatus] = useState<MagicLoginStatus>(token ? 'loading' : 'error');
+    const [message, setMessage] = useState(token ? 'Connexion au dashboard manager...' : 'Ce lien de connexion est incomplet.');
 
     useEffect(() => {
+        if (!token) return;
         if (hasConsumedToken.current) return;
         hasConsumedToken.current = true;
-
-        const token = searchParams.get('token');
-
-        if (!token) {
-            setStatus('error');
-            setMessage('Ce lien de connexion est incomplet.');
-            return;
-        }
 
         const consumeToken = async () => {
             try {
@@ -44,7 +38,7 @@ export default function MagicLogin() {
         };
 
         consumeToken();
-    }, [navigate, searchParams]);
+    }, [navigate, token]);
 
     return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center px-6">

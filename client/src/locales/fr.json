@@ -96,9 +96,9 @@
             "title": "Prêt pour les grands comptes.",
             "subtitle": "Un déploiement progressif, connecté à vos outils et adapté à vos équipes terrain.",
             "byon": {
-                "title": "Ligne WhatsApp maîtrisée",
-                "desc": "Connectez votre ligne WhatsApp Business officielle quand votre configuration Meta est prête.",
-                "highlight": "Parcours guidé"
+                "title": "BYON accompagné",
+                "desc": "Connectez votre ligne WhatsApp Business avec cadrage WhatsPoint, selon éligibilité Meta et contraintes de déploiement.",
+                "highlight": "Cadrage WhatsPoint"
             },
             "global": {
                 "title": "Déploiement multi-sites",
@@ -190,7 +190,7 @@
         "nav": {
             "features": "Suite terrain",
             "sectors": "Secteurs",
-            "operations": "Opérations",
+            "operations": "Flux RH",
             "pricing": "Tarifs",
             "testimonials": "Témoignages",
             "enterprise": "Enterprise"

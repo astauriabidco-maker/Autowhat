@@ -1,4 +1,4 @@
-import { useSiteContext } from '../../context/SiteContext';
+import { useSiteContext } from '../../context/useSiteContext';
 import { MapPin, ChevronDown, Globe } from 'lucide-react';
 
 /**

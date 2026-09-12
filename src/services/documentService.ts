@@ -26,6 +26,17 @@ interface UploadDocumentParams {
 export async function uploadDocument(params: UploadDocumentParams) {
     const { filePath, name, type, expiryDate, employeeId, tenantId } = params;
 
+    if (employeeId) {
+        const employee = await prisma.employee.findFirst({
+            where: { id: employeeId, tenantId },
+            select: { id: true }
+        });
+
+        if (!employee) {
+            throw new Error('Employee does not belong to tenant');
+        }
+    }
+
     const document = await prisma.document.create({
         data: {
             name,

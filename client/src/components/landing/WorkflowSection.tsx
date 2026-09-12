@@ -2,39 +2,38 @@ import { motion } from 'framer-motion';
 import {
     ArrowRight,
     BadgeCheck,
-    BriefcaseBusiness,
     CalendarDays,
     ClipboardCheck,
     MessageCircle,
     Send,
     UserRoundCheck,
 } from 'lucide-react';
-import { useVisitor } from '../../context/VisitorContext';
+import { useVisitor } from '../../context/useVisitor';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const steps = [
     {
         icon: <MessageCircle size={22} />,
         title: 'Employé WhatsApp',
-        text: 'Pointage, demande de planning, justificatif, incident ou besoin client.',
+        text: 'Pointage, demande de planning, justificatif, retard ou absence.',
         color: '#22c55e',
     },
     {
         icon: <BadgeCheck size={22} />,
         title: 'WhatsPoint qualifie',
-        text: 'Heure, site, identité, pièce jointe, urgence et contexte métier sont structurés.',
+        text: 'Heure, site, identité, pièce jointe, statut RH et contexte de présence sont structurés.',
         color: '#2563eb',
     },
     {
         icon: <Send size={22} />,
         title: 'Transmission',
-        text: 'Le bon service reçoit une donnée exploitable, en temps réel ou en flux batch.',
+        text: 'Le manager, la RH ou la paie reçoit une donnée exploitable, en temps réel ou en flux batch.',
         color: '#7c3aed',
     },
     {
-        icon: <BriefcaseBusiness size={22} />,
-        title: 'Outil métier',
-        text: 'RH, planning, intervention, paie, support client, ERP ou connecteur sur mesure.',
+        icon: <ClipboardCheck size={22} />,
+        title: 'Suivi RH',
+        text: 'Présence, planning simple, justificatifs, paie et connecteurs RH restent alignés.',
         color: '#0f766e',
     },
 ];
@@ -42,7 +41,7 @@ const steps = [
 const outcomes = [
     { icon: <UserRoundCheck size={18} />, label: 'RH', detail: 'présence, absences, justificatifs' },
     { icon: <CalendarDays size={18} />, label: 'Planning', detail: 'horaires, remplacements, services' },
-    { icon: <ClipboardCheck size={18} />, label: 'Intervention', detail: 'demande client, photo, urgence' },
+    { icon: <ClipboardCheck size={18} />, label: 'Justificatif', detail: 'document, statut, validation' },
 ];
 
 export default function WorkflowSection() {

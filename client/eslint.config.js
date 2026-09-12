@@ -20,16 +20,15 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
-      // Keep the frontend lint actionable while the existing TS migration debt is paid down.
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': ['warn', {
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
         caughtErrors: 'none',
         caughtErrorsIgnorePattern: '^_',
       }],
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-refresh/only-export-components': 'warn',
+      'react-hooks/set-state-in-effect': 'error',
+      'react-refresh/only-export-components': 'error',
     },
   },
 ])

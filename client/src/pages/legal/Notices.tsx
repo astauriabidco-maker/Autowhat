@@ -22,7 +22,7 @@ ${companyLegalInfo.hostingProvider}
 Pays d'hébergement : ${companyLegalInfo.hostingCountry}
 
 Service
-WhatsPoint est une plateforme de pointage, présence, planning et transmission de demandes métier via WhatsApp.`;
+WhatsPoint est une plateforme de pointage, présence, planning simple, justificatifs et transmission RH via WhatsApp.`;
 
 export default function Notices() {
     const [content, setContent] = useState<string | null>(null);

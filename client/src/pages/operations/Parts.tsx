@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
     Package, Plus, Search, Edit3, Trash2, X, AlertTriangle,
@@ -52,18 +52,18 @@ export default function Parts() {
     const [saving, setSaving] = useState(false);
 
     const token = localStorage.getItem('token');
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
-    useEffect(() => { fetchParts(); }, []);
-
-    const fetchParts = async () => {
+    const fetchParts = useCallback(async () => {
         try {
             setLoading(true);
             const res = await axios.get('/api/parts', { headers });
             setParts(res.data);
         } catch (e) { console.error('Error', e); }
         finally { setLoading(false); }
-    };
+    }, [headers]);
+
+    useEffect(() => { fetchParts(); }, [fetchParts]);
 
     const filtered = useMemo(() => {
         return parts.filter(p => {

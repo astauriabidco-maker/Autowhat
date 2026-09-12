@@ -120,10 +120,10 @@ export default function NotificationBell({ gpsPendingCount = 0, attendanceGpsPen
             case 'LATE':
             case 'ABSENCE':
             case 'GEOFENCE':
-                navigate('/dashboard/attendance');
+                navigate('/attendance');
                 break;
             case 'EXPENSE':
-                navigate('/dashboard/depenses');
+                navigate('/expenses');
                 break;
         }
 
@@ -306,16 +306,16 @@ export default function NotificationBell({ gpsPendingCount = 0, attendanceGpsPen
                     </div>
 
                     {/* Footer */}
-                    {notifications.length > 5 && (
+                    {notifications.length > recentNotifications.length && (
                         <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
                             <button
                                 onClick={() => {
                                     setIsOpen(false);
-                                    navigate('/dashboard/notifications');
+                                    navigate('/attendance');
                                 }}
                                 className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
                             >
-                                Voir toutes les notifications →
+                                Ouvrir le centre de présence →
                             </button>
                         </div>
                     )}

@@ -82,7 +82,20 @@ model Tenant {
   attendanceDecisionEvents     AttendanceDecisionEvent[]
 }
 
-// --- MODÈLE NUMBER POOL (Numéros Système Partagés) ---
+enum SystemPhoneNumberChannelType {
+  SHARED
+  DEDICATED
+  BYON
+}
+
+enum SystemPhoneNumberSetupStatus {
+  PENDING_MANUAL_SETUP
+  ACTIVE
+  SUSPENDED
+  FAILED
+}
+
+// --- MODÈLE NUMBER POOL (Numéros Système WhatsPoint) ---
 
 model SystemPhoneNumber {
   id            String   @id @default(uuid())
@@ -92,7 +105,13 @@ model SystemPhoneNumber {
   accessToken   String   @db.Text // System User Token (sensitive)
   wabaId        String // WhatsApp Business Account ID
   isActive      Boolean  @default(true)
+  channelType   SystemPhoneNumberChannelType @default(SHARED)
+  setupStatus   SystemPhoneNumberSetupStatus @default(ACTIVE)
+  planScope     String   @default("ANY") // ANY, TRIAL, PRO, ENTERPRISE
+  maxTenants    Int      @default(50)
   tenantCount   Int      @default(0) // For load balancing
+  disabledWebhookCount Int @default(0)
+  lastDisabledWebhookAt DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -100,6 +119,8 @@ model SystemPhoneNumber {
   tenants Tenant[]
 
   @@index([countryCode, isActive])
+  @@index([countryCode, isActive, channelType, setupStatus], map: "SystemPhoneNumber_routing_status_idx")
+  @@index([countryCode, isActive, channelType, setupStatus, planScope], map: "SystemPhoneNumber_routing_plan_idx")
 }
 
 // --- MODÈLE BYON WHATSAPP (Marque Blanche) ---
@@ -510,6 +531,54 @@ model WhatsAppConversationSession {
   @@index([expiresAt])
   @@index([tenantId])
   @@index([employeeId, kind])
+}
+
+enum OnboardingAccessRequestStatus {
+  SENT
+  SKIPPED
+  FAILED
+}
+
+enum OnboardingAccessRequestSkipReason {
+  PHONE_INVALID
+  COUNTRY_NOT_ALLOWED
+  PHONE_RATE_LIMITED
+  IP_RATE_LIMITED
+  COOLDOWN_ACTIVE
+  GLOBAL_DAILY_BUDGET_EXCEEDED
+  COUNTRY_DAILY_BUDGET_EXCEEDED
+  DISPOSABLE_OR_VOIP
+  CHALLENGE_REQUIRED
+  CHALLENGE_FAILED
+  SEND_FAILED
+}
+
+model OnboardingAccessRequest {
+  id                String                             @id @default(uuid())
+  phoneHash         String
+  ipHash            String?
+  userAgentHash     String?
+  countryCode       String
+  status            OnboardingAccessRequestStatus
+  skipReason        OnboardingAccessRequestSkipReason?
+  channel           String                             @default("WHATSAPP")
+  provider          String?
+  providerMessageId String?
+  challengeProvider String?
+  challengePassed   Boolean?
+  metadata          Json?
+  requestedAt       DateTime                           @default(now())
+  sentAt            DateTime?
+  skippedAt         DateTime?
+  failedAt          DateTime?
+  createdAt         DateTime                           @default(now())
+  updatedAt         DateTime                           @updatedAt
+
+  @@index([phoneHash, requestedAt])
+  @@index([ipHash, requestedAt])
+  @@index([countryCode, requestedAt])
+  @@index([status, requestedAt])
+  @@index([skipReason, requestedAt])
 }
 
 model OnboardingEvent {

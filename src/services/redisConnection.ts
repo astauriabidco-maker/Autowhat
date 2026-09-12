@@ -22,13 +22,24 @@ function getRedisUrl(): string {
     return process.env.REDIS_URL || 'redis://localhost:6379';
 }
 
+function redactRedisUrl(url: string): string {
+    try {
+        const parsed = new URL(url);
+        if (parsed.password) parsed.password = '***';
+        if (parsed.username) parsed.username = '***';
+        return parsed.toString();
+    } catch {
+        return '<invalid redis url>';
+    }
+}
+
 /**
  * Get or create the Redis connection singleton
  */
 export function getRedisConnection(): IORedis {
     if (!redisConnection) {
         const url = getRedisUrl();
-        console.log(`🔌 Creating Redis connection to: ${url}`);
+        console.log(`🔌 Creating Redis connection to: ${redactRedisUrl(url)}`);
 
         redisConnection = new IORedis(url, {
             maxRetriesPerRequest: null, // Required for BullMQ

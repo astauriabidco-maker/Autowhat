@@ -1,17 +1,15 @@
 import { motion } from 'framer-motion';
-import { useVisitor } from '../../context/VisitorContext';
+import { useVisitor } from '../../context/useVisitor';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import {
     ArrowRightLeft,
-    BriefcaseBusiness,
     Cable,
     FileJson,
     FileText,
-    Headphones,
-    Scale,
+    MapPin,
+    Receipt,
     UserRoundCheck,
     Webhook,
-    Wrench
 } from 'lucide-react';
 
 export default function IntegrationsSection() {
@@ -28,10 +26,10 @@ export default function IntegrationsSection() {
             color: '#16a34a'
         },
         {
-            title: 'Intervention client',
-            example: 'Panne, photo, urgence, adresse et compte rendu.',
-            target: 'qualifié puis routé intervention',
-            icon: <Wrench size={22} />,
+            title: 'Pointage GPS',
+            example: 'Site, position, mode WARNING ou STRICT, preuve de passage.',
+            target: 'contrôlé puis transmis au manager',
+            icon: <MapPin size={22} />,
             color: '#ea580c'
         },
         {
@@ -42,24 +40,24 @@ export default function IntegrationsSection() {
             color: '#8b5cf6'
         },
         {
-            title: 'Support client',
-            example: 'Réclamation, demande, pièce jointe et suivi dossier.',
-            target: 'créé puis suivi helpdesk / CRM',
-            icon: <Headphones size={22} />,
+            title: 'Notes de frais',
+            example: 'Ticket, montant, catégorie, statut de validation.',
+            target: 'préparé puis transmis RH / compta',
+            icon: <Receipt size={22} />,
             color: '#2563eb'
         },
         {
-            title: 'Juridique & conformité',
-            example: 'Question, mandat, pièce, signature ou preuve.',
-            target: 'préparé puis transmis juridique',
-            icon: <Scale size={22} />,
+            title: 'Documents RH',
+            example: 'Contrat, certificat, justificatif ou document partagé.',
+            target: 'classé puis disponible côté manager',
+            icon: <FileText size={22} />,
             color: '#16a34a'
         },
         {
-            title: 'Commerce & terrain',
-            example: 'Commande, incident, remontée magasin ou visite.',
-            target: 'structuré puis envoyé ERP / CRM',
-            icon: <BriefcaseBusiness size={22} />,
+            title: 'Exports paie',
+            example: 'Heures, retards, absences et validations.',
+            target: 'envoyé vers paie ou SIRH',
+            icon: <ArrowRightLeft size={22} />,
             color: '#0d9488'
         }
     ];
@@ -108,7 +106,7 @@ export default function IntegrationsSection() {
                         marginBottom: '0.75rem',
                         letterSpacing: 0
                     }}>
-                        Le pointage ouvre la porte aux demandes terrain.
+                        Le pointage reste le centre du produit.
                     </h2>
                     <p style={{
                         color: '#64748b',
@@ -117,8 +115,8 @@ export default function IntegrationsSection() {
                         margin: '0 auto 1.5rem',
                         lineHeight: 1.6
                     }}>
-                        WhatsPoint collecte l’information dans WhatsApp, la qualifie, puis la transmet
-                        au bon outil métier. Le pointage et le planning restent le socle, les autres flux suivent.
+                        WhatsPoint collecte les présences, horaires, positions GPS et justificatifs dans WhatsApp,
+                        puis transmet ces données aux outils RH et paie qui en ont besoin.
                     </p>
                 </motion.div>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import {
     Webhook,
@@ -64,12 +64,7 @@ export default function Webhooks() {
 
     const getToken = () => localStorage.getItem('superadmin_token');
 
-    useEffect(() => {
-        fetchWebhooks();
-        fetchEvents();
-    }, []);
-
-    const fetchWebhooks = async () => {
+    const fetchWebhooks = useCallback(async () => {
         try {
             const res = await axios.get('/admin/webhooks', {
                 headers: { Authorization: `Bearer ${getToken()}` }
@@ -80,9 +75,9 @@ export default function Webhooks() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const fetchEvents = async () => {
+    const fetchEvents = useCallback(async () => {
         try {
             const res = await axios.get('/admin/webhooks/events', {
                 headers: { Authorization: `Bearer ${getToken()}` }
@@ -91,7 +86,12 @@ export default function Webhooks() {
         } catch (error) {
             console.error('Error fetching events:', error);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchWebhooks();
+        fetchEvents();
+    }, [fetchWebhooks, fetchEvents]);
 
     const fetchWebhookLogs = async (webhookId: string) => {
         try {

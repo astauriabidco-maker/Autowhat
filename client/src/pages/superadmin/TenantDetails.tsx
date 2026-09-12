@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -101,17 +101,7 @@ export default function TenantDetails() {
 
     const token = localStorage.getItem('superadmin_token');
 
-    useEffect(() => {
-        fetchFullDetails();
-    }, [id]);
-
-    useEffect(() => {
-        if (activeTab === 'billing' && invoices.length === 0) {
-            fetchInvoices();
-        }
-    }, [activeTab]);
-
-    const fetchFullDetails = async () => {
+    const fetchFullDetails = useCallback(async () => {
         try {
             const res = await fetch(`/admin/tenants/${id}/full-details`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -127,9 +117,9 @@ export default function TenantDetails() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id, token]);
 
-    const fetchInvoices = async () => {
+    const fetchInvoices = useCallback(async () => {
         setLoadingInvoices(true);
         try {
             const res = await fetch(`/admin/tenants/${id}/invoices`, {
@@ -144,7 +134,17 @@ export default function TenantDetails() {
         } finally {
             setLoadingInvoices(false);
         }
-    };
+    }, [id, token]);
+
+    useEffect(() => {
+        fetchFullDetails();
+    }, [fetchFullDetails]);
+
+    useEffect(() => {
+        if (activeTab === 'billing' && invoices.length === 0) {
+            fetchInvoices();
+        }
+    }, [activeTab, invoices.length, fetchInvoices]);
 
     const handlePlanOverride = async () => {
         setSavingOverride(true);

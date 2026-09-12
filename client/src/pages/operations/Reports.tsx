@@ -5,23 +5,9 @@ import {
     FileText, Search, Building2, User, Calendar,
     CheckCircle2, Clock, AlertCircle, TrendingUp
 } from 'lucide-react';
+import type { ApiIntervention, InterventionStatus } from '../../types/api/operations';
 
-interface Intervention {
-    id: string;
-    title: string;
-    status: string;
-    scheduledStart: string;
-    scheduledEnd: string;
-    realStart?: string;
-    realEnd?: string;
-    reportContent?: string;
-    signatureUrl?: string;
-    pdfUrl?: string;
-    customer: { companyName: string; contactName: string };
-    employee: { name: string };
-}
-
-const STATUS_BADGE: Record<string, { color: string; bg: string; label: string }> = {
+const STATUS_BADGE: Record<InterventionStatus, { color: string; bg: string; label: string }> = {
     SCHEDULED: { color: '#475569', bg: '#f1f5f9', label: 'Prévu' },
     EN_ROUTE: { color: '#1d4ed8', bg: '#dbeafe', label: 'En route' },
     IN_PROGRESS: { color: '#b45309', bg: '#fef3c7', label: 'En cours' },
@@ -30,19 +16,19 @@ const STATUS_BADGE: Record<string, { color: string; bg: string; label: string }>
 };
 
 export default function Reports() {
-    const [interventions, setInterventions] = useState<Intervention[]>([]);
+    const [interventions, setInterventions] = useState<ApiIntervention[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
     const token = localStorage.getItem('token');
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
     useEffect(() => {
         const fetch = async () => {
             try {
                 setLoading(true);
-                const res = await axios.get('/api/interventions', { headers });
+                const res = await axios.get<ApiIntervention[]>('/api/interventions', { headers });
                 setInterventions(res.data);
             } catch (e) {
                 console.error('Error', e);
@@ -51,7 +37,7 @@ export default function Reports() {
             }
         };
         fetch();
-    }, []);
+    }, [headers]);
 
     const filtered = useMemo(() => {
         return interventions.filter(i => {

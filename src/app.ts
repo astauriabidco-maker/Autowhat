@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
@@ -10,18 +11,28 @@ dotenv.config();
 
 // Validate encryption key at startup
 import { validateEncryptionKey } from './utils/crypto';
+import { assertProductionEnv } from './config/envValidation';
 validateEncryptionKey();
+assertProductionEnv();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 const shouldServeFrontend = process.env.NODE_ENV === 'production' || process.env.SERVE_FRONTEND === 'true';
 const frontendDistPath = path.join(process.cwd(), 'client/dist');
 const frontendAssetsPath = path.join(frontendDistPath, 'assets');
 
+app.disable('x-powered-by');
+if (process.env.TRUST_PROXY) {
+    app.set('trust proxy', process.env.TRUST_PROXY);
+}
+app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
+}));
+
 // IMPORTANT: Stripe webhook MUST be registered BEFORE body-parser
 // because it needs the raw body for signature verification
 import * as webhookStripe from './controllers/webhookStripe';
-app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), webhookStripe.handleWebhook);
+app.post('/api/webhooks/stripe', express.raw({ type: 'application/json', limit: '1mb' }), webhookStripe.handleWebhook);
 
 // Middleware de base
 const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || '')
@@ -54,8 +65,15 @@ app.use(cors((req, callback) => {
         credentials: true
     });
 }));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json({
+    limit: process.env.JSON_BODY_LIMIT || '1mb',
+    verify: (req: any, _res, buf) => {
+        if (req.originalUrl?.split('?')[0] === '/webhook') {
+            req.rawBody = Buffer.from(buf);
+        }
+    }
+}));
+app.use(bodyParser.urlencoded({ extended: true, limit: process.env.URLENCODED_BODY_LIMIT || '100kb' }));
 app.use(cookieParser());
 
 // Swagger API Documentation
@@ -175,24 +193,7 @@ app.get('/api/frontend-reset', (_req, res) => {
 });
 
 import router from './routes/index';
-import { initLateArrivalJob } from './jobs/lateArrivalJob';
-import { initReminderJobs } from './jobs/reminderJobs';
-import { initOnboardingConversionJobs } from './jobs/onboardingConversionJobs';
-import { initRetentionJob } from './modules/privacy/retentionJob';
-import { initRecurringInterventionsJob } from './cron/recurringInterventions';
-import { startNightlyWorker } from './cron/nightlyWorker';
-import { startWebhookQueueWorker } from './cron/webhookQueueWorker';
-import { initializeQueue, closeQueue } from './services/queueService';
-import { closeRedisConnection, isRedisEnabled } from './services/redisConnection';
-import {
-    sendRawMessage,
-    sendRawInteractiveList,
-    sendRawInteractiveButtons,
-    sendRawDocument,
-    sendRawTemplateMessage
-} from './services/whatsappService';
-import { Job } from 'bullmq';
-import { WhatsAppJob } from './services/queueService';
+import { globalErrorHandler } from './middlewares/errorMiddleware';
 
 // Static frontend assets must be served before API/router middleware so hashed
 // JS/CSS files never fall through to the React HTML fallback.
@@ -302,94 +303,10 @@ if ('serviceWorker' in navigator) {
     });
 }
 
+app.use(globalErrorHandler);
 
-// Initialisation des Jobs (Cron)
-initLateArrivalJob();
-initReminderJobs();
-initOnboardingConversionJobs();
-initRetentionJob(); // Privacy Suite - purge automatique RGPD
-initRecurringInterventionsJob(); // Opérations - auto-génération des interventions récurrentes
-startNightlyWorker(); // 🌙 AI Agent Proactive Alerts & Hub RGPD Purge
-startWebhookQueueWorker(); // 🔄 Webhook Delivery Retry Queue (Phase 3)
-
-// Initialize WhatsApp Queue (if Redis is enabled)
-if (isRedisEnabled()) {
-    console.log('🚀 Initializing WhatsApp queue worker...');
-
-    const processWhatsAppJob = async (job: Job<WhatsAppJob>) => {
-        const { type, to, payload, config } = job.data;
-
-        let result;
-        switch (type) {
-            case 'text':
-                result = await sendRawMessage(to, payload.text, config);
-                break;
-            case 'interactive_list':
-                result = await sendRawInteractiveList(
-                    to,
-                    payload.bodyText,
-                    payload.buttonText,
-                    payload.sections,
-                    config
-                );
-                break;
-            case 'interactive_buttons':
-                result = await sendRawInteractiveButtons(
-                    to,
-                    payload.bodyText,
-                    payload.buttons,
-                    config
-                );
-                break;
-            case 'document':
-                result = await sendRawDocument(
-                    to,
-                    payload.documentUrl,
-                    payload.filename,
-                    payload.caption,
-                    config
-                );
-                break;
-            case 'template':
-                result = await sendRawTemplateMessage(
-                    to,
-                    payload.templateName,
-                    payload.languageCode,
-                    payload.components,
-                    config
-                );
-                break;
-            default:
-                console.error(`Unknown job type: ${type}`);
-                return;
-        }
-
-        // If rate limited (429), throw to trigger retry
-        if (!result.success && result.statusCode === 429) {
-            throw new Error('Rate limited by Meta API');
-        }
-    };
-
-    initializeQueue(processWhatsAppJob);
+export function createApp() {
+    return app;
 }
 
-app.listen(PORT, () => {
-    console.log(`✅ Serveur démarré sur le port ${PORT}`);
-    console.log(`🔧 Mode: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`📦 Redis: ${isRedisEnabled() ? 'Enabled' : 'Disabled (direct sends)'}`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-    console.log('🛑 SIGTERM received, shutting down gracefully...');
-    await closeQueue();
-    await closeRedisConnection();
-    process.exit(0);
-});
-
-process.on('SIGINT', async () => {
-    console.log('🛑 SIGINT received, shutting down gracefully...');
-    await closeQueue();
-    await closeRedisConnection();
-    process.exit(0);
-});
+export default app;

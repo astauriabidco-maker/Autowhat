@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
     AlertTriangle,
@@ -14,24 +14,14 @@ import {
     UserCheck,
     XCircle
 } from 'lucide-react';
-
-interface Site {
-    id: string;
-    name: string;
-    address: string | null;
-    country: string;
-    latitude: number | null;
-    longitude: number | null;
-    radius: number;
-    gpsMode: 'STRICT' | 'WARNING' | 'DISABLED';
-}
+import type { ApiSitesResponse, ApiTenantSite, ApiTenantSiteUpdatePayload, GpsMode } from '../types/api/sites';
 
 interface SiteForm {
     country: string;
     latitude: string;
     longitude: string;
     radius: string;
-    gpsMode: Site['gpsMode'];
+    gpsMode: GpsMode;
     mapsInput: string;
 }
 
@@ -92,7 +82,7 @@ const COUNTRY_OPTIONS = [
     { code: 'OTHER', label: 'Autre' }
 ];
 
-function formFromSite(site: Site): SiteForm {
+function formFromSite(site: ApiTenantSite): SiteForm {
     return {
         country: site.country || 'FR',
         latitude: site.latitude?.toString() || '',
@@ -121,7 +111,7 @@ function parseCoordinates(input: string): { latitude: string; longitude: string 
     return null;
 }
 
-function gpsStatus(site: Site) {
+function gpsStatus(site: ApiTenantSite) {
     if (site.gpsMode === 'DISABLED') {
         return {
             label: 'GPS désactivé',
@@ -193,7 +183,7 @@ function sourceLabel(source?: string | null): string | null {
 }
 
 export default function SiteGpsCenter() {
-    const [sites, setSites] = useState<Site[]>([]);
+    const [sites, setSites] = useState<ApiTenantSite[]>([]);
     const [forms, setForms] = useState<Record<string, SiteForm>>({});
     const [loading, setLoading] = useState(true);
     const [savingSiteId, setSavingSiteId] = useState<string | null>(null);
@@ -207,13 +197,13 @@ export default function SiteGpsCenter() {
 
     const token = useMemo(() => localStorage.getItem('token'), []);
 
-    const fetchSites = async () => {
+    const fetchSites = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
             const headers = { Authorization: `Bearer ${token}` };
             const [sitesResponse, activityResponse] = await Promise.all([
-                axios.get<{ sites: Site[] }>('/api/sites', { headers }),
+                axios.get<ApiSitesResponse>('/api/sites', { headers }),
                 axios.get<{ pendingProposals: PendingGpsProposal[]; history: GpsHistoryEvent[] }>('/api/sites/gps-activity', { headers })
             ]);
             const nextSites = sitesResponse.data.sites || [];
@@ -226,11 +216,11 @@ export default function SiteGpsCenter() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [token]);
 
     useEffect(() => {
         fetchSites();
-    }, []);
+    }, [fetchSites]);
 
     const updateForm = (siteId: string, patch: Partial<SiteForm>) => {
         setForms(prev => ({
@@ -241,7 +231,7 @@ export default function SiteGpsCenter() {
         setSuccess('');
     };
 
-    const saveSite = async (site: Site, acceptCountryMismatch = false) => {
+    const saveSite = async (site: ApiTenantSite, acceptCountryMismatch = false) => {
         const form = forms[site.id];
         if (!form) return;
 
@@ -249,7 +239,7 @@ export default function SiteGpsCenter() {
         setError('');
         setSuccess('');
         try {
-            await axios.put(`/api/sites/${site.id}`, {
+            const payload: ApiTenantSiteUpdatePayload = {
                 name: site.name,
                 address: site.address,
                 country: form.country,
@@ -258,7 +248,8 @@ export default function SiteGpsCenter() {
                 radius: form.radius ? Number(form.radius) : 200,
                 gpsMode: form.gpsMode,
                 acceptCountryMismatch
-            }, {
+            };
+            await axios.put<{ site: ApiTenantSite }>(`/api/sites/${site.id}`, payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setMismatch(null);
@@ -561,7 +552,7 @@ export default function SiteGpsCenter() {
                                         <span className="text-sm font-medium text-gray-700">Mode GPS</span>
                                         <select
                                             value={form.gpsMode}
-                                            onChange={event => updateForm(site.id, { gpsMode: event.target.value as Site['gpsMode'] })}
+                                            onChange={event => updateForm(site.id, { gpsMode: event.target.value as GpsMode })}
                                             className="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         >
                                             <option value="WARNING">Souple : avertir sans bloquer</option>

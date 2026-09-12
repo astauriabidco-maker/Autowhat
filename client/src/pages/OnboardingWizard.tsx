@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -122,7 +122,7 @@ export default function OnboardingWizard() {
     ]);
 
     const [tenantStats, setTenantStats] = useState({ sites: 0, employees: 0 });
-    const countryOptions = [
+    const countryOptions = useMemo(() => [
         { code: 'FR', label: 'France', addressFirst: true },
         { code: 'CM', label: 'Cameroun', addressFirst: false },
         { code: 'US', label: 'États-Unis', addressFirst: true },
@@ -133,7 +133,7 @@ export default function OnboardingWizard() {
         { code: 'DE', label: 'Allemagne', addressFirst: true },
         { code: 'ES', label: 'Espagne', addressFirst: true },
         { code: 'OTHER', label: 'Autre pays', addressFirst: false }
-    ];
+    ], []);
     const selectedCountry = countryOptions.find(country => country.code === siteForm.country) || countryOptions[0];
 
     const steps: WizardStep[] = [
@@ -144,11 +144,7 @@ export default function OnboardingWizard() {
         { id: 5, title: 'Terminé', icon: <Check size={20} />, completed: currentStep > 5 }
     ];
 
-    useEffect(() => {
-        fetchTenantInfo();
-    }, []);
-
-    const fetchTenantInfo = async () => {
+    const fetchTenantInfo = useCallback(async () => {
         try {
             const token = localStorage.getItem('token');
             const res = await axios.get('/api/tenant/info', {
@@ -171,7 +167,11 @@ export default function OnboardingWizard() {
         } catch (error) {
             console.error('Error fetching tenant info:', error);
         }
-    };
+    }, [countryOptions]);
+
+    useEffect(() => {
+        fetchTenantInfo();
+    }, [fetchTenantInfo]);
 
     const handleCreateSite = async () => {
         if (!siteForm.name.trim()) return;

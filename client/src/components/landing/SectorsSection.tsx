@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useVisitor } from '../../context/VisitorContext';
+import { useVisitor } from '../../context/useVisitor';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { HardHat, Droplets, ShieldCheck, Building, ShoppingBag, Utensils, CheckCircle2, Stethoscope } from 'lucide-react';
 
@@ -33,7 +33,7 @@ export default function SectorsSection() {
             id: 'cleaning',
             icon: <Droplets size={32} />,
             title: 'Propreté & Nettoyage',
-            description: 'Les agents confirment leur passage, ajoutent une photo et signalent les anomalies depuis le lieu d’intervention.',
+            description: 'Les agents confirment leur passage, ajoutent une photo et signalent les anomalies depuis leur site.',
             features: ['Preuves de passage', 'Planning agent', 'Signalement anomalie'],
             color: '#3b82f6',
             bgColor: '#bfdbfe'
@@ -52,7 +52,7 @@ export default function SectorsSection() {
             icon: <ShoppingBag size={32} />,
             title: 'Commerce & Retail',
             description: 'Les boutiques remontent les incidents, les demandes siège et les informations terrain sans ouvrir d’outil complexe.',
-            features: ['Remontées magasin', 'Demandes siège', 'Suivi CRM / ERP'],
+            features: ['Remontées magasin', 'Demandes siège', 'Exports RH'],
             color: '#f97316',
             bgColor: '#fed7aa'
         },
@@ -88,7 +88,7 @@ export default function SectorsSection() {
                         marginBottom: '1rem',
                         letterSpacing: 0
                     }}>
-                        Présence, planning et demandes terrain
+                        Présence, planning et pointage GPS
                         <br />
                         <span style={{ color: '#3b82f6' }}>par secteur.</span>
                     </h2>
@@ -100,7 +100,7 @@ export default function SectorsSection() {
                         lineHeight: 1.6
                     }}>
                         Les mêmes réflexes WhatsApp s’adaptent à vos contraintes métier :
-                        horaires, sites, justificatifs, incidents et demandes à transmettre.
+                        horaires, sites, justificatifs et alertes présence à traiter.
                     </p>
                 </motion.div>
 

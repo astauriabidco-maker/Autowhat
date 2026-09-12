@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
     Users,
@@ -162,11 +162,11 @@ export default function CrmLeads() {
     });
 
     const token = localStorage.getItem('superadmin_token');
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
     // ============ FETCH FUNCTIONS ============
 
-    const fetchLeads = async () => {
+    const fetchLeads = useCallback(async () => {
         try {
             setLoading(true);
             const [tenantRes, externalRes] = await Promise.all([
@@ -184,9 +184,9 @@ export default function CrmLeads() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [headers]);
 
-    const fetchAutomations = async () => {
+    const fetchAutomations = useCallback(async () => {
         try {
             const [rulesRes, statsRes] = await Promise.all([
                 axios.get('/superadmin/automations', { headers }),
@@ -197,12 +197,12 @@ export default function CrmLeads() {
         } catch (error) {
             console.error('Error fetching automations:', error);
         }
-    };
+    }, [headers]);
 
     useEffect(() => {
         fetchLeads();
         fetchAutomations();
-    }, []);
+    }, [fetchLeads, fetchAutomations]);
 
     // ============ LEADS HANDLERS ============
 

@@ -23,6 +23,7 @@ const PLAN_DEFINITIONS: Record<string, Omit<Plan, 'id'>> = {
         features: [
             'Jusqu\'à 5 employés',
             'Pointage WhatsApp illimité',
+            'Numéro WhatsPoint mutualisé',
             'Notes de frais',
             'Tableau de bord',
             'Support email'
@@ -35,6 +36,7 @@ const PLAN_DEFINITIONS: Record<string, Omit<Plan, 'id'>> = {
         features: [
             'Jusqu\'à 20 employés',
             'Pointage WhatsApp illimité',
+            'Numéro dédié fourni par WhatsPoint, nom affiché soumis à Meta',
             'Notes de frais',
             'Tableau de bord avancé',
             'Multi-sites',
@@ -49,6 +51,7 @@ const PLAN_DEFINITIONS: Record<string, Omit<Plan, 'id'>> = {
         features: [
             'Jusqu\'à 50 employés',
             'Pointage WhatsApp illimité',
+            'BYON accompagné ou architecture WhatsApp sur mesure',
             'Notes de frais',
             'Tableau de bord avancé',
             'Multi-sites illimités',

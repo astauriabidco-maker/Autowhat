@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma';
+import { decryptSecretIfEncrypted, encryptSecret } from '../utils/crypto';
 /**
  * WhatsApp Config Service
  * Manages BYON (Bring Your Own Number) configurations for enterprise tenants.
@@ -11,6 +12,24 @@ export interface WhatsAppCredentials {
     phoneNumberId: string;
     accessToken: string;
     displayName?: string;
+}
+
+export type WhatsAppChannelType = 'BYON' | 'SYSTEM' | 'DEFAULT' | 'DISABLED';
+
+export interface IncomingWhatsAppChannel {
+    type: WhatsAppChannelType;
+    phoneNumberId?: string;
+    config: WhatsAppCredentials;
+    tenantIds?: string[];
+}
+
+function decryptWhatsAppToken(accessToken: string): string {
+    try {
+        return decryptSecretIfEncrypted(accessToken);
+    } catch (error) {
+        console.error('❌ Failed to decrypt WhatsApp access token:', error);
+        throw new Error('Invalid encrypted WhatsApp access token');
+    }
 }
 
 /**
@@ -34,7 +53,7 @@ export async function getConfigForTenant(tenantId: string): Promise<WhatsAppCred
 
     return {
         phoneNumberId: config.phoneNumberId,
-        accessToken: config.accessToken,
+        accessToken: decryptWhatsAppToken(config.accessToken),
         displayName: config.displayName || undefined
     };
 }
@@ -66,7 +85,7 @@ export async function getConfigByPhoneNumberId(phoneNumberId: string): Promise<{
         tenantId: result.tenantId,
         config: {
             phoneNumberId: result.phoneNumberId,
-            accessToken: result.accessToken,
+            accessToken: decryptWhatsAppToken(result.accessToken),
             displayName: result.displayName || undefined
         }
     };
@@ -83,6 +102,106 @@ export function getDefaultConfig(): WhatsAppCredentials {
         phoneNumberId: phoneId,
         accessToken: token,
         displayName: 'WhatsPoint'
+    };
+}
+
+/**
+ * Resolves the channel that received an inbound webhook message.
+ * BYON and system-pool numbers carry a tenant scope; default credentials keep
+ * the historic global lookup behavior for the MVP shared number.
+ */
+export async function resolveIncomingWhatsAppChannel(phoneNumberId?: string): Promise<IncomingWhatsAppChannel> {
+    const defaultConfig = getDefaultConfig();
+
+    if (!phoneNumberId) {
+        return {
+            type: 'DEFAULT',
+            config: defaultConfig
+        };
+    }
+
+    const byonConfig = await prisma.whatsAppConfig.findUnique({
+        where: { phoneNumberId },
+        select: {
+            tenantId: true,
+            phoneNumberId: true,
+            accessToken: true,
+            displayName: true,
+            isActive: true,
+            tenant: {
+                select: {
+                    status: true
+                }
+            }
+        }
+    });
+
+    if (byonConfig && (!byonConfig.isActive || byonConfig.tenant.status !== 'ACTIVE')) {
+        return {
+            type: 'DISABLED',
+            phoneNumberId,
+            tenantIds: [],
+            config: defaultConfig
+        };
+    }
+
+    if (byonConfig?.isActive && byonConfig.tenant.status === 'ACTIVE') {
+        return {
+            type: 'BYON',
+            phoneNumberId,
+            tenantIds: [byonConfig.tenantId],
+            config: {
+                phoneNumberId: byonConfig.phoneNumberId,
+                accessToken: decryptWhatsAppToken(byonConfig.accessToken),
+                displayName: byonConfig.displayName || undefined
+            }
+        };
+    }
+
+    const systemNumber = await prisma.systemPhoneNumber.findUnique({
+        where: { phoneNumberId },
+        select: {
+            phoneNumberId: true,
+            accessToken: true,
+            displayNumber: true,
+            isActive: true,
+            setupStatus: true,
+            tenants: {
+                where: { status: 'ACTIVE' },
+                select: { id: true }
+            }
+        }
+    });
+
+    if (systemNumber && (!systemNumber.isActive || systemNumber.setupStatus !== 'ACTIVE')) {
+        return {
+            type: 'DISABLED',
+            phoneNumberId,
+            tenantIds: [],
+            config: defaultConfig
+        };
+    }
+
+    if (systemNumber?.isActive) {
+        return {
+            type: 'SYSTEM',
+            phoneNumberId,
+            tenantIds: systemNumber.tenants.map(tenant => tenant.id),
+            config: {
+                phoneNumberId: systemNumber.phoneNumberId,
+                accessToken: decryptWhatsAppToken(systemNumber.accessToken),
+                displayName: systemNumber.displayNumber
+            }
+        };
+    }
+
+    return {
+        type: 'DEFAULT',
+        phoneNumberId,
+        config: {
+            ...defaultConfig,
+            phoneNumberId
+        }
     };
 }
 
@@ -127,11 +246,11 @@ export async function getCredentialsForTenant(tenantId: string): Promise<WhatsAp
         include: { assignedSystemNumber: true }
     });
 
-    if (tenant?.assignedSystemNumber?.isActive) {
+    if (tenant?.assignedSystemNumber?.isActive && tenant.assignedSystemNumber.setupStatus === 'ACTIVE') {
         console.log(`📞 Using assigned system number for tenant ${tenantId}: ${tenant.assignedSystemNumber.displayNumber}`);
         return {
             phoneNumberId: tenant.assignedSystemNumber.phoneNumberId,
-            accessToken: tenant.assignedSystemNumber.accessToken,
+            accessToken: decryptWhatsAppToken(tenant.assignedSystemNumber.accessToken),
             displayName: tenant.assignedSystemNumber.displayNumber
         };
     }
@@ -155,19 +274,21 @@ export async function upsertWhatsAppConfig(
         displayName?: string;
     }
 ) {
+    const encryptedAccessToken = encryptSecret(data.accessToken);
+
     return prisma.whatsAppConfig.upsert({
         where: { tenantId },
         create: {
             tenantId,
             phoneNumberId: data.phoneNumberId,
-            accessToken: data.accessToken,
+            accessToken: encryptedAccessToken,
             wabaId: data.wabaId,
             displayName: data.displayName,
             isActive: true
         },
         update: {
             phoneNumberId: data.phoneNumberId,
-            accessToken: data.accessToken,
+            accessToken: encryptedAccessToken,
             wabaId: data.wabaId,
             displayName: data.displayName,
             isActive: true
@@ -196,8 +317,12 @@ export async function getWhatsAppConfigForDisplay(tenantId: string): Promise<{
     }
 
     // Mask token: show only last 4 chars
-    const maskedToken = config.accessToken
-        ? `${'*'.repeat(20)}${config.accessToken.slice(-4)}`
+    const accessToken = config.accessToken
+        ? decryptWhatsAppToken(config.accessToken)
+        : undefined;
+
+    const maskedToken = accessToken
+        ? `${'*'.repeat(20)}${accessToken.slice(-4)}`
         : undefined;
 
     return {

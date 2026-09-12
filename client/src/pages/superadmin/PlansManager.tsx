@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import {
     Plus,
@@ -55,11 +56,7 @@ export default function PlansManager() {
 
     const token = localStorage.getItem('superadmin_token');
 
-    useEffect(() => {
-        fetchPlans();
-    }, []);
-
-    const fetchPlans = async () => {
+    const fetchPlans = useCallback(async () => {
         try {
             const res = await axios.get('/admin/plans', {
                 headers: { Authorization: `Bearer ${token}` }
@@ -70,7 +67,11 @@ export default function PlansManager() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [token]);
+
+    useEffect(() => {
+        fetchPlans();
+    }, [fetchPlans]);
 
     const openNewForm = () => {
         setEditingPlan(null);

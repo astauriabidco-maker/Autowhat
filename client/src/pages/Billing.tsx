@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import {
     CreditCard,
@@ -13,8 +13,7 @@ import {
     Zap,
     Star,
     Users,
-    Brain,
-    Wrench
+    Brain
 } from 'lucide-react';
 import { getErrorMessage } from '../utils/errors';
 
@@ -75,11 +74,7 @@ export default function Billing() {
 
     const token = localStorage.getItem('token');
 
-    useEffect(() => {
-        fetchBillingData();
-    }, []);
-
-    const fetchBillingData = async () => {
+    const fetchBillingData = useCallback(async () => {
         try {
             const [plansRes, statusRes, invoicesRes] = await Promise.all([
                 axios.get('/api/plans'),
@@ -94,7 +89,11 @@ export default function Billing() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [token]);
+
+    useEffect(() => {
+        fetchBillingData();
+    }, [fetchBillingData]);
 
     const handleSelectPlan = async (plan: Plan) => {
         if (!plan.stripePriceId) {
@@ -320,33 +319,14 @@ export default function Billing() {
                 })}
             </div>
 
-            {/* ADD-ONS SECTION (New Modular Pricing Strategy) */}
+            {/* ADD-ONS SECTION */}
             <div className="mt-12">
                 <div className="flex items-center gap-3 mb-6">
-                    <h2 className="text-xl font-bold text-gray-900">Add-ons (Modules Métier)</h2>
-                    <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded">SUPERCHARGEZ VOTRE HUB</span>
+                    <h2 className="text-xl font-bold text-gray-900">Add-ons</h2>
+                    <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded">OPTIONS</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Add-on Ops */}
-                    <div className="bg-white border-2 border-orange-100 rounded-2xl p-6 flex flex-col sm:flex-row gap-6 items-start sm:items-center justify-between shadow-sm">
-                        <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 bg-orange-100 rounded-lg">
-                                    <Wrench className="text-orange-600" size={24} />
-                                </div>
-                                <h3 className="text-lg font-bold text-gray-900">Module Opérations & Terrain</h3>
-                            </div>
-                            <p className="text-sm text-gray-600 mb-3">Débloquez la gestion complète des pièces, les devis, le Dispatch Map Kanban et les rapports d'intervention signés sur chantier.</p>
-                            <div className="text-lg font-bold text-gray-900">
-                                49€ <span className="text-sm font-normal text-gray-500">/mois (Fixe, peu importe le nombre d'employés)</span>
-                            </div>
-                        </div>
-                        <button className="px-6 py-2.5 bg-orange-50 hover:bg-orange-100 text-orange-700 font-medium rounded-lg border border-orange-200 transition-colors w-full sm:w-auto">
-                            Ajouter au contrat
-                        </button>
-                    </div>
-
                     {/* Add-on AI */}
                     <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-100 rounded-2xl p-6 flex flex-col sm:flex-row gap-6 items-start sm:items-center justify-between shadow-sm relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-16 bg-purple-200/40 blur-[50px] rounded-full pointer-events-none" />

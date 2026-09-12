@@ -1,71 +1,32 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import axios from 'axios';
 import { useIsMobile } from '../hooks/useMediaQuery';
+import { VisitorContext, defaultVisitorState, type VisitorState, type VisitorContextType } from './visitorContextCore';
 
-// Types
-type DeviceType = 'mobile' | 'desktop';
+const getInitialTrafficSource = () => {
+    if (typeof window === 'undefined') return null;
 
-interface VisitorState {
-    countryCode: string;
-    zone: string;
-    currency: string;
-    deviceType: DeviceType;
-    trafficSource: string | null;
-    isLoading: boolean;
-}
+    const urlParams = new URLSearchParams(window.location.search);
+    const source = urlParams.get('source') || urlParams.get('utm_source');
 
-interface VisitorContextType extends VisitorState {
-    // Additional computed properties can be added here
-    isAfricanZone: boolean;
-    isPremiumZone: boolean;
-}
+    if (source) {
+        sessionStorage.setItem('visitor_source', source);
+        return source;
+    }
 
-const defaultState: VisitorState = {
-    countryCode: 'FR',
-    zone: 'TIER2_EUR',
-    currency: 'EUR',
-    deviceType: 'desktop',
-    trafficSource: null,
-    isLoading: true
+    return sessionStorage.getItem('visitor_source');
 };
-
-const VisitorContext = createContext<VisitorContextType | undefined>(undefined);
 
 interface VisitorProviderProps {
     children: ReactNode;
 }
 
 export function VisitorProvider({ children }: VisitorProviderProps) {
-    const [state, setState] = useState<VisitorState>(defaultState);
+    const [state, setState] = useState<VisitorState>(() => ({
+        ...defaultVisitorState,
+        trafficSource: getInitialTrafficSource()
+    }));
     const isMobile = useIsMobile();
-
-    // Update device type when isMobile changes
-    useEffect(() => {
-        setState(prev => ({
-            ...prev,
-            deviceType: isMobile ? 'mobile' : 'desktop'
-        }));
-    }, [isMobile]);
-
-    // Extract traffic source from URL on mount
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const source = urlParams.get('source') || urlParams.get('utm_source');
-
-        if (source) {
-            setState(prev => ({ ...prev, trafficSource: source }));
-            // Optionally store in sessionStorage for persistence
-            sessionStorage.setItem('visitor_source', source);
-        } else {
-            // Try to recover from sessionStorage
-            const storedSource = sessionStorage.getItem('visitor_source');
-            if (storedSource) {
-                setState(prev => ({ ...prev, trafficSource: storedSource }));
-            }
-        }
-    }, []);
 
     // Fetch GeoIP data
     useEffect(() => {
@@ -100,6 +61,7 @@ export function VisitorProvider({ children }: VisitorProviderProps) {
 
     const value: VisitorContextType = {
         ...state,
+        deviceType: isMobile ? 'mobile' : 'desktop',
         isAfricanZone,
         isPremiumZone
     };
@@ -109,24 +71,4 @@ export function VisitorProvider({ children }: VisitorProviderProps) {
             {children}
         </VisitorContext.Provider>
     );
-}
-
-/**
- * Hook to access visitor context
- * @throws Error if used outside VisitorProvider
- */
-export function useVisitor(): VisitorContextType {
-    const context = useContext(VisitorContext);
-    if (context === undefined) {
-        throw new Error('useVisitor must be used within a VisitorProvider');
-    }
-    return context;
-}
-
-/**
- * Hook to check if we're still loading visitor data
- */
-export function useVisitorLoading(): boolean {
-    const { isLoading } = useVisitor();
-    return isLoading;
 }

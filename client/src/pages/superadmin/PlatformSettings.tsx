@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import {
     Settings,
@@ -81,13 +81,7 @@ export default function PlatformSettings() {
 
     const token = localStorage.getItem('superadmin_token');
 
-    useEffect(() => {
-        fetchConfig();
-        fetchAdmins();
-        fetchHealth();
-    }, []);
-
-    const fetchConfig = async () => {
+    const fetchConfig = useCallback(async () => {
         try {
             const res = await axios.get('/admin/config', {
                 headers: { Authorization: `Bearer ${token}` }
@@ -98,9 +92,9 @@ export default function PlatformSettings() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [token]);
 
-    const fetchAdmins = async () => {
+    const fetchAdmins = useCallback(async () => {
         try {
             const res = await axios.get('/admin/admins', {
                 headers: { Authorization: `Bearer ${token}` }
@@ -109,9 +103,9 @@ export default function PlatformSettings() {
         } catch (error) {
             console.error('Error fetching admins:', error);
         }
-    };
+    }, [token]);
 
-    const fetchHealth = async () => {
+    const fetchHealth = useCallback(async () => {
         try {
             const res = await axios.get('/admin/health', {
                 headers: { Authorization: `Bearer ${token}` }
@@ -120,7 +114,13 @@ export default function PlatformSettings() {
         } catch (error) {
             console.error('Error fetching health:', error);
         }
-    };
+    }, [token]);
+
+    useEffect(() => {
+        fetchConfig();
+        fetchAdmins();
+        fetchHealth();
+    }, [fetchConfig, fetchAdmins, fetchHealth]);
 
     const saveConfig = async () => {
         setSaving(true);

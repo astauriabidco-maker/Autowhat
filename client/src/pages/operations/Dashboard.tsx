@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -27,9 +27,27 @@ interface DashboardData {
     alerts: { type: string; severity: 'warning' | 'error' | 'info'; message: string; interventionId?: string }[];
     technicianWorkload: { id: string; name: string; phone: string; count: number; completed: number; hours: number }[];
     typeDistribution: { name: string; color: string; count: number }[];
-    upcoming: any[];
+    upcoming: OperationIntervention[];
     weeklyChart: { day: string; total: number; completed: number; inProgress: number }[];
-    todayInterventions: any[];
+    todayInterventions: OperationIntervention[];
+}
+
+interface OperationIntervention {
+    id: string;
+    title: string;
+    status: string;
+    scheduledStart: string;
+    scheduledEnd: string;
+    customer?: {
+        companyName: string;
+    } | null;
+    employee?: {
+        name?: string | null;
+    } | null;
+    interventionType?: {
+        name: string;
+        color: string;
+    } | null;
 }
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; label: string }> = {
@@ -47,9 +65,9 @@ export default function OpsDashboard() {
     const [briefingResult, setBriefingResult] = useState<string | null>(null);
 
     const token = localStorage.getItem('token');
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
-    const fetchDashboard = async () => {
+    const fetchDashboard = useCallback(async () => {
         try {
             setLoading(true);
             const res = await axios.get('/api/operations/dashboard', { headers });
@@ -59,15 +77,15 @@ export default function OpsDashboard() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [headers]);
 
-    useEffect(() => { fetchDashboard(); }, []);
+    useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
     // Auto-refresh every 60s
     useEffect(() => {
         const interval = setInterval(fetchDashboard, 60000);
         return () => clearInterval(interval);
-    }, []);
+    }, [fetchDashboard]);
 
     const handleSendBriefing = async () => {
         if (!confirm('Envoyer la feuille de route du jour à tous les techniciens par WhatsApp ?')) return;
@@ -438,7 +456,7 @@ export default function OpsDashboard() {
                         </div>
                     ) : (
                         <div className="space-y-2 max-h-[320px] overflow-y-auto">
-                            {data.todayInterventions.map((i: any) => (
+                            {data.todayInterventions.map((i) => (
                                 <div
                                     key={i.id}
                                     className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-all border border-gray-50"
@@ -456,12 +474,12 @@ export default function OpsDashboard() {
                                             </span>
                                             <span className="flex items-center gap-1 truncate">
                                                 <Building2 size={10} />
-                                                {i.customer.companyName}
+                                                {i.customer?.companyName || 'Client non renseigné'}
                                             </span>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
-                                        <div className="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold" title={i.employee?.name}>
+                                        <div className="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold" title={i.employee?.name ?? undefined}>
                                             {(i.employee?.name || '?').charAt(0).toUpperCase()}
                                         </div>
                                         <span
@@ -493,7 +511,7 @@ export default function OpsDashboard() {
                         </div>
                     ) : (
                         <div className="space-y-2 max-h-[320px] overflow-y-auto">
-                            {data.upcoming.map((i: any) => (
+                            {data.upcoming.map((i) => (
                                 <div
                                     key={i.id}
                                     className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-all border border-gray-50"
@@ -525,7 +543,7 @@ export default function OpsDashboard() {
                                             )}
                                         </div>
                                     </div>
-                                    <div className="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0" title={i.employee?.name}>
+                                    <div className="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0" title={i.employee?.name ?? undefined}>
                                         {(i.employee?.name || '?').charAt(0).toUpperCase()}
                                     </div>
                                 </div>

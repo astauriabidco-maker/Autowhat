@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -13,7 +13,7 @@ import {
     Image,
     Download
 } from 'lucide-react';
-import { useSiteContext } from '../context/SiteContext';
+import { useSiteContext } from '../context/useSiteContext';
 import { getErrorStatus } from '../utils/errors';
 
 interface ExpenseRecord {
@@ -127,15 +127,6 @@ export default function Expenses() {
     const [previewImage, setPreviewImage] = useState<string | null>(null);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            navigate('/');
-            return;
-        }
-        fetchExpenses();
-    }, [navigate, selectedSiteId]); // Refetch on site change
-
-    useEffect(() => {
         if (loading || !targetExpenseId || expenses.length === 0) return;
         const target = expenses.find(expense => expense.id === targetExpenseId);
         if (!target) return;
@@ -151,7 +142,7 @@ export default function Expenses() {
         element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, [filter, loading, targetExpenseId]);
 
-    const fetchExpenses = async () => {
+    const fetchExpenses = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
@@ -168,7 +159,16 @@ export default function Expenses() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [navigate]);
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            navigate('/');
+            return;
+        }
+        fetchExpenses();
+    }, [fetchExpenses, navigate, selectedSiteId]); // Refetch on site change
 
     const handleStatusUpdate = async (id: string, status: 'APPROVED' | 'REJECTED') => {
         setUpdatingId(id);

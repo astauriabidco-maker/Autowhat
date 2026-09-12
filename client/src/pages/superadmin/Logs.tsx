@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { History, RefreshCw, User, Building2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ActionLog {
@@ -33,11 +33,7 @@ export default function Logs() {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
 
-    useEffect(() => {
-        fetchLogs();
-    }, [page]);
-
-    const fetchLogs = async () => {
+    const fetchLogs = useCallback(async () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('superadmin_token');
@@ -55,7 +51,11 @@ export default function Logs() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [page]);
+
+    useEffect(() => {
+        fetchLogs();
+    }, [fetchLogs]);
 
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);

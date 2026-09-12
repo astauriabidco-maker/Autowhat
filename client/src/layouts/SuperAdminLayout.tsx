@@ -16,13 +16,15 @@ import {
     Settings,
     Key,
     Webhook,
+    MessageSquare,
     Headphones,
     Megaphone,
     Receipt,
     FileText,
     Activity,
     Globe,
-    Brain
+    Brain,
+    Zap
 } from 'lucide-react';
 
 interface NavItem {
@@ -39,13 +41,14 @@ export default function SuperAdminLayout() {
     const navItems: NavItem[] = [
         { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/superadmin' },
         { icon: <Brain size={20} />, label: 'Agents IA', path: '/superadmin/agents' },
+        { icon: <Zap size={20} />, label: 'Automations', path: '/superadmin/automations' },
         { icon: <Users size={20} />, label: 'Clients', path: '/superadmin/tenants' },
-        { icon: <DollarSign size={20} />, label: 'CRM Leads', path: '/superadmin/leads' },
         { icon: <DollarSign size={20} />, label: 'Revenus', path: '/superadmin/revenue' },
         { icon: <Clock size={20} />, label: 'Sessions', path: '/superadmin/sessions' },
         { icon: <History size={20} />, label: 'Journal', path: '/superadmin/logs' },
         { icon: <Settings size={20} />, label: 'Paramètres', path: '/superadmin/settings' },
         { icon: <Key size={20} />, label: 'Intégrations', path: '/superadmin/integrations' },
+        { icon: <MessageSquare size={20} />, label: 'Numéros WhatsApp', path: '/superadmin/whatsapp-numbers' },
         { icon: <DollarSign size={20} />, label: 'Tarifs', path: '/superadmin/plans' },
         { icon: <Globe size={20} />, label: 'Prix Internationaux', path: '/superadmin/pricing-matrix' },
         { icon: <Webhook size={20} />, label: 'Webhooks', path: '/superadmin/webhooks' },

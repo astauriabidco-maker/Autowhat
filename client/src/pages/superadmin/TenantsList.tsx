@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Search,
@@ -38,11 +38,7 @@ export default function TenantsList() {
     const [search, setSearch] = useState('');
     const [extendingId, setExtendingId] = useState<string | null>(null);
 
-    useEffect(() => {
-        fetchTenants();
-    }, [page]);
-
-    const fetchTenants = async () => {
+    const fetchTenants = useCallback(async () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('superadmin_token');
@@ -57,7 +53,11 @@ export default function TenantsList() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [page]);
+
+    useEffect(() => {
+        fetchTenants();
+    }, [fetchTenants]);
 
     const handleExtendTrial = async (tenantId: string, days: number) => {
         try {

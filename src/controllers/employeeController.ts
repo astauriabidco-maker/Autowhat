@@ -136,6 +136,18 @@ export const createEmployee = async (req: Request, res: Response): Promise<void>
             return;
         }
 
+        if (siteId) {
+            const site = await prisma.site.findFirst({
+                where: { id: siteId, tenantId },
+                select: { id: true }
+            });
+
+            if (!site) {
+                res.status(404).json({ error: 'Site non trouvé' });
+                return;
+            }
+        }
+
         const employee = await prisma.employee.create({
             data: {
                 name,

@@ -3,7 +3,6 @@ import {
     MapPin,
     Camera,
     FileText,
-    Clock,
     CheckCircle,
     Smartphone,
     CalendarDays,
@@ -13,7 +12,7 @@ import {
     UserCheck
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useVisitor } from '../../context/VisitorContext';
+import { useVisitor } from '../../context/useVisitor';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 export default function FeaturesGrid() {
@@ -309,7 +308,7 @@ export default function FeaturesGrid() {
                         {
                             icon: <ClipboardCheck size={24} color="#f97316" />,
                             title: 'Demandes à traiter',
-                            desc: 'Absence, retard, incident ou demande client arrivent qualifiés côté manager.',
+                            desc: 'Absence, retard, justificatif ou anomalie GPS arrivent qualifiés côté manager.',
                             badge: 'Workflow',
                             bg: 'rgba(249, 115, 22, 0.12)',
                             color: '#f97316'

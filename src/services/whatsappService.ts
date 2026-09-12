@@ -21,6 +21,8 @@ import prisma from '../lib/prisma';
 // Type for backward compatibility: accepts either config object or legacy phoneNumberId string
 export type ConfigOrPhoneId = WhatsAppCredentials | string | undefined;
 
+const webhookChannelCredentials = new Map<string, WhatsAppCredentials>();
+
 export interface WhatsAppTemplateComponent {
     type: 'header' | 'body' | 'button';
     parameters?: Array<{
@@ -41,6 +43,11 @@ function resolveCredentials(configOrPhoneId?: ConfigOrPhoneId): WhatsAppCredenti
 
     // If it's a legacy string phoneNumberId, use it with default token
     if (typeof configOrPhoneId === 'string') {
+        const registeredCredentials = webhookChannelCredentials.get(configOrPhoneId);
+        if (registeredCredentials) {
+            return { ...registeredCredentials };
+        }
+
         const defaultConfig = getDefaultConfig();
         return {
             phoneNumberId: configOrPhoneId,
@@ -50,6 +57,11 @@ function resolveCredentials(configOrPhoneId?: ConfigOrPhoneId): WhatsAppCredenti
 
     // No config provided - use defaults
     return getDefaultConfig();
+}
+
+export function registerWebhookChannelCredentials(phoneNumberId: string | undefined, credentials: WhatsAppCredentials): void {
+    if (!phoneNumberId) return;
+    webhookChannelCredentials.set(phoneNumberId, { ...credentials });
 }
 
 // ============================================================================
@@ -528,7 +540,7 @@ export const testConnection = async (
     }
 
     const url = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
-    const testMessage = `✅ Test de connexion réussi !\n\n📱 Votre numéro WhatsApp marque blanche "${displayName || 'BYON'}" est correctement configuré.`;
+    const testMessage = `Test de connexion réussi !\n\nVotre canal WhatsApp Enterprise "${displayName || 'BYON accompagné'}" est correctement configuré. Le nom d'affichage reste soumis à validation Meta.`;
 
     try {
         await axios.post(

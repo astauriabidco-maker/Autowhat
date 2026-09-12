@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import {
     Key,
@@ -53,11 +53,7 @@ export default function Integrations() {
 
     const token = localStorage.getItem('superadmin_token');
 
-    useEffect(() => {
-        fetchIntegrations();
-    }, []);
-
-    const fetchIntegrations = async () => {
+    const fetchIntegrations = useCallback(async () => {
         try {
             const res = await axios.get('/admin/integrations', {
                 headers: { Authorization: `Bearer ${token}` }
@@ -68,7 +64,11 @@ export default function Integrations() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [token]);
+
+    useEffect(() => {
+        fetchIntegrations();
+    }, [fetchIntegrations]);
 
     const saveIntegration = async (provider: string, key: string, value: string) => {
         setSaving(true);

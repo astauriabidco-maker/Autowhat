@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Zap, X, Clock } from 'lucide-react';
 
 interface TrialBannerProps {
@@ -7,25 +7,14 @@ interface TrialBannerProps {
 }
 
 export default function TrialBanner({ plan, trialEndsAt }: TrialBannerProps) {
-    const [visible, setVisible] = useState(true);
-    const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
+    const [dismissed, setDismissed] = useState(false);
+    const [now] = useState(() => Date.now());
 
-    useEffect(() => {
-        if (plan !== 'TRIAL' || !trialEndsAt) {
-            setVisible(false);
-            return;
-        }
+    const daysRemaining = plan === 'TRIAL' && trialEndsAt
+        ? Math.ceil((new Date(trialEndsAt).getTime() - now) / (1000 * 60 * 60 * 24))
+        : null;
 
-        const endDate = new Date(trialEndsAt);
-        const now = new Date();
-        const diffTime = endDate.getTime() - now.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        setDaysRemaining(diffDays);
-        setVisible(diffDays > 0);
-    }, [plan, trialEndsAt]);
-
-    if (!visible || daysRemaining === null) return null;
+    if (dismissed || daysRemaining === null || daysRemaining <= 0) return null;
 
     const isUrgent = daysRemaining <= 3;
 
@@ -50,7 +39,7 @@ export default function TrialBanner({ plan, trialEndsAt }: TrialBannerProps) {
                     S'abonner →
                 </button>
                 <button
-                    onClick={() => setVisible(false)}
+                    onClick={() => setDismissed(true)}
                     className="p-1 hover:bg-amber-200 rounded transition"
                 >
                     <X className="w-4 h-4" />

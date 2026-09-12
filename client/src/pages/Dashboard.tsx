@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import clsx from 'clsx';
@@ -37,16 +37,7 @@ export default function Dashboard() {
     const [period, setPeriod] = useState('today');
     const navigate = useNavigate();
 
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            navigate('/');
-            return;
-        }
-        fetchAttendances(period);
-    }, [period, navigate]);
-
-    const fetchAttendances = async (selectedPeriod: string) => {
+    const fetchAttendances = useCallback(async (selectedPeriod: string) => {
         setLoading(true);
         setError('');
 
@@ -70,7 +61,16 @@ export default function Dashboard() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [navigate]);
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            navigate('/');
+            return;
+        }
+        fetchAttendances(period);
+    }, [period, navigate, fetchAttendances]);
 
     const exportToCSV = () => {
         const headers = ['Employé', 'Téléphone', 'Date', 'Arrivée', 'Départ', 'Durée', 'Statut'];

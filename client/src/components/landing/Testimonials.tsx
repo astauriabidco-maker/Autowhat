@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Star, Quote } from 'lucide-react';
-import { useVisitor } from '../../context/VisitorContext';
+import { useVisitor } from '../../context/useVisitor';
 import { getRelevantTestimonials, type Testimonial } from '../../config/landingVariants';
 import { useTranslation } from 'react-i18next';
 

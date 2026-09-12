@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import {
-    CalendarClock,
     ClipboardCheck,
     FileText,
     MessageCircle,
@@ -9,7 +8,7 @@ import {
     Route,
     Users
 } from 'lucide-react';
-import { useVisitor } from '../../context/VisitorContext';
+import { useVisitor } from '../../context/useVisitor';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 
 export default function OperationsSection() {
@@ -21,19 +20,19 @@ export default function OperationsSection() {
         {
             icon: <Users size={24} />,
             title: 'Identification',
-            description: 'Reconnaissance du client, du salarié, du technicien ou du contact depuis son numéro WhatsApp.',
+            description: 'Reconnaissance du collaborateur, du manager ou du contact RH depuis son numéro WhatsApp.',
             color: '#2563eb'
         },
         {
             icon: <MessageCircle size={24} />,
             title: 'Collecte guidée',
-            description: 'Messages, photos, documents, localisation ou choix interactifs sont transformés en demande exploitable.',
+            description: 'Messages, photos, documents, localisation ou choix interactifs deviennent des données RH exploitables.',
             color: '#ea580c'
         },
         {
             icon: <Route size={24} />,
             title: 'Orientation métier',
-            description: 'Une panne va au service intervention, une absence aux RH, une réclamation au support.',
+            description: 'Un retard, une absence, un justificatif ou une anomalie GPS arrive au bon manager.',
             color: '#16a34a'
         },
         {
@@ -101,7 +100,7 @@ export default function OperationsSection() {
                             marginBottom: '1rem',
                             letterSpacing: 0
                         }}>
-                            Chaque demande arrive au bon service.
+                            Chaque signal présence arrive au bon service.
                         </h2>
 
                         <p style={{
@@ -110,9 +109,9 @@ export default function OperationsSection() {
                             lineHeight: 1.65,
                             maxWidth: '560px'
                         }}>
-                            Le client signale une panne, le salarié envoie un justificatif, le technicien
-                            transmet une photo. WhatsPoint transforme ces messages en demandes propres
-                            et les envoie au service métier concerné.
+                            Le salarié prévient d’un retard, envoie un justificatif ou confirme son site.
+                            WhatsPoint transforme ces messages en informations propres et les envoie
+                            au manager concerné.
                         </p>
                     </div>
 

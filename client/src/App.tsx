@@ -1,75 +1,75 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Landing from './pages/Landing';
-import Login from './pages/Login';
-import MagicLogin from './pages/MagicLogin';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import DashboardHome from './pages/DashboardHome';
-import Inbox from './pages/Inbox';
-import Attendance from './pages/Attendance';
-import Employees from './pages/Employees';
-import EmployeeDetails from './pages/EmployeeDetails';
-import Expenses from './pages/Expenses';
-import Documents from './pages/Documents';
-import Settings from './pages/Settings';
-import SiteGpsCenter from './pages/SiteGpsCenter';
-import IntegrationWhatsApp from './pages/IntegrationWhatsApp';
-import IntegrationsManager from './pages/admin/IntegrationsManager';
-import PrivacyShield from './pages/admin/PrivacyShield';
-import OnboardingWizard from './pages/OnboardingWizard';
-import ImportEmployees from './pages/ImportEmployees';
-import AdminLayout from './layouts/AdminLayout';
+import { lazy, Suspense, type ReactNode } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import NetworkStatus from './components/NetworkStatus';
 import { SiteProvider } from './context/SiteContext';
 // SuperAdmin Pages
-import SuperAdminLayout from './layouts/SuperAdminLayout';
-import SuperAdminLogin from './pages/superadmin/Login';
-import SuperAdminOverview from './pages/superadmin/Overview';
-import SuperAdminTenants from './pages/superadmin/TenantsList';
-import SuperAdminRevenue from './pages/superadmin/Revenue';
-import SuperAdminLogs from './pages/superadmin/Logs';
-import SuperAdminSessions from './pages/superadmin/Sessions';
-import PlatformSettings from './pages/superadmin/PlatformSettings';
-import Integrations from './pages/superadmin/Integrations';
-import PlansManager from './pages/superadmin/PlansManager';
-import Webhooks from './pages/superadmin/Webhooks';
-import SupportInbox from './pages/superadmin/SupportInbox';
-import TenantDetails from './pages/superadmin/TenantDetails';
-import CreateTenant from './pages/superadmin/CreateTenant';
-import CrmLeads from './pages/superadmin/CrmLeads';
-import MarketingStudio from './pages/superadmin/MarketingStudio';
-import ExpensesAdmin from './pages/superadmin/ExpensesAdmin';
-import DocumentsAdmin from './pages/superadmin/DocumentsAdmin';
-import ServerHealth from './pages/superadmin/ServerHealth';
-import AiAgentsHub from './pages/superadmin/AiAgentsHub';
-import PricingMatrix from './pages/superadmin/PricingMatrix';
-import Billing from './pages/Billing';
-import Support from './pages/Support';
 // Legal Pages
-import Terms from './pages/legal/Terms';
-import Privacy from './pages/legal/Privacy';
-import Notices from './pages/legal/Notices';
 import CookieBanner from './components/CookieBanner';
 import './i18n'; // Initialize i18n
 import './index.css';
 
-// Operations / FSM Pages
-import Customers from './pages/operations/Customers';
-import Dispatch from './pages/operations/Dispatch';
-import OpsReports from './pages/operations/Reports';
-import InterventionTypes from './pages/operations/InterventionTypes';
-import OpsDashboard from './pages/operations/Dashboard';
-// import Parts from './pages/operations/Parts';
-import Recurring from './pages/operations/Recurring';
-// import Quotes from './pages/operations/Quotes';
-import MapKanban from './pages/operations/MapKanban';
-import InterventionRequests from './pages/operations/InterventionRequests';
-import SignaturePad from './pages/public/SignaturePad';
+const Landing = lazy(() => import('./pages/Landing'));
+const Login = lazy(() => import('./pages/Login'));
+const MagicLogin = lazy(() => import('./pages/MagicLogin'));
+const Register = lazy(() => import('./pages/Register'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const OnboardingWizard = lazy(() => import('./pages/OnboardingWizard'));
+
+const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
+const DashboardHome = lazy(() => import('./pages/DashboardHome'));
+const Attendance = lazy(() => import('./pages/Attendance'));
+const Employees = lazy(() => import('./pages/Employees'));
+const EmployeeDetails = lazy(() => import('./pages/EmployeeDetails'));
+const Expenses = lazy(() => import('./pages/Expenses'));
+const Documents = lazy(() => import('./pages/Documents'));
+const Settings = lazy(() => import('./pages/Settings'));
+const SiteGpsCenter = lazy(() => import('./pages/SiteGpsCenter'));
+const IntegrationWhatsApp = lazy(() => import('./pages/IntegrationWhatsApp'));
+const IntegrationsManager = lazy(() => import('./pages/admin/IntegrationsManager'));
+const PrivacyShield = lazy(() => import('./pages/admin/PrivacyShield'));
+const ImportEmployees = lazy(() => import('./pages/ImportEmployees'));
+const Billing = lazy(() => import('./pages/Billing'));
+const Support = lazy(() => import('./pages/Support'));
+
+const Terms = lazy(() => import('./pages/legal/Terms'));
+const Privacy = lazy(() => import('./pages/legal/Privacy'));
+const Notices = lazy(() => import('./pages/legal/Notices'));
+
+const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
+const SuperAdminLogin = lazy(() => import('./pages/superadmin/Login'));
+const SuperAdminOverview = lazy(() => import('./pages/superadmin/Overview'));
+const SuperAdminTenants = lazy(() => import('./pages/superadmin/TenantsList'));
+const SuperAdminRevenue = lazy(() => import('./pages/superadmin/Revenue'));
+const SuperAdminLogs = lazy(() => import('./pages/superadmin/Logs'));
+const SuperAdminSessions = lazy(() => import('./pages/superadmin/Sessions'));
+const PlatformSettings = lazy(() => import('./pages/superadmin/PlatformSettings'));
+const Integrations = lazy(() => import('./pages/superadmin/Integrations'));
+const PlansManager = lazy(() => import('./pages/superadmin/PlansManager'));
+const Webhooks = lazy(() => import('./pages/superadmin/Webhooks'));
+const SupportInbox = lazy(() => import('./pages/superadmin/SupportInbox'));
+const TenantDetails = lazy(() => import('./pages/superadmin/TenantDetails'));
+const CreateTenant = lazy(() => import('./pages/superadmin/CreateTenant'));
+const MarketingStudio = lazy(() => import('./pages/superadmin/MarketingStudio'));
+const ExpensesAdmin = lazy(() => import('./pages/superadmin/ExpensesAdmin'));
+const DocumentsAdmin = lazy(() => import('./pages/superadmin/DocumentsAdmin'));
+const ServerHealth = lazy(() => import('./pages/superadmin/ServerHealth'));
+const AiAgentsHub = lazy(() => import('./pages/superadmin/AiAgentsHub'));
+const PricingMatrix = lazy(() => import('./pages/superadmin/PricingMatrix'));
+const AutomationCockpit = lazy(() => import('./pages/superadmin/AutomationCockpit'));
+const WhatsAppNumbers = lazy(() => import('./pages/superadmin/WhatsAppNumbers'));
 
 
 // Wrapper component for protected routes with AdminLayout
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function RouteFallback() {
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center text-sm font-medium text-slate-500">
+      Chargement...
+    </div>
+  );
+}
+
+function ProtectedRoute({ children }: { children: ReactNode }) {
   return <AdminLayout>{children}</AdminLayout>;
 }
 
@@ -80,14 +80,15 @@ function App() {
         {/* Global Network Status Banner */}
         <NetworkStatus />
 
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/magic-login" element={<MagicLogin />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/magic-login" element={<MagicLogin />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Legal Pages */}
           <Route path="/legal/terms" element={<Terms />} />
@@ -100,9 +101,6 @@ function App() {
           {/* Protected Routes with Admin Layout */}
           <Route path="/dashboard" element={
             <ProtectedRoute><DashboardHome /></ProtectedRoute>
-          } />
-          <Route path="/inbox" element={
-            <ProtectedRoute><Inbox /></ProtectedRoute>
           } />
           <Route path="/attendance" element={
             <ProtectedRoute><Attendance /></ProtectedRoute>
@@ -144,40 +142,11 @@ function App() {
             <ProtectedRoute><IntegrationsManager /></ProtectedRoute>
           } />
 
-          {/* Operations / FSM Routes */}
-          <Route path="/operations/dashboard" element={
-            <ProtectedRoute><OpsDashboard /></ProtectedRoute>
-          } />
-          <Route path="/operations/customers" element={
-            <ProtectedRoute><Customers /></ProtectedRoute>
-          } />
-          <Route path="/operations/intervention-types" element={
-            <ProtectedRoute><InterventionTypes /></ProtectedRoute>
-          } />
-          <Route path="/operations/dispatch" element={
-            <ProtectedRoute><Dispatch /></ProtectedRoute>
-          } />
-          <Route path="/operations/reports" element={
-            <ProtectedRoute><OpsReports /></ProtectedRoute>
-          } />
-{/* <Route path="/operations/parts" element={
-            <ProtectedRoute><Parts /></ProtectedRoute>
-          } /> */}
-          <Route path="/operations/recurring" element={
-            <ProtectedRoute><Recurring /></ProtectedRoute>
-          } />
-{/* <Route path="/operations/quotes" element={
-            <ProtectedRoute><Quotes /></ProtectedRoute>
-          } /> */}
-          <Route path="/operations/map" element={
-            <ProtectedRoute><MapKanban /></ProtectedRoute>
-          } />
-          <Route path="/operations/requests" element={
-            <ProtectedRoute><InterventionRequests /></ProtectedRoute>
-          } />
+          {/* Legacy operations routes are intentionally retired from the product surface. */}
+          <Route path="/inbox" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/operations/*" element={<Navigate to="/dashboard" replace />} />
 
-          {/* Public Signature (No Auth - Token protected) */}
-          <Route path="/sign-intervention/:token" element={<SignaturePad />} />
+          <Route path="/sign-intervention/:token" element={<Navigate to="/" replace />} />
 
           {/* SuperAdmin Routes */}
           <Route path="/superadmin/login" element={<SuperAdminLogin />} />
@@ -191,18 +160,21 @@ function App() {
             <Route path="logs" element={<SuperAdminLogs />} />
             <Route path="settings" element={<PlatformSettings />} />
             <Route path="integrations" element={<Integrations />} />
+            <Route path="whatsapp-numbers" element={<WhatsAppNumbers />} />
             <Route path="plans" element={<PlansManager />} />
             <Route path="pricing-matrix" element={<PricingMatrix />} />
             <Route path="webhooks" element={<Webhooks />} />
             <Route path="support" element={<SupportInbox />} />
             <Route path="marketing" element={<MarketingStudio />} />
-            <Route path="leads" element={<CrmLeads />} />
+            <Route path="leads" element={<Navigate to="/superadmin/tenants" replace />} />
             <Route path="expenses" element={<ExpensesAdmin />} />
             <Route path="documents" element={<DocumentsAdmin />} />
             <Route path="health" element={<ServerHealth />} />
             <Route path="agents" element={<AiAgentsHub />} />
+            <Route path="automations" element={<AutomationCockpit />} />
           </Route>
-        </Routes>
+          </Routes>
+        </Suspense>
 
         {/* Cookie Consent Banner */}
         <CookieBanner />

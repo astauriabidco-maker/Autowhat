@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend checks and integration tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: secret_test
+          POSTGRES_DB: whatsapp_hub_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U admin -d whatsapp_hub_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://admin:secret_test@localhost:5432/whatsapp_hub_test?schema=public
+      DATABASE_URL_TEST: postgresql://admin:secret_test@localhost:5432/whatsapp_hub_test?schema=public
+      NODE_ENV: test
+      ENABLE_JOBS: "false"
+      USE_REDIS: "false"
+      SERVE_FRONTEND: "false"
+      ENABLE_SWAGGER: "false"
+      JWT_SECRET: test-jwt-secret-change-me
+      ENCRYPTION_KEY: "12345678901234567890123456789012"
+      FILE_URL_SECRET: test-file-url-secret
+      FRONTEND_URL: http://localhost:5180
+      CORS_ORIGINS: http://localhost:5180
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies for E2E
+        run: npm ci
+        working-directory: client
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Validate production environment template
+        run: npm run env:check
+        env:
+          NODE_ENV: production
+          DATABASE_URL: postgresql://ci_user:strong_password@db.example.internal:5432/whatspoint
+          ENCRYPTION_KEY: k8N4vY2pQ6rT9wX1zA3cD5fG7hJ9mL0n
+          JWT_SECRET: u6zJ8mK2rV4pQ9xL1tN5wY7cD3fG0hS2
+          FILE_URL_SECRET: b7H2qW9nM4xC6vR1tY8pL3zK5dF0gJ6s
+          LOG_HASH_SECRET: p5L9xQ2vM8nR4cT7wY1zK6dF3hG0sJ2b
+          FRONTEND_URL: https://app.whatspoint.example
+          BACKEND_URL: https://api.whatspoint.example
+          CORS_ORIGINS: https://app.whatspoint.example
+          WHATSAPP_APP_SECRET: meta-app-secret-at-least-24-chars
+          WEBHOOK_VERIFY_TOKEN: verify-token-at-least-24-chars
+          DEMO_MODE: "false"
+          AUTH_COOKIE_SECURE: "true"
+          AUTH_COOKIE_SAME_SITE: lax
+          AUTH_COOKIE_CROSS_SITE: "false"
+          USE_REDIS: "false"
+          RATE_LIMIT_STORE: memory
+
+      - name: Typecheck backend
+        run: npm run typecheck
+
+      - name: Validate Prisma schema
+        run: npm run prisma:validate
+
+      - name: Run unit and API smoke tests
+        run: npm run test
+
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
+
+      - name: Run integration tests against Postgres
+        run: npm run test:integration
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run core E2E tests against Postgres
+        run: npm run test:e2e
+
+      - name: Build backend
+        run: npm run build
+
+  frontend:
+    name: Frontend lint and build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Build frontend
+        run: npm run build

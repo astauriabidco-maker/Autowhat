@@ -9,7 +9,7 @@ import {
     CheckCircle2
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useVisitor } from '../../context/VisitorContext';
+import { useVisitor } from '../../context/useVisitor';
 import { salesContactUrl } from '../../config/landingCtas';
 
 export default function EnterpriseSection() {
@@ -20,9 +20,9 @@ export default function EnterpriseSection() {
     const enterpriseFeatures = [
         {
             icon: <Smartphone size={32} />,
-            title: t('landing.enterprise.byon.title', 'Ligne WhatsApp maîtrisée'),
-            description: t('landing.enterprise.byon.desc', 'Connectez votre ligne WhatsApp Business officielle quand votre configuration Meta est prête.'),
-            highlight: t('landing.enterprise.byon.highlight', 'Parcours guidé'),
+            title: t('landing.enterprise.byon.title', 'BYON accompagné'),
+            description: t('landing.enterprise.byon.desc', 'Connectez votre ligne WhatsApp Business avec cadrage WhatsPoint, selon éligibilité Meta et contraintes de déploiement.'),
+            highlight: t('landing.enterprise.byon.highlight', 'Cadrage WhatsPoint'),
             color: '#22c55e'
         },
         {

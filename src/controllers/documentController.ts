@@ -44,6 +44,16 @@ function signedDocumentUrl(url: string): string {
     return signUploadPath(url);
 }
 
+function removeUploadedFile(file?: Express.Multer.File): void {
+    if (!file?.path) return;
+
+    fs.unlink(file.path, (error) => {
+        if (error) {
+            console.error('❌ Error removing rejected upload:', error);
+        }
+    });
+}
+
 /**
  * Upload a new document and send WhatsApp notification
  * POST /api/documents
@@ -62,11 +72,26 @@ export const uploadDocumentHandler = async (req: Request, res: Response): Promis
         const { name, type, expiryDate, employeeId } = req.body;
 
         if (!name || !type) {
+            removeUploadedFile(req.file);
             return res.status(400).json({ error: 'Nom et type requis' });
         }
 
         if (!DOCUMENT_TYPES[type as keyof typeof DOCUMENT_TYPES]) {
+            removeUploadedFile(req.file);
             return res.status(400).json({ error: 'Type invalide. Utilisez CONTRACT, CERTIFICATE, IDENTITY ou OTHER.' });
+        }
+
+        let targetEmployee: { phoneNumber: string } | null = null;
+        if (employeeId) {
+            targetEmployee = await prisma.employee.findFirst({
+                where: { id: employeeId, tenantId },
+                select: { phoneNumber: true }
+            });
+
+            if (!targetEmployee) {
+                removeUploadedFile(req.file);
+                return res.status(404).json({ error: 'Employé introuvable pour ce tenant' });
+            }
         }
 
         const filePath = `/uploads/documents/${req.file.filename}`;
@@ -87,13 +112,9 @@ export const uploadDocumentHandler = async (req: Request, res: Response): Promis
 
         if (employeeId) {
             // Send to specific employee
-            const employee = await prisma.employee.findUnique({
-                where: { id: employeeId },
-                select: { phoneNumber: true }
-            });
-            if (employee) {
-                await sendMessage(employee.phoneNumber.replace('+', ''), notificationMessage);
-                console.log(`📨 Document notification sent to ${employee.phoneNumber}`);
+            if (targetEmployee) {
+                await sendMessage(targetEmployee.phoneNumber.replace('+', ''), notificationMessage);
+                console.log(`📨 Document notification sent to ${targetEmployee.phoneNumber}`);
             }
         } else {
             // Global document: send to all employees in tenant

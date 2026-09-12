@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -54,11 +54,35 @@ export default function Support() {
         message: ''
     });
 
-    const getToken = () => localStorage.getItem('token');
+    const getToken = useCallback(() => localStorage.getItem('token'), []);
+
+    const fetchTickets = useCallback(async () => {
+        try {
+            const res = await axios.get('/api/tickets', {
+                headers: { Authorization: `Bearer ${getToken()}` }
+            });
+            setTickets(res.data);
+        } catch (error) {
+            console.error('Error fetching tickets:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [getToken]);
+
+    const fetchTicketDetail = useCallback(async (id: string) => {
+        try {
+            const res = await axios.get(`/api/tickets/${id}`, {
+                headers: { Authorization: `Bearer ${getToken()}` }
+            });
+            setSelectedTicket(res.data);
+        } catch (error) {
+            console.error('Error fetching ticket:', error);
+        }
+    }, [getToken]);
 
     useEffect(() => {
         fetchTickets();
-    }, []);
+    }, [fetchTickets]);
 
     useEffect(() => {
         if (loading || !targetTicketId) return;
@@ -86,31 +110,7 @@ export default function Support() {
         if (selectedTicket) {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
-    }, [selectedTicket?.messages]);
-
-    const fetchTickets = async () => {
-        try {
-            const res = await axios.get('/api/tickets', {
-                headers: { Authorization: `Bearer ${getToken()}` }
-            });
-            setTickets(res.data);
-        } catch (error) {
-            console.error('Error fetching tickets:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchTicketDetail = async (id: string) => {
-        try {
-            const res = await axios.get(`/api/tickets/${id}`, {
-                headers: { Authorization: `Bearer ${getToken()}` }
-            });
-            setSelectedTicket(res.data);
-        } catch (error) {
-            console.error('Error fetching ticket:', error);
-        }
-    };
+    }, [selectedTicket]);
 
     const handleCreate = async () => {
         if (!form.subject || !form.message) return;

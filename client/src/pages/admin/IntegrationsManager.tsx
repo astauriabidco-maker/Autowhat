@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Network, Plus, Trash2, Edit2, Play, Save, CheckCircle, BookOpen, Server, Zap, Briefcase, Database, Activity, ArrowRight } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Network, Plus, Trash2, Edit2, Play, Save, CheckCircle, BookOpen, Server, Zap, Briefcase, Database, Activity, ArrowRight, FileText } from 'lucide-react';
 import axios from 'axios';
 
 interface WebhookConfig {
@@ -31,7 +31,7 @@ export default function IntegrationsManager() {
     }
   });
 
-  const [tenantConfig, setTenantConfig] = useState<Record<string, any>>({});
+  const [tenantConfig, setTenantConfig] = useState<Record<string, string>>({});
   const [savingConfig, setSavingConfig] = useState(false);
 
   const [availableEvents] = useState([
@@ -40,17 +40,13 @@ export default function IntegrationsManager() {
     { id: 'check_in', label: 'Pointage (Arrivée)' },
     { id: 'late_arrival', label: 'Pointage tardif' },
     { id: 'employee.created', label: 'Création collaborateur' },
-    { id: 'intervention.completed', label: 'Intervention terminée' },
-    { id: 'request.received', label: 'Nouvelle demande WhatsApp' }
+    { id: 'document.received', label: 'Document reçu' },
+    { id: 'attendance.gps_warning', label: 'Alerte GPS à vérifier' }
   ]);
-
-  useEffect(() => {
-    fetchWebhooks();
-  }, []);
 
   const getToken = () => localStorage.getItem('token');
 
-  const fetchWebhooks = async () => {
+  const fetchWebhooks = useCallback(async () => {
     try {
       const [webhooksRes, settingsRes] = await Promise.all([
         axios.get('/api/admin/webhooks', { headers: { Authorization: `Bearer ${getToken()}` } }),
@@ -65,7 +61,11 @@ export default function IntegrationsManager() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchWebhooks();
+  }, [fetchWebhooks]);
 
   const saveTenantConfig = async () => {
     setSavingConfig(true);
@@ -123,7 +123,7 @@ export default function IntegrationsManager() {
           <h1 className="text-3xl font-bold tracking-tight">Hub d'Intégrations</h1>
           <p className="mt-2 text-blue-100 max-w-2xl">
             Configurez vos propres logiques d'export vers vos progiciels externes (Helpyx, Silae, PayFit).
-            WhatsPoint se concentre sur la collecte terrain et l'échange direct ; déléguez la gestion complexe (devis, facturation) à vos outils métiers.
+            WhatsPoint se concentre sur la présence, les justificatifs et l'échange direct ; déléguez le reste à vos outils RH et paie.
           </p>
         </div>
         <Network className="h-20 w-20 text-white/20" />
@@ -182,9 +182,9 @@ export default function IntegrationsManager() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             {
-              id: 'helpyx', name: 'Devis Helpyx', icon: <Briefcase className="w-6 h-6 text-indigo-600" />, color: 'bg-indigo-50 border-indigo-200',
-              desc: 'Génère un devis automatiquement après intervention.',
-              config: { name: 'Export SAV Helpyx', url: 'https://api.helpyx.com/v1/quotes', httpMethod: 'POST', events: ['intervention.completed'], payloadMapping: { "customer_id": "{{customerId}}", "technician_notes": "{{notes}}", "parts_used": "{{parts}}" } as Record<string, string>, headers: { "Authorization": "Bearer VOTRE_CLE_API" } as Record<string, string> }
+              id: 'absence', name: 'Absences RH', icon: <Briefcase className="w-6 h-6 text-indigo-600" />, color: 'bg-indigo-50 border-indigo-200',
+              desc: 'Transmet les demandes d’absence et justificatifs au SIRH.',
+              config: { name: 'Export absences RH', url: 'https://api.sirh.example/v1/absences', httpMethod: 'POST', events: ['leave.requested'], payloadMapping: { "employee_id": "{{employeeId}}", "employee_name": "{{employeeName}}", "start_date": "{{startDate}}", "end_date": "{{endDate}}" } as Record<string, string>, headers: { "Authorization": "Bearer VOTRE_CLE_API" } as Record<string, string> }
             },
             {
               id: 'kpaie', name: 'Pointages KPaie', icon: <Database className="w-6 h-6 text-blue-600" />, color: 'bg-blue-50 border-blue-200',
@@ -192,14 +192,14 @@ export default function IntegrationsManager() {
               config: { name: 'Sync RH KPaie', url: 'https://api.kpaie.com/v2/timesheets', httpMethod: 'POST', events: ['check_in', 'late_arrival'], payloadMapping: { "matricule": "{{employeeId}}", "timestamp": "{{timestamp}}", "type": "{{action}}" } as Record<string, string>, headers: { "Authorization": "Bearer VOTRE_CLE_API" } as Record<string, string> }
             },
             {
-              id: 'mediplan', name: 'RDV MediPlan', icon: <Activity className="w-6 h-6 text-emerald-600" />, color: 'bg-emerald-50 border-emerald-200',
-              desc: 'Crée un RDV médical depuis une demande patient.',
-              config: { name: 'Création RDV MediPlan', url: 'https://api.mediplan.fr/v1/appointments', httpMethod: 'POST', events: ['request.received'], payloadMapping: { "patient_phone": "{{senderPhone}}", "symptoms": "{{message}}", "urgency": "{{urgency}}" } as Record<string, string>, headers: { "X-API-Key": "VOTRE_CLE_API" } as Record<string, string> }
+              id: 'gps', name: 'Alertes GPS', icon: <Activity className="w-6 h-6 text-emerald-600" />, color: 'bg-emerald-50 border-emerald-200',
+              desc: 'Remonte les pointages à vérifier vers vos outils RH.',
+              config: { name: 'Alerte pointage GPS', url: 'https://api.sirh.example/v1/attendance-alerts', httpMethod: 'POST', events: ['attendance.gps_warning'], payloadMapping: { "employee_id": "{{employeeId}}", "employee_name": "{{employeeName}}", "site": "{{siteName}}", "timestamp": "{{timestamp}}" } as Record<string, string>, headers: { "X-API-Key": "VOTRE_CLE_API" } as Record<string, string> }
             },
             {
-              id: 'zapier', name: 'Zapier / Make', icon: <Network className="w-6 h-6 text-orange-600" />, color: 'bg-orange-50 border-orange-200',
-              desc: 'Connectez WhatsPoint à +5000 applications.',
-              config: { name: 'Zapier Catch Hook', url: 'https://hooks.zapier.com/hooks/catch/...', httpMethod: 'POST', events: ['intervention.completed', 'expense.approved'], payloadMapping: { "event": "{{eventName}}", "data": "{{eventData}}" } as Record<string, string>, headers: {} as Record<string, string> }
+              id: 'documents', name: 'Documents RH', icon: <FileText className="w-6 h-6 text-orange-600" />, color: 'bg-orange-50 border-orange-200',
+              desc: 'Notifie votre outil RH quand un document est reçu.',
+              config: { name: 'Document reçu', url: 'https://hooks.zapier.com/hooks/catch/...', httpMethod: 'POST', events: ['document.received', 'expense.approved'], payloadMapping: { "event": "{{eventName}}", "employee": "{{employeeName}}", "data": "{{eventData}}" } as Record<string, string>, headers: {} as Record<string, string> }
             }
           ].map(tpl => (
             <button

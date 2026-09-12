@@ -8,7 +8,7 @@ import {
     ClipboardCheck
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useVisitor } from '../../context/VisitorContext';
+import { useVisitor } from '../../context/useVisitor';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 
 export default function TrustSection() {

@@ -13,6 +13,7 @@
 import cron from 'node-cron';
 import prisma from '../lib/prisma';
 import { addDays, addWeeks, addMonths, addYears } from 'date-fns';
+import { areLegacyOperationsEnabled } from '../middlewares/legacyOperationsMiddleware';
 
 // ─── helpers ─────────────────────────────────────────────
 
@@ -134,6 +135,11 @@ export async function runRecurringInterventions(): Promise<{
     generated: number;
     errors: number;
 }> {
+    if (!areLegacyOperationsEnabled()) {
+        console.log('🔄 [Recurring] Legacy operations disabled — skipping recurring intervention generation.');
+        return { processed: 0, generated: 0, errors: 0 };
+    }
+
     const now = new Date();
     console.log(`🔄 [Recurring] Running check at ${now.toISOString()}`);
 

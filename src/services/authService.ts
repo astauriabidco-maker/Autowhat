@@ -17,7 +17,11 @@ function isResetTestTenant(config: unknown): boolean {
  * @param phoneNumber The phone number to search for.
  * @returns Employee with Tenant or null if not found.
  */
-export const identifyUser = async (phoneNumber: string) => {
+export const identifyUser = async (phoneNumber: string, options?: { tenantIds?: string[] }) => {
+    if (options?.tenantIds && options.tenantIds.length === 0) {
+        return null;
+    }
+
     // Simple cleanup: remove spaces and hyphens to match E.164 loose formatting if needed.
     // Assuming the DB stores standard strict E.164, we might just pass it through.
     // But the prompt asked to handle spaces or dashes.
@@ -31,6 +35,7 @@ export const identifyUser = async (phoneNumber: string) => {
             tenant: {
                 status: 'ACTIVE'
             },
+            ...(options?.tenantIds ? { tenantId: { in: options.tenantIds } } : {}),
             OR: [
                 { phoneNumber: cleanedPhoneNumber },
                 { phoneNumber: withoutPlus },

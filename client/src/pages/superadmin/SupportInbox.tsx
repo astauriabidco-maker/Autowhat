@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import {
     Inbox,
@@ -55,17 +55,12 @@ export default function SupportInbox() {
     const getToken = () => localStorage.getItem('superadmin_token');
 
     useEffect(() => {
-        fetchTickets();
-        fetchStats();
-    }, [filter]);
-
-    useEffect(() => {
         if (selectedTicket) {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
-    }, [selectedTicket?.messages]);
+    }, [selectedTicket]);
 
-    const fetchTickets = async () => {
+    const fetchTickets = useCallback(async () => {
         try {
             const params = filter ? { status: filter } : {};
             const res = await axios.get('/admin/tickets', {
@@ -78,9 +73,9 @@ export default function SupportInbox() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [filter]);
 
-    const fetchStats = async () => {
+    const fetchStats = useCallback(async () => {
         try {
             const res = await axios.get('/admin/tickets/stats', {
                 headers: { Authorization: `Bearer ${getToken()}` }
@@ -89,7 +84,12 @@ export default function SupportInbox() {
         } catch (error) {
             console.error('Error fetching stats:', error);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchTickets();
+        fetchStats();
+    }, [fetchTickets, fetchStats]);
 
     const fetchTicketDetail = async (id: string) => {
         try {
