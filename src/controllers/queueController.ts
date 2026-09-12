@@ -6,11 +6,11 @@
 import { Request, Response } from 'express';
 import {
     getQueueStats,
+    getQueueRuntimeStatus,
     pauseQueue,
-    resumeQueue,
-    isQueuePaused
+    resumeQueue
 } from '../services/queueService';
-import { isRedisEnabled } from '../services/redisConnection';
+import { getRedisRuntimeStatus, isRedisEnabled } from '../services/redisConnection';
 import prisma from '../lib/prisma';
 
 
@@ -21,9 +21,11 @@ import prisma from '../lib/prisma';
 export const getStats = async (req: Request, res: Response): Promise<void> => {
     try {
         const stats = await getQueueStats();
+        const runtime = getQueueRuntimeStatus();
 
         res.json({
             enabled: isRedisEnabled(),
+            redis: runtime.redis,
             ...stats
         });
     } catch (error: any) {
@@ -48,6 +50,7 @@ export const getHealth = async (req: Request, res: Response): Promise<void> => {
         });
 
         const stats = await getQueueStats();
+        const runtime = getQueueRuntimeStatus();
 
         // Determine health status
         let status: 'healthy' | 'warning' | 'critical' = 'healthy';
@@ -68,6 +71,23 @@ export const getHealth = async (req: Request, res: Response): Promise<void> => {
             issues.push('Queue is currently paused');
         }
 
+        if (!runtime.enabled) {
+            status = status === 'critical' ? 'critical' : 'warning';
+            issues.push('Redis is disabled; WhatsApp sends bypass the monitored queue');
+        } else if (!runtime.redis.configured) {
+            status = 'critical';
+            issues.push('Redis is enabled but REDIS_URL is not configured');
+        } else if (!runtime.initialized) {
+            status = 'critical';
+            issues.push('Redis is enabled but WhatsApp queue is not initialized');
+        } else if (!runtime.workerRunning) {
+            status = 'critical';
+            issues.push('WhatsApp queue worker is not running');
+        } else if (runtime.redis.lastError) {
+            status = status === 'critical' ? 'critical' : 'warning';
+            issues.push(`Redis reported an error: ${runtime.redis.lastError}`);
+        }
+
         // Check failed jobs
         if (stats.failed > 50) {
             status = status === 'critical' ? 'critical' : 'warning';
@@ -78,6 +98,9 @@ export const getHealth = async (req: Request, res: Response): Promise<void> => {
             status,
             issues,
             redisEnabled: isRedisEnabled(),
+            redis: getRedisRuntimeStatus(),
+            queueInitialized: stats.initialized,
+            queueWorkerRunning: runtime.workerRunning,
             queuePaused: stats.paused,
             qualityScore: config?.whatsappQualityScore || 'GREEN',
             lastQualityAlert: config?.whatsappQualityAlert,
@@ -103,6 +126,11 @@ export const pause = async (req: Request, res: Response): Promise<void> => {
     try {
         if (!isRedisEnabled()) {
             res.status(400).json({ error: 'Redis non activé - queue désactivée' });
+            return;
+        }
+
+        if (!getQueueRuntimeStatus().initialized) {
+            res.status(503).json({ error: 'Queue WhatsApp non initialisée' });
             return;
         }
 
@@ -133,6 +161,11 @@ export const resume = async (req: Request, res: Response): Promise<void> => {
     try {
         if (!isRedisEnabled()) {
             res.status(400).json({ error: 'Redis non activé - queue désactivée' });
+            return;
+        }
+
+        if (!getQueueRuntimeStatus().initialized) {
+            res.status(503).json({ error: 'Queue WhatsApp non initialisée' });
             return;
         }
 

@@ -7,6 +7,15 @@ import IORedis from 'ioredis';
 
 // Singleton instance
 let redisConnection: IORedis | null = null;
+let lastRedisErrorMessage: string | null = null;
+
+export interface RedisRuntimeStatus {
+    enabled: boolean;
+    configured: boolean;
+    connected: boolean;
+    status: string;
+    lastError: string | null;
+}
 
 /**
  * Check if Redis is enabled via environment
@@ -54,10 +63,12 @@ export function getRedisConnection(): IORedis {
         });
 
         redisConnection.on('connect', () => {
+            lastRedisErrorMessage = null;
             console.log('✅ Redis connected successfully');
         });
 
         redisConnection.on('error', (err) => {
+            lastRedisErrorMessage = err.message;
             console.error('❌ Redis connection error:', err.message);
         });
 
@@ -69,6 +80,18 @@ export function getRedisConnection(): IORedis {
     return redisConnection;
 }
 
+export function getRedisRuntimeStatus(): RedisRuntimeStatus {
+    const status = redisConnection?.status || 'not_initialized';
+
+    return {
+        enabled: isRedisEnabled(),
+        configured: Boolean(process.env.REDIS_URL),
+        connected: status === 'ready',
+        status,
+        lastError: lastRedisErrorMessage
+    };
+}
+
 /**
  * Close the Redis connection gracefully
  */
@@ -76,6 +99,7 @@ export async function closeRedisConnection(): Promise<void> {
     if (redisConnection) {
         await redisConnection.quit();
         redisConnection = null;
+        lastRedisErrorMessage = null;
         console.log('🔌 Redis connection closed gracefully');
     }
 }
@@ -83,5 +107,6 @@ export async function closeRedisConnection(): Promise<void> {
 export default {
     getRedisConnection,
     closeRedisConnection,
-    isRedisEnabled
+    isRedisEnabled,
+    getRedisRuntimeStatus
 };

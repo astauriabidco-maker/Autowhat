@@ -12,6 +12,14 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 
+function getStripeObjectId(value: string | { id?: string } | null | undefined): string | null {
+    if (!value) {
+        return null;
+    }
+
+    return typeof value === 'string' ? value : value.id ?? null;
+}
+
 /**
  * POST /api/webhooks/stripe
  * Handles Stripe webhook events (signature verified)
@@ -111,8 +119,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
         return;
     }
 
-    const customerId = session.customer as string;
-    const subscriptionId = session.subscription as string;
+    const customerId = getStripeObjectId(session.customer as any);
+    const subscriptionId = getStripeObjectId(session.subscription as any);
 
     // Use metadata from checkout for initial setup
     const limit = planLimit ? parseInt(planLimit) : 1000;
@@ -128,6 +136,23 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
             trialEndsAt: null  // Clear trial
         }
     });
+
+    if (customerId && stripe && (stripe as any).customers?.update) {
+        try {
+            await (stripe as any).customers.update(customerId, {
+                metadata: {
+                    tenantId,
+                    planName: planName || 'PRO'
+                }
+            });
+        } catch (error: any) {
+            logWebhookEvent('warn', 'stripe.customer_metadata_update_failed', {
+                tenantId,
+                customerIdHash: hashLogIdentifier(customerId),
+                error: sanitizeError(error)
+            });
+        }
+    }
 
     logWebhookEvent('info', 'stripe.checkout_completed', {
         tenantId,

@@ -10,7 +10,7 @@
  */
 
 import { Queue, Worker, Job, QueueEvents } from 'bullmq';
-import { getRedisConnection, isRedisEnabled } from './redisConnection';
+import { getRedisConnection, getRedisRuntimeStatus, isRedisEnabled, RedisRuntimeStatus } from './redisConnection';
 
 // Types for queue jobs
 export interface WhatsAppJob {
@@ -29,6 +29,15 @@ export interface QueueStats {
     failed: number;
     delayed: number;
     paused: boolean;
+    initialized: boolean;
+}
+
+export interface QueueRuntimeStatus {
+    enabled: boolean;
+    initialized: boolean;
+    workerRunning: boolean;
+    eventsInitialized: boolean;
+    redis: RedisRuntimeStatus;
 }
 
 // Singleton instances
@@ -139,17 +148,21 @@ export async function getQueueStats(): Promise<QueueStats> {
             completed: 0,
             failed: 0,
             delayed: 0,
-            paused: false
+            paused: false,
+            initialized: false
         };
     }
 
-    const [waiting, active, completed, failed, delayed] = await Promise.all([
+    const [waiting, active, completed, failed, delayed, paused] = await Promise.all([
         whatsappQueue.getWaitingCount(),
         whatsappQueue.getActiveCount(),
         whatsappQueue.getCompletedCount(),
         whatsappQueue.getFailedCount(),
-        whatsappQueue.getDelayedCount()
+        whatsappQueue.getDelayedCount(),
+        whatsappQueue.isPaused()
     ]);
+
+    isPaused = paused;
 
     return {
         waiting,
@@ -157,7 +170,20 @@ export async function getQueueStats(): Promise<QueueStats> {
         completed,
         failed,
         delayed,
-        paused: isPaused
+        paused,
+        initialized: true
+    };
+}
+
+export function getQueueRuntimeStatus(): QueueRuntimeStatus {
+    const worker = whatsappWorker;
+
+    return {
+        enabled: isRedisEnabled(),
+        initialized: Boolean(whatsappQueue),
+        workerRunning: worker?.isRunning() || false,
+        eventsInitialized: Boolean(queueEvents),
+        redis: getRedisRuntimeStatus()
     };
 }
 
@@ -165,22 +191,26 @@ export async function getQueueStats(): Promise<QueueStats> {
  * Pause the queue (emergency stop)
  */
 export async function pauseQueue(): Promise<void> {
-    if (whatsappQueue) {
-        await whatsappQueue.pause();
-        isPaused = true;
-        console.log('⏸️ WhatsApp queue PAUSED');
+    if (!whatsappQueue) {
+        throw new Error('WhatsApp queue is not initialized');
     }
+
+    await whatsappQueue.pause();
+    isPaused = true;
+    console.log('⏸️ WhatsApp queue PAUSED');
 }
 
 /**
  * Resume the queue
  */
 export async function resumeQueue(): Promise<void> {
-    if (whatsappQueue) {
-        await whatsappQueue.resume();
-        isPaused = false;
-        console.log('▶️ WhatsApp queue RESUMED');
+    if (!whatsappQueue) {
+        throw new Error('WhatsApp queue is not initialized');
     }
+
+    await whatsappQueue.resume();
+    isPaused = false;
+    console.log('▶️ WhatsApp queue RESUMED');
 }
 
 /**
@@ -228,5 +258,6 @@ export default {
     resumeQueue,
     isQueuePaused,
     closeQueue,
-    updateRateLimit
+    updateRateLimit,
+    getQueueRuntimeStatus
 };

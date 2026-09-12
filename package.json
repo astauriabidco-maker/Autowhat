@@ -17,6 +17,8 @@
     "verify": "npm run typecheck && npm run prisma:validate && npm run test && npm run build",
     "verify:full": "npm run verify && npm run test:integration && npm run test:e2e",
     "env:check": "ts-node scripts/checkProductionEnv.ts",
+    "env:check:strict": "ts-node scripts/checkProductionEnv.ts --strict-warnings",
+    "prod:readiness": "npm run env:check:strict && npm run typecheck && npm run prisma:validate",
     "migrate:whatsapp-tokens": "ts-node scripts/migrateWhatsappTokensToGcm.ts",
     "db:backup": "bash scripts/db-backup.sh",
     "db:restore": "bash scripts/db-restore.sh",

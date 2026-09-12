@@ -10,6 +10,28 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5174';
 
+type TenantWithStripeCustomer = {
+    id: string;
+    stripeCustomerId?: string | null;
+};
+
+async function resolveStripeCustomerId(tenant: TenantWithStripeCustomer): Promise<string | null> {
+    if (tenant.stripeCustomerId) {
+        return tenant.stripeCustomerId;
+    }
+
+    if (!stripe) {
+        return null;
+    }
+
+    const customers = await stripe.customers.search({
+        query: `metadata['tenantId']:'${tenant.id}'`,
+        limit: 1
+    });
+
+    return customers.data[0]?.id ?? null;
+}
+
 /**
  * POST /api/billing/checkout
  * Creates a Stripe Checkout Session for subscription
@@ -52,7 +74,9 @@ export const createCheckout = async (req: Request, res: Response): Promise<void>
             select: {
                 id: true,
                 name: true,
-                plan: true
+                plan: true,
+                stripeCustomerId: true,
+                subscriptionStatus: true
             }
         });
 
@@ -61,9 +85,15 @@ export const createCheckout = async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        // Check if already on this exact plan
-        if (tenant.plan === plan.name) {
+        // Check if already on this exact active plan
+        if (tenant.plan === plan.name && ['active', 'trialing'].includes(tenant.subscriptionStatus || '')) {
             res.status(400).json({ error: `Vous êtes déjà sur le plan ${plan.name}` });
+            return;
+        }
+
+        const maxEmployees = Number(plan.maxEmployees);
+        if (!Number.isInteger(maxEmployees) || maxEmployees <= 0) {
+            res.status(500).json({ error: 'Configuration du plan invalide' });
             return;
         }
 
@@ -71,6 +101,7 @@ export const createCheckout = async (req: Request, res: Response): Promise<void>
         const sessionParams: Stripe.Checkout.SessionCreateParams = {
             mode: 'subscription',
             payment_method_types: ['card'],
+            client_reference_id: tenantId,
             line_items: [
                 {
                     price: priceId,
@@ -82,16 +113,20 @@ export const createCheckout = async (req: Request, res: Response): Promise<void>
             metadata: {
                 tenantId: tenantId,
                 planName: plan.name,
-                planLimit: plan.limit.toString()
+                planLimit: maxEmployees.toString()
             },
             subscription_data: {
                 metadata: {
                     tenantId: tenantId,
                     planName: plan.name,
-                    planLimit: plan.limit.toString()
+                    planLimit: maxEmployees.toString()
                 }
             }
         };
+
+        if (tenant.stripeCustomerId) {
+            sessionParams.customer = tenant.stripeCustomerId;
+        }
 
         const session = await stripe.checkout.sessions.create(sessionParams);
 
@@ -126,7 +161,7 @@ export const createPortal = async (req: Request, res: Response): Promise<void> =
         // Get tenant with Stripe customer ID
         const tenant = await prisma.tenant.findUnique({
             where: { id: tenantId },
-            select: { id: true, name: true }
+            select: { id: true, name: true, stripeCustomerId: true }
         });
 
         if (!tenant) {
@@ -134,18 +169,11 @@ export const createPortal = async (req: Request, res: Response): Promise<void> =
             return;
         }
 
-        // Search for customer by tenant metadata
-        const customers = await stripe.customers.search({
-            query: `metadata['tenantId']:'${tenantId}'`,
-            limit: 1
-        });
-
-        if (customers.data.length === 0) {
+        const stripeCustomerId = await resolveStripeCustomerId(tenant);
+        if (!stripeCustomerId) {
             res.status(400).json({ error: 'Aucun abonnement Stripe trouvé' });
             return;
         }
-
-        const stripeCustomerId = customers.data[0].id;
 
         // Create portal session
         const session = await stripe.billingPortal.sessions.create({
@@ -231,7 +259,7 @@ export const getInvoices = async (req: Request, res: Response): Promise<void> =>
         // Get tenant's Stripe customer ID
         const tenant = await prisma.tenant.findUnique({
             where: { id: tenantId },
-            select: { id: true, name: true }
+            select: { id: true, name: true, stripeCustomerId: true }
         });
 
         if (!tenant) {
@@ -239,19 +267,11 @@ export const getInvoices = async (req: Request, res: Response): Promise<void> =>
             return;
         }
 
-        // For now, we need to find the customer by metadata or stored ID
-        // Since stripeCustomerId might not be in schema, we'll search by metadata
-        const customers = await stripe.customers.search({
-            query: `metadata['tenantId']:'${tenantId}'`,
-            limit: 1
-        });
-
-        if (customers.data.length === 0) {
+        const stripeCustomerId = await resolveStripeCustomerId(tenant);
+        if (!stripeCustomerId) {
             res.status(200).json([]);
             return;
         }
-
-        const stripeCustomerId = customers.data[0].id;
 
         // Fetch invoices from Stripe
         const invoices = await stripe.invoices.list({
@@ -294,7 +314,7 @@ export const getTenantInvoices = async (req: Request, res: Response): Promise<vo
         // Verify tenant exists
         const tenant = await prisma.tenant.findUnique({
             where: { id: tenantId },
-            select: { id: true, name: true }
+            select: { id: true, name: true, stripeCustomerId: true }
         });
 
         if (!tenant) {
@@ -302,18 +322,11 @@ export const getTenantInvoices = async (req: Request, res: Response): Promise<vo
             return;
         }
 
-        // Search for customer by tenant metadata
-        const customers = await stripe.customers.search({
-            query: `metadata['tenantId']:'${tenantId}'`,
-            limit: 1
-        });
-
-        if (customers.data.length === 0) {
+        const stripeCustomerId = await resolveStripeCustomerId(tenant);
+        if (!stripeCustomerId) {
             res.status(200).json([]);
             return;
         }
-
-        const stripeCustomerId = customers.data[0].id;
 
         // Fetch invoices
         const invoices = await stripe.invoices.list({

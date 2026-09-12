@@ -2,6 +2,17 @@
 
 Runbook court pour preparer une beta/production Autowhat. Il ne remplace pas les tests P0, mais donne la checklist operationnelle minimale.
 
+## Go/No-Go Solo
+
+Ne pas lancer une production client tant que ces points ne sont pas verts:
+
+- `npm run prod:readiness` passe avec les variables finales de l'hebergeur.
+- Les secrets prod sont uniques par environnement et distincts entre eux: `JWT_SECRET`, `ENCRYPTION_KEY`, `FILE_URL_SECRET`, `LOG_HASH_SECRET`, tokens Meta/Stripe/SMTP.
+- `BASE_URL`, `BACKEND_URL`, `APP_URL`, `FRONTEND_URL` et `CORS_ORIGINS` pointent uniquement vers les domaines HTTPS publics attendus.
+- Les backups Postgres sont actifs (`MANAGED_DATABASE_BACKUPS=true` ou script `db:backup` planifie hors conteneur) et une restauration a ete testee sur une base separee.
+- Au moins une alerte arrive au solopreneur: `OPERATIONAL_ALERT_EMAILS`, `WHATSAPP_POOL_ALERT_EMAILS`, `SENTRY_DSN` ou un monitoring uptime externe.
+- Les smoke tests manuels critiques passent: `/api/health`, login superadmin, login manager, dashboard, upload document, URL fichier signee, webhooks Stripe/Meta.
+
 ## Checklist Env Production
 
 ### Preproduction Coolify
@@ -46,6 +57,8 @@ Variables obligatoires:
 - `AUTH_COOKIE_SECURE=true`
 - `AUTH_COOKIE_CROSS_SITE=true` seulement si frontend et backend sont sur des domaines differents
 - `AUTH_COOKIE_SAME_SITE=lax` pour meme site, `none` seulement avec cookies cross-site securises
+- `MANAGED_DATABASE_BACKUPS=true` si l'hebergeur gere les backups, sinon `BACKUP_DIR`/`BACKUP_DATABASE_URL` pour le script planifie
+- `OPERATIONAL_ALERT_EMAILS` ou une alternative de monitoring (`SENTRY_DSN`, `UPTIME_MONITOR_URL`, `WHATSAPP_POOL_ALERT_EMAILS`)
 
 Variables selon modules actifs:
 
@@ -59,7 +72,7 @@ Avant deploy:
 
 - Ne jamais reutiliser les secrets de `.env.example`.
 - Utiliser `.env.production.example` comme checklist de variables, mais stocker les valeurs reelles dans le secret manager de l'hebergeur.
-- Lancer `npm run env:check` avec les variables de l'environnement de production; la commande doit passer avant migration/start. Le script `scripts/start-prod.sh` relance aussi ce controle avec le code compile avant `prisma migrate deploy`.
+- Lancer `npm run env:check` avec les variables de l'environnement de production; la commande doit passer avant migration/start. Pour le go/no-go final, lancer `npm run env:check:strict` ou `npm run prod:readiness` afin de bloquer aussi sur les avertissements operationnels. Le script `scripts/start-prod.sh` relance aussi le controle bloquant avec le code compile avant `prisma migrate deploy`.
 - Verifier que `.env` n'est pas suivi par Git.
 - Verifier que les logs applicatifs ne contiennent pas tokens, secrets, payloads WhatsApp complets ou donnees RH inutiles.
 - Definir une procedure de rotation pour `JWT_SECRET`, `ENCRYPTION_KEY`, tokens WhatsApp, Stripe et SMTP.
@@ -169,6 +182,7 @@ Minimum beta:
 - stockage hors machine applicative,
 - alerte en cas d'echec,
 - test de restauration au moins avant ouverture beta puis mensuel.
+- `MANAGED_DATABASE_BACKUPS=true` dans l'env si les snapshots hebergeur couvrent ce besoin; sinon planifier `npm run db:backup` depuis un runner hors conteneur applicatif.
 
 Script projet:
 
@@ -323,9 +337,20 @@ Avant beta client:
 - verifier Stripe en mode live seulement quand les webhooks live sont valides,
 - verifier que les queues Redis ne stockent pas de credentials complets plus longtemps que necessaire.
 
+## Alerting Minimal
+
+Pour un lancement solo, viser simple et verifiable:
+
+- Uptime externe sur `/api/health`, avec notification email ou mobile.
+- Alerte applicative vers `OPERATIONAL_ALERT_EMAILS` ou `SENTRY_DSN` si un outil d'erreurs est branche.
+- `WHATSAPP_POOL_ALERT_EMAILS` configure si les jobs WhatsApp tournent.
+- Test reel d'alerte avant beta: provoquer une alerte non destructive ou utiliser le bouton/test de l'outil externe.
+- Regle de reaction: si backup, login, paiement ou webhook Meta echoue, geler les deploys jusqu'a diagnostic.
+
 ## Checklist Pre-Beta
 
 - Build backend et frontend valides.
+- `npm run prod:readiness` passe avec l'env finale ou les avertissements restants sont documentes.
 - `prisma migrate deploy` valide sur base fraiche.
 - `prisma migrate deploy` valide sur copie d'une base existante.
 - Superadmin cree avec mot de passe fort puis secret retire de l'env si possible.

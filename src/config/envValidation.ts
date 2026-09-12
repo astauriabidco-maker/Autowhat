@@ -123,6 +123,39 @@ function requireUrl(
     }
 }
 
+function requireDistinctValues(
+    env: NodeJS.ProcessEnv,
+    issues: EnvValidationIssue[],
+    variables: string[]
+): void {
+    const seen = new Map<string, string>();
+
+    for (const variable of variables) {
+        const value = valueOf(env, variable);
+        if (!value) continue;
+
+        const previous = seen.get(value);
+        if (previous) {
+            addIssue(issues, 'error', variable, `must be distinct from ${previous}`);
+            continue;
+        }
+
+        seen.set(value, variable);
+    }
+}
+
+function requireBoolean(env: NodeJS.ProcessEnv, issues: EnvValidationIssue[], variable: string): void {
+    const value = valueOf(env, variable);
+    if (!value) {
+        addIssue(issues, 'error', variable, 'is required in production');
+        return;
+    }
+
+    if (!['true', 'false'].includes(value)) {
+        addIssue(issues, 'error', variable, 'must be either true or false');
+    }
+}
+
 function validateCore(env: NodeJS.ProcessEnv, issues: EnvValidationIssue[]): void {
     if (!hasValue(env, 'DATABASE_URL')) {
         addIssue(issues, 'error', 'DATABASE_URL', 'is required in production');
@@ -141,16 +174,12 @@ function validateCore(env: NodeJS.ProcessEnv, issues: EnvValidationIssue[]): voi
     requireSecret(env, issues, 'FILE_URL_SECRET');
     requireSecret(env, issues, 'LOG_HASH_SECRET');
 
-    if (hasValue(env, 'JWT_SECRET') && valueOf(env, 'JWT_SECRET') === valueOf(env, 'FILE_URL_SECRET')) {
-        addIssue(issues, 'error', 'FILE_URL_SECRET', 'must be distinct from JWT_SECRET');
-    }
-
-    if (hasValue(env, 'LOG_HASH_SECRET') && valueOf(env, 'LOG_HASH_SECRET') === valueOf(env, 'JWT_SECRET')) {
-        addIssue(issues, 'error', 'LOG_HASH_SECRET', 'must be distinct from JWT_SECRET');
-    }
+    requireDistinctValues(env, issues, ['ENCRYPTION_KEY', 'JWT_SECRET', 'FILE_URL_SECRET', 'LOG_HASH_SECRET']);
 
     requireUrl(env, issues, 'FRONTEND_URL');
     requireUrl(env, issues, 'BACKEND_URL');
+    requireUrl(env, issues, 'BASE_URL');
+    requireUrl(env, issues, 'APP_URL');
 
     const corsOrigins = valueOf(env, 'CORS_ORIGINS');
     if (!corsOrigins) {
@@ -216,9 +245,15 @@ function validateRedis(env: NodeJS.ProcessEnv, issues: EnvValidationIssue[]): vo
     } else if (isLocalUrl(redisUrl)) {
         addIssue(issues, 'error', 'REDIS_URL', 'must not point to localhost in production');
     }
+
+    if (valueOf(env, 'RATE_LIMIT_REDIS_PASS_ON_ERROR') === 'true') {
+        addIssue(issues, 'warning', 'RATE_LIMIT_REDIS_PASS_ON_ERROR', 'is true in production; use only during a documented incident');
+    }
 }
 
 function validateDemoAndFlags(env: NodeJS.ProcessEnv, issues: EnvValidationIssue[]): void {
+    requireBoolean(env, issues, 'DEMO_MODE');
+
     if (valueOf(env, 'DEMO_MODE') === 'true') {
         addIssue(issues, 'error', 'DEMO_MODE', 'must be false in production');
     }
@@ -229,6 +264,30 @@ function validateDemoAndFlags(env: NodeJS.ProcessEnv, issues: EnvValidationIssue
 
     if (valueOf(env, 'ENABLE_LEGACY_OPERATIONS') === 'true') {
         addIssue(issues, 'warning', 'ENABLE_LEGACY_OPERATIONS', 'is enabled in production; retired operations surfaces are reachable');
+    }
+}
+
+function validateOperationalReadiness(env: NodeJS.ProcessEnv, issues: EnvValidationIssue[]): void {
+    const managedBackups = valueOf(env, 'MANAGED_DATABASE_BACKUPS') === 'true';
+    const backupScriptConfigured = hasValue(env, 'BACKUP_DATABASE_URL') || hasValue(env, 'BACKUP_DIR');
+    if (!managedBackups && !backupScriptConfigured) {
+        addIssue(issues, 'warning', 'MANAGED_DATABASE_BACKUPS', 'is not true and BACKUP_DIR/BACKUP_DATABASE_URL is not set; confirm an external database backup exists before launch');
+    }
+
+    const alertTargets = [
+        'OPERATIONAL_ALERT_EMAILS',
+        'WHATSAPP_POOL_ALERT_EMAILS',
+        'SUPERADMIN_ALERT_EMAILS',
+        'SUPERADMIN_ALERT_EMAIL',
+        'SENTRY_DSN',
+        'UPTIME_MONITOR_URL'
+    ];
+    if (!alertTargets.some(variable => hasValue(env, variable))) {
+        addIssue(issues, 'warning', 'OPERATIONAL_ALERT_EMAILS', 'or SENTRY_DSN/UPTIME_MONITOR_URL should be configured so production failures reach the solo operator');
+    }
+
+    if (valueOf(env, 'ENABLE_JOBS') !== 'false' && valueOf(env, 'USE_REDIS') !== 'true') {
+        addIssue(issues, 'warning', 'USE_REDIS', 'is not true while jobs may run; Redis-backed queues/rate limits are recommended for production');
     }
 }
 
@@ -260,6 +319,7 @@ export function validateProductionEnv(env: NodeJS.ProcessEnv = process.env): Env
     validateStripe(env, issues);
     validateRedis(env, issues);
     validateDemoAndFlags(env, issues);
+    validateOperationalReadiness(env, issues);
     validateCookies(env, issues);
 
     return {

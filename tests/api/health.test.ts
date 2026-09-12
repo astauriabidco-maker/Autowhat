@@ -12,9 +12,17 @@ describe('GET /api/health', () => {
             .get('/api/health')
             .expect(200);
 
-        expect(response.body).toEqual({
+        expect(response.body).toEqual(expect.objectContaining({
             status: 'online',
-            message: 'WhatsPoint API is running'
-        });
-    });
+            message: 'WhatsPoint API is running',
+            timestamp: expect.any(String),
+            uptimeSeconds: expect.any(Number),
+            environment: expect.any(String),
+            redis: expect.objectContaining({
+                enabled: false,
+                connected: false,
+                status: 'not_initialized'
+            })
+        }));
+    }, 15000);
 });

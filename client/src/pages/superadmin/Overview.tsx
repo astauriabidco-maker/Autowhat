@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Building2,
@@ -11,7 +11,11 @@ import {
     ArrowDown,
     CheckCircle,
     Circle,
-    UserPlus
+    UserPlus,
+    Headphones,
+    Server,
+    ArrowRight,
+    AlertTriangle
 } from 'lucide-react';
 
 interface Stats {
@@ -101,35 +105,86 @@ interface OnboardingFunnel {
     }>;
 }
 
+interface SupportStats {
+    open: number;
+    inProgress: number;
+    resolved: number;
+    closed: number;
+    total: number;
+}
+
+interface QueueHealth {
+    status: 'healthy' | 'warning' | 'critical';
+    issues: string[];
+    queuePaused: boolean;
+    qualityScore: 'GREEN' | 'YELLOW' | 'RED' | null;
+    stats: {
+        waiting: number;
+        active: number;
+        completed: number;
+        failed: number;
+        delayed: number;
+    };
+}
+
+interface AnalyticsData {
+    funnel: {
+        activeTrials: number;
+        converted: number;
+        conversionRate: number;
+        expiredTrials: number;
+    };
+    currentMRR: number;
+    projectedARR: number;
+}
+
+const fetchAdminJson = async <T,>(path: string, token: string | null): Promise<T> => {
+    const response = await fetch(path, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch ${path}`);
+    }
+
+    return response.json();
+};
+
 export default function Overview() {
     const navigate = useNavigate();
     const [stats, setStats] = useState<Stats | null>(null);
     const [onboarding, setOnboarding] = useState<OnboardingFunnel | null>(null);
+    const [supportStats, setSupportStats] = useState<SupportStats | null>(null);
+    const [queueHealth, setQueueHealth] = useState<QueueHealth | null>(null);
+    const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchStats();
-    }, []);
-
-    const fetchStats = async () => {
+    const fetchStats = useCallback(async () => {
         try {
             const token = localStorage.getItem('superadmin_token');
-            const [statsResponse, onboardingResponse] = await Promise.all([
-                fetch('/admin/stats', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                }),
-                fetch('/admin/onboarding-funnel', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                })
+            const [statsResult, onboardingResult, supportResult, healthResult, analyticsResult] = await Promise.allSettled([
+                fetchAdminJson<Stats>('/admin/stats', token),
+                fetchAdminJson<OnboardingFunnel>('/admin/onboarding-funnel', token),
+                fetchAdminJson<SupportStats>('/admin/tickets/stats', token),
+                fetchAdminJson<QueueHealth>('/admin/queue/health', token),
+                fetchAdminJson<AnalyticsData>('/admin/analytics', token)
             ]);
-            setStats(await statsResponse.json());
-            setOnboarding(await onboardingResponse.json());
+
+            if (statsResult.status === 'fulfilled') setStats(statsResult.value);
+            if (onboardingResult.status === 'fulfilled') setOnboarding(onboardingResult.value);
+            if (supportResult.status === 'fulfilled') setSupportStats(supportResult.value);
+            if (healthResult.status === 'fulfilled') setQueueHealth(healthResult.value);
+            if (analyticsResult.status === 'fulfilled') setAnalytics(analyticsResult.value);
         } catch (error) {
             console.error('Error fetching stats:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchStats();
+    }, [fetchStats]);
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('fr-FR', {
@@ -150,6 +205,12 @@ export default function Overview() {
         .sort((a, b) => b.daysBlocked - a.daysBlocked)
         .slice(0, 4) || [];
 
+    const topBlockedStep = onboarding?.blockers?.topStepLabel;
+    const openTickets = (supportStats?.open || 0) + (supportStats?.inProgress || 0);
+    const failedJobs = queueHealth?.stats.failed || 0;
+    const healthNeedsAttention = queueHealth?.status === 'critical' || queueHealth?.status === 'warning' || queueHealth?.queuePaused || failedJobs > 0;
+    const trialPressure = analytics?.funnel.expiredTrials || 0;
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -160,6 +221,96 @@ export default function Overview() {
 
     return (
         <div className="space-y-6">
+            {/* Founder Action Center */}
+            <div className="bg-slate-950 rounded-xl shadow-sm border border-slate-800 p-6 text-white">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
+                    <div>
+                        <p className="text-sm font-semibold text-red-300 uppercase tracking-wide">À traiter maintenant</p>
+                        <h2 className="text-2xl font-bold mt-1">Cockpit solopreneur</h2>
+                        <p className="text-sm text-slate-300 mt-1">Les signaux qui disent quoi relancer, répondre ou surveiller en premier.</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <button
+                        onClick={() => navigate('/superadmin/tenants')}
+                        className="text-left rounded-lg border border-amber-400/30 bg-amber-400/10 p-4 hover:bg-amber-400/15 transition"
+                    >
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="p-2 bg-amber-400/20 rounded-lg">
+                                <UserPlus size={20} className="text-amber-200" />
+                            </div>
+                            <ArrowRight size={18} className="text-amber-200" />
+                        </div>
+                        <p className="text-3xl font-bold mt-4">{onboarding?.blockers?.totalBlocked || 0}</p>
+                        <p className="text-sm font-semibold text-amber-100 mt-1">Clients à relancer</p>
+                        <p className="text-xs text-amber-100/75 mt-2">
+                            {topBlockedStep ? `Blocage principal: ${topBlockedStep}.` : 'Aucun blocage onboarding détecté.'}
+                        </p>
+                    </button>
+
+                    <button
+                        onClick={() => navigate('/superadmin/support')}
+                        className="text-left rounded-lg border border-sky-400/30 bg-sky-400/10 p-4 hover:bg-sky-400/15 transition"
+                    >
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="p-2 bg-sky-400/20 rounded-lg">
+                                <Headphones size={20} className="text-sky-200" />
+                            </div>
+                            <ArrowRight size={18} className="text-sky-200" />
+                        </div>
+                        <p className="text-3xl font-bold mt-4">{openTickets}</p>
+                        <p className="text-sm font-semibold text-sky-100 mt-1">Tickets ouverts</p>
+                        <p className="text-xs text-sky-100/75 mt-2">
+                            {supportStats ? `${supportStats.open} nouveaux, ${supportStats.inProgress} en cours.` : 'Stats support indisponibles.'}
+                        </p>
+                    </button>
+
+                    <button
+                        onClick={() => navigate('/superadmin/health')}
+                        className={`text-left rounded-lg border p-4 transition ${healthNeedsAttention
+                            ? 'border-red-400/40 bg-red-400/10 hover:bg-red-400/15'
+                            : 'border-emerald-400/30 bg-emerald-400/10 hover:bg-emerald-400/15'
+                            }`}
+                    >
+                        <div className="flex items-start justify-between gap-3">
+                            <div className={`p-2 rounded-lg ${healthNeedsAttention ? 'bg-red-400/20' : 'bg-emerald-400/20'}`}>
+                                {healthNeedsAttention ? (
+                                    <AlertTriangle size={20} className="text-red-200" />
+                                ) : (
+                                    <Server size={20} className="text-emerald-200" />
+                                )}
+                            </div>
+                            <ArrowRight size={18} className={healthNeedsAttention ? 'text-red-200' : 'text-emerald-200'} />
+                        </div>
+                        <p className="text-3xl font-bold mt-4">{failedJobs}</p>
+                        <p className={`text-sm font-semibold mt-1 ${healthNeedsAttention ? 'text-red-100' : 'text-emerald-100'}`}>
+                            Erreurs / health
+                        </p>
+                        <p className={`text-xs mt-2 ${healthNeedsAttention ? 'text-red-100/75' : 'text-emerald-100/75'}`}>
+                            {queueHealth ? `${queueHealth.status}${queueHealth.queuePaused ? ' · queue en pause' : ''}` : 'Santé serveur indisponible.'}
+                        </p>
+                    </button>
+
+                    <button
+                        onClick={() => navigate('/superadmin/revenue')}
+                        className="text-left rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-4 hover:bg-emerald-400/15 transition"
+                    >
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="p-2 bg-emerald-400/20 rounded-lg">
+                                <DollarSign size={20} className="text-emerald-200" />
+                            </div>
+                            <ArrowRight size={18} className="text-emerald-200" />
+                        </div>
+                        <p className="text-3xl font-bold mt-4">{analytics?.currentMRR || stats?.mrr || 0}€</p>
+                        <p className="text-sm font-semibold text-emerald-100 mt-1">Revenus & trials</p>
+                        <p className="text-xs text-emerald-100/75 mt-2">
+                            {analytics ? `${trialPressure} trials expirés, ${analytics.funnel.activeTrials} actifs.` : 'Analytics indisponibles.'}
+                        </p>
+                    </button>
+                </div>
+            </div>
+
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* Total Clients */}

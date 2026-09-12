@@ -116,6 +116,17 @@ async function shouldNotifyFingerprint(fingerprint: string, force: boolean): Pro
     return { shouldNotify: true, backend: 'memory' };
 }
 
+async function clearStoredFingerprint(): Promise<void> {
+    lastAlertFingerprint = null;
+    if (!isRedisEnabled()) return;
+
+    try {
+        await getRedisConnection().del(ALERT_FINGERPRINT_KEY);
+    } catch (error) {
+        console.warn('[WhatsApp Pool Health] Redis fingerprint reset failed:', error);
+    }
+}
+
 export async function runWhatsAppPoolHealthAlert(options: { force?: boolean } = {}): Promise<{
     success: boolean;
     alertsDetected: number;
@@ -128,14 +139,7 @@ export async function runWhatsAppPoolHealthAlert(options: { force?: boolean } = 
     const health = await getSystemNumberPoolHealth();
 
     if (health.alerts.length === 0) {
-        lastAlertFingerprint = null;
-        if (isRedisEnabled()) {
-            try {
-                await getRedisConnection().del(ALERT_FINGERPRINT_KEY);
-            } catch (error) {
-                console.warn('[WhatsApp Pool Health] Redis fingerprint reset failed:', error);
-            }
-        }
+        await clearStoredFingerprint();
         return {
             success: true,
             alertsDetected: 0,
@@ -162,7 +166,7 @@ export async function runWhatsAppPoolHealthAlert(options: { force?: boolean } = 
 
     const recipients = await resolveRecipients();
     if (recipients.length === 0) {
-        lastAlertFingerprint = fingerprint;
+        await clearStoredFingerprint();
         console.warn('[WhatsApp Pool Health] Alerts detected but no superadmin recipient configured.');
         console.warn(alertText(health.alerts));
         return {
@@ -189,6 +193,19 @@ export async function runWhatsAppPoolHealthAlert(options: { force?: boolean } = 
             text: `Sante du pool WhatsApp\n\n${alertText(health.alerts)}`
         });
         if (sent) notificationsSent++;
+    }
+
+    if (notificationsSent === 0) {
+        await clearStoredFingerprint();
+        return {
+            success: false,
+            alertsDetected: health.summary.totalAlerts,
+            criticalAlerts: health.summary.criticalAlerts,
+            warningAlerts: health.summary.warningAlerts,
+            notificationsSent,
+            dedupeBackend: dedupe.backend,
+            skippedReason: 'EMAIL_SEND_FAILED'
+        };
     }
 
     lastAlertFingerprint = fingerprint;

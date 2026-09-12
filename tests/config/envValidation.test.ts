@@ -10,10 +10,14 @@ const VALID_PRODUCTION_ENV = {
     LOG_HASH_SECRET: 'p5L9xQ2vM8nR4cT7wY1zK6dF3hG0sJ2b',
     FRONTEND_URL: 'https://app.whatspoint.com',
     BACKEND_URL: 'https://api.whatspoint.com',
+    BASE_URL: 'https://api.whatspoint.com',
+    APP_URL: 'https://app.whatspoint.com',
     CORS_ORIGINS: 'https://app.whatspoint.com',
     WHATSAPP_APP_SECRET: 'meta-app-secret-at-least-24-chars',
     WEBHOOK_VERIFY_TOKEN: 'verify-token-at-least-24-chars',
     DEMO_MODE: 'false',
+    MANAGED_DATABASE_BACKUPS: 'true',
+    OPERATIONAL_ALERT_EMAILS: 'ops@whatspoint.com',
     AUTH_COOKIE_SECURE: 'true',
     AUTH_COOKIE_SAME_SITE: 'lax',
     AUTH_COOKIE_CROSS_SITE: 'false',
@@ -41,6 +45,8 @@ describe('envValidation', () => {
             LOG_HASH_SECRET: 'your-secure-jwt-secret',
             FRONTEND_URL: 'http://localhost:5180',
             BACKEND_URL: 'http://localhost:3005',
+            BASE_URL: 'http://localhost:3005',
+            APP_URL: 'http://localhost:5180',
             CORS_ORIGINS: 'http://localhost:5180',
             DEMO_MODE: 'true',
             AUTH_COOKIE_SECURE: 'false'
@@ -56,6 +62,8 @@ describe('envValidation', () => {
                 'LOG_HASH_SECRET',
                 'FRONTEND_URL',
                 'BACKEND_URL',
+                'BASE_URL',
+                'APP_URL',
                 'CORS_ORIGINS',
                 'WHATSAPP_APP_SECRET',
                 'WEBHOOK_VERIFY_TOKEN',
@@ -85,6 +93,24 @@ describe('envValidation', () => {
                 'STRIPE_WEBHOOK_SECRET',
                 'STRIPE_PRICE_PRO',
                 'STRIPE_PRICE_ENTERPRISE'
+            ]));
+    });
+
+    it('warns when backup and alerting readiness are not declared', () => {
+        const result = validateProductionEnv({
+            ...VALID_PRODUCTION_ENV,
+            MANAGED_DATABASE_BACKUPS: '',
+            OPERATIONAL_ALERT_EMAILS: '',
+            WHATSAPP_POOL_ALERT_EMAILS: '',
+            SENTRY_DSN: '',
+            UPTIME_MONITOR_URL: ''
+        });
+
+        expect(result.ok).toBe(true);
+        expect(result.issues.filter(issue => issue.severity === 'warning').map(issue => issue.variable))
+            .toEqual(expect.arrayContaining([
+                'MANAGED_DATABASE_BACKUPS',
+                'OPERATIONAL_ALERT_EMAILS'
             ]));
     });
 

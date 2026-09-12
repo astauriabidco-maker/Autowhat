@@ -6,6 +6,7 @@ import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import fs from 'fs';
 import path from 'path';
+import { getRedisRuntimeStatus } from './services/redisConnection';
 
 dotenv.config();
 
@@ -98,9 +99,16 @@ app.use('/uploads', (_req, res) => {
 
 // Health Check (Pour vérifier que le serveur tourne)
 app.get('/api/health', (req, res) => {
+    const redis = getRedisRuntimeStatus();
+    const status = redis.enabled && redis.lastError ? 'degraded' : 'online';
+
     res.status(200).json({
-        status: 'online',
-        message: 'WhatsPoint API is running'
+        status,
+        message: 'WhatsPoint API is running',
+        timestamp: new Date().toISOString(),
+        uptimeSeconds: Math.floor(process.uptime()),
+        environment: process.env.NODE_ENV || 'development',
+        redis
     });
 });
 
