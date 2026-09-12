@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { getTemplate } from '../config/industryTemplates';
 import { sendWelcomeEmail, sendPasswordResetEmail } from '../services/emailService';
 import { assignNumberToTenant } from '../services/numberAllocationService';
-import { sendMessage } from '../services/whatsappService';
+import { sendRawMessage, sendRawTemplateMessage, WhatsAppTemplateComponent } from '../services/whatsappService';
 import { getDefaultConfig } from '../services/whatsappConfigService';
 import { consumeManagerMagicLoginToken } from '../services/managerMagicLoginService';
 import prisma from '../lib/prisma';
@@ -523,12 +523,36 @@ export const requestOtp = async (req: Request, res: Response): Promise<void> => 
             data: { otpCode, otpExpiresAt },
         });
 
-        // Send OTP via WhatsApp using the SYSTEM number (not BYON)
-        // This ensures the manager can always receive their code
+        // Send OTP via WhatsApp using the SYSTEM number (not BYON).
+        // Login codes bypass the async queue so delivery errors stay visible.
         const systemConfig = getDefaultConfig();
-        const otpMessage = `🔐 *Code de connexion WhatsPoint*\n\nVotre code : *${otpCode}*\n\n⏰ Valable 10 minutes.\n⚠️ Ne partagez jamais ce code.`;
+        const otpTemplateName = process.env.WHATSAPP_LOGIN_OTP_TEMPLATE;
+        const otpTemplateLang = process.env.WHATSAPP_LOGIN_OTP_TEMPLATE_LANG || 'fr';
 
-        await sendMessage(cleanPhone, otpMessage, systemConfig);
+        if (!systemConfig.phoneNumberId || !systemConfig.accessToken) {
+            throw new Error('Default WhatsApp credentials are not configured');
+        }
+
+        const sendResult = otpTemplateName
+            ? await sendRawTemplateMessage(
+                cleanPhone,
+                otpTemplateName,
+                otpTemplateLang,
+                [{
+                    type: 'body',
+                    parameters: [{ type: 'text', text: otpCode }]
+                } satisfies WhatsAppTemplateComponent],
+                systemConfig
+            )
+            : await sendRawMessage(
+                cleanPhone,
+                `Code de connexion WhatsPoint: ${otpCode}\nValable 10 minutes. Ne partagez jamais ce code.`,
+                systemConfig
+            );
+
+        if (!sendResult.success) {
+            throw new Error(sendResult.error || 'WhatsApp OTP send failed');
+        }
 
         console.log(`📱 OTP sent to ${cleanPhone} for ${employee.name}`);
 

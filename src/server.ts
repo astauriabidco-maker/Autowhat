@@ -97,9 +97,9 @@ function startJobs() {
                     return;
             }
 
-            // If rate limited (429), throw to trigger retry
-            if (!result.success && result.statusCode === 429) {
-                throw new Error('Rate limited by Meta API');
+            // Any Meta send failure must be visible in queue monitoring.
+            if (!result.success) {
+                throw new Error(result.error || 'WhatsApp send failed');
             }
         };
 
