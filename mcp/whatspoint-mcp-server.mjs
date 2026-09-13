@@ -47,6 +47,31 @@ const tools = [
             },
             additionalProperties: false
         }
+    },
+    {
+        name: 'sendEmployeeMessage',
+        description: 'Envoie un message WhatsApp à un collaborateur du tenant. Requiert le scope messages:send et une clé d’idempotence.',
+        inputSchema: {
+            type: 'object',
+            required: ['employeeId', 'message', 'idempotencyKey'],
+            properties: {
+                employeeId: {
+                    type: 'string',
+                    minLength: 1
+                },
+                message: {
+                    type: 'string',
+                    minLength: 1,
+                    maxLength: 4000
+                },
+                idempotencyKey: {
+                    type: 'string',
+                    minLength: 8,
+                    maxLength: 120
+                }
+            },
+            additionalProperties: false
+        }
     }
 ];
 
@@ -75,16 +100,20 @@ function sendError(id, code, message, data) {
     });
 }
 
-async function callWhatsPoint(path) {
+async function callWhatsPoint(path, options = {}) {
     if (!apiKey) {
         throw new Error('WHATSPOINT_API_KEY is required.');
     }
 
     const response = await fetch(`${apiBaseUrl}${path}`, {
+        method: options.method || 'GET',
         headers: {
             Accept: 'application/json',
-            Authorization: `Bearer ${apiKey}`
-        }
+            Authorization: `Bearer ${apiKey}`,
+            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+            ...(options.headers || {})
+        },
+        body: options.body ? JSON.stringify(options.body) : undefined
     });
     const text = await response.text();
     const body = text ? JSON.parse(text) : null;
@@ -98,6 +127,14 @@ async function callWhatsPoint(path) {
     }
 
     return body;
+}
+
+function requireString(value, fieldName) {
+    if (typeof value !== 'string' || !value.trim()) {
+        throw new Error(`${fieldName} is required.`);
+    }
+
+    return value.trim();
 }
 
 function contentResponse(data) {
@@ -129,6 +166,27 @@ async function handleToolCall(params = {}) {
         if (typeof args.to === 'string') query.set('to', args.to);
         const suffix = query.size > 0 ? `?${query.toString()}` : '';
         return contentResponse(await callWhatsPoint(`/api/v1/attendance/summary${suffix}`));
+    }
+
+    if (params.name === 'sendEmployeeMessage') {
+        const employeeId = requireString(args.employeeId, 'employeeId');
+        const message = requireString(args.message, 'message');
+        const idempotencyKey = requireString(args.idempotencyKey, 'idempotencyKey');
+
+        if (idempotencyKey.length < 8 || idempotencyKey.length > 120) {
+            throw new Error('idempotencyKey must be between 8 and 120 characters.');
+        }
+
+        return contentResponse(await callWhatsPoint('/api/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Idempotency-Key': idempotencyKey
+            },
+            body: {
+                employeeId,
+                message
+            }
+        }));
     }
 
     throw new Error(`Unknown tool: ${params.name}`);

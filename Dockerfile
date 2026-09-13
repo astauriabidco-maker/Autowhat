@@ -60,6 +60,7 @@ COPY --from=backend-builder /app/dist ./dist
 # Optionnel: scripts si appelés dynamiquement
 COPY --from=backend-builder /app/scripts ./scripts
 COPY --from=backend-builder /app/docs ./docs
+COPY mcp ./mcp
 RUN chmod +x scripts/start-prod.sh
 
 # Copier le dossier frontend compilé (le backend va le servir)
