@@ -1,0 +1,109 @@
+import crypto from 'crypto';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const prismaMock = vi.hoisted(() => ({
+    webhookConfig: {
+        findMany: vi.fn(),
+        findUnique: vi.fn(),
+        update: vi.fn()
+    },
+    webhookLog: {
+        create: vi.fn(),
+        findMany: vi.fn(),
+        update: vi.fn()
+    }
+}));
+
+vi.mock('../../src/lib/prisma', () => ({
+    default: prismaMock
+}));
+
+describe('webhookService outgoing contract', () => {
+    const fetchMock = vi.fn();
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.stubGlobal('fetch', fetchMock);
+        fetchMock.mockResolvedValue(new Response('ok', { status: 200 }));
+        prismaMock.webhookConfig.update.mockResolvedValue({});
+        prismaMock.webhookLog.create.mockResolvedValue({});
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('sends leave webhooks with a stable event id and WhatsPoint signature headers', async () => {
+        prismaMock.webhookConfig.findMany.mockResolvedValue([
+            {
+                id: 'webhook_kalldy',
+                name: 'Kalldy POC',
+                url: 'https://kalldy.test/webhooks/whatspoint',
+                secret: 'kalldy-secret',
+                events: ['leave.approved'],
+                isActive: true,
+                tenantId: 'tenant_fr',
+                headers: {
+                    'X-Partner': 'Kalldy',
+                    'X-WhatsPoint-Signature': 'sha256=bad-custom-signature'
+                },
+                httpMethod: 'POST',
+                payloadMapping: null
+            }
+        ]);
+
+        const { WEBHOOK_EVENTS, dispatchWebhook } = await import('../../src/services/webhookService');
+        const leavePayload = {
+            status: 'APPROVED',
+            businessDays: 6,
+            leaveRequestId: 'leave_123',
+            startDate: new Date('2026-06-10T00:00:00.000Z'),
+            endDate: new Date('2026-06-17T00:00:00.000Z')
+        };
+
+        await dispatchWebhook(WEBHOOK_EVENTS.LEAVE_APPROVED, leavePayload, 'tenant_fr');
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            'https://kalldy.test/webhooks/whatspoint',
+            expect.objectContaining({ method: 'POST' })
+        );
+
+        const [, request] = fetchMock.mock.calls[0];
+        const body = JSON.parse(request.body);
+        const expectedSignature = `sha256=${crypto
+            .createHmac('sha256', 'kalldy-secret')
+            .update(request.body)
+            .digest('hex')}`;
+
+        expect(body).toEqual(expect.objectContaining({
+            eventId: expect.stringMatching(/^wp_evt_[a-f0-9]{32}$/),
+            event: 'leave.approved',
+            tenantId: 'tenant_fr',
+            data: expect.objectContaining({
+                leaveRequestId: 'leave_123',
+                status: 'APPROVED'
+            })
+        }));
+        expect(request.headers).toEqual(expect.objectContaining({
+            'X-Partner': 'Kalldy',
+            'X-WhatsPoint-Event': 'leave.approved',
+            'X-WhatsPoint-Event-Id': body.eventId,
+            'X-WhatsPoint-Timestamp': body.timestamp,
+            'X-WhatsPoint-Signature': expectedSignature,
+            'X-Webhook-Event': 'leave.approved',
+            'X-Webhook-Event-Id': body.eventId,
+            'X-Webhook-Signature': expectedSignature
+        }));
+
+        await dispatchWebhook(WEBHOOK_EVENTS.LEAVE_APPROVED, {
+            endDate: new Date('2026-06-17T00:00:00.000Z'),
+            leaveRequestId: 'leave_123',
+            businessDays: 6,
+            status: 'APPROVED',
+            startDate: new Date('2026-06-10T00:00:00.000Z')
+        }, 'tenant_fr');
+
+        const secondBody = JSON.parse(fetchMock.mock.calls[1][1].body);
+        expect(secondBody.eventId).toBe(body.eventId);
+    });
+});

@@ -24,6 +24,12 @@ export const WEBHOOK_EVENTS = {
     LEAVE_APPROVED: 'leave.approved',
     LEAVE_REJECTED: 'leave.rejected',
 
+    // Documents
+    DOCUMENT_RECEIVED: 'document.received',
+
+    // Messages
+    MESSAGE_STATUS_UPDATED: 'message.status.updated',
+
     // Geofencing
     GEOFENCE_ALERT: 'geofence.alert',
 
@@ -35,6 +41,7 @@ export const WEBHOOK_EVENTS = {
 export type WebhookEventType = typeof WEBHOOK_EVENTS[keyof typeof WEBHOOK_EVENTS];
 
 interface WebhookPayload {
+    eventId: string;
     event: WebhookEventType;
     timestamp: string;
     tenantId?: string;
@@ -49,6 +56,65 @@ function generateSignature(payload: string, secret: string): string {
         .createHmac('sha256', secret)
         .update(payload)
         .digest('hex');
+}
+
+function normalizeForHash(value: unknown): unknown {
+    if (value instanceof Date) {
+        return value.toISOString();
+    }
+
+    if (Array.isArray(value)) {
+        return value.map(normalizeForHash);
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.keys(value as Record<string, unknown>)
+            .sort()
+            .reduce<Record<string, unknown>>((normalized, key) => {
+                normalized[key] = normalizeForHash((value as Record<string, unknown>)[key]);
+                return normalized;
+            }, {});
+    }
+
+    return value;
+}
+
+function createWebhookEventId(eventType: WebhookEventType | 'test', tenantId: string | undefined, data: Record<string, any>): string {
+    const canonicalPayload = JSON.stringify(normalizeForHash({
+        event: eventType,
+        tenantId: tenantId || null,
+        data
+    }));
+    const hash = crypto.createHash('sha256').update(canonicalPayload).digest('hex').slice(0, 32);
+
+    return `wp_evt_${hash}`;
+}
+
+function buildWebhookHeaders(params: {
+    event: WebhookEventType | 'test';
+    eventId: string;
+    timestamp: string;
+    userAgent?: string;
+}): Record<string, string> {
+    return {
+        'Content-Type': 'application/json',
+        'User-Agent': params.userAgent || 'WhatsPoint-Webhook/1.0',
+        'X-WhatsPoint-Event': params.event,
+        'X-WhatsPoint-Event-Id': params.eventId,
+        'X-WhatsPoint-Timestamp': params.timestamp,
+        // Legacy headers kept for existing integrations.
+        'X-Webhook-Event': params.event,
+        'X-Webhook-Event-Id': params.eventId,
+        'X-Webhook-Timestamp': params.timestamp
+    };
+}
+
+function applyWebhookSignature(headers: Record<string, string>, payloadString: string, secret?: string | null) {
+    if (secret) {
+        const signature = generateSignature(payloadString, secret);
+        headers['X-WhatsPoint-Signature'] = `sha256=${signature}`;
+        headers['X-Webhook-Signature'] = `sha256=${signature}`;
+    }
 }
 
 /**
@@ -112,10 +178,13 @@ async function sendWebhook(
     tenantId?: string
 ): Promise<void> {
     const startTime = Date.now();
+    const timestamp = new Date().toISOString();
+    const eventId = createWebhookEventId(eventType, tenantId, data);
 
     const payload: WebhookPayload = {
+        eventId,
         event: eventType,
-        timestamp: new Date().toISOString(),
+        timestamp,
         tenantId,
         data
     };
@@ -141,23 +210,17 @@ async function sendWebhook(
     const payloadString = JSON.stringify(finalPayload);
 
     // Build headers
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'User-Agent': 'AutoWhats-Webhook/1.0',
-        'X-Webhook-Event': eventType,
-        'X-Webhook-Timestamp': payload.timestamp
-    };
+    const headers = buildWebhookHeaders({
+        event: eventType,
+        eventId,
+        timestamp
+    });
 
     // Apply custom headers from config
     if (config.headers && typeof config.headers === 'object') {
         Object.assign(headers, config.headers);
     }
-
-    // Add signature if secret is configured
-    if (config.secret) {
-        const signature = generateSignature(payloadString, config.secret);
-        headers['X-Webhook-Signature'] = `sha256=${signature}`;
-    }
+    applyWebhookSignature(headers, payloadString, config.secret);
 
     let statusCode: number | null = null;
     let responseBody: string | null = null;
@@ -257,9 +320,14 @@ export async function testWebhook(webhookId: string): Promise<{ success: boolean
     }
 
     const startTime = Date.now();
+    const timestamp = new Date().toISOString();
     const payload = {
+        eventId: createWebhookEventId('test', webhook.tenantId || undefined, {
+            webhookId: webhook.id,
+            webhookName: webhook.name
+        }),
         event: 'test',
-        timestamp: new Date().toISOString(),
+        timestamp,
         data: {
             message: 'This is a test webhook from AutoWhats',
             webhookId: webhook.id,
@@ -268,16 +336,12 @@ export async function testWebhook(webhookId: string): Promise<{ success: boolean
     };
 
     const payloadString = JSON.stringify(payload);
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'User-Agent': 'AutoWhats-Webhook/1.0',
-        'X-Webhook-Event': 'test'
-    };
-
-    if (webhook.secret) {
-        const signature = generateSignature(payloadString, webhook.secret);
-        headers['X-Webhook-Signature'] = `sha256=${signature}`;
-    }
+    const headers = buildWebhookHeaders({
+        event: 'test',
+        eventId: payload.eventId,
+        timestamp
+    });
+    applyWebhookSignature(headers, payloadString, webhook.secret);
 
     try {
         const controller = new AbortController();
@@ -345,12 +409,18 @@ export async function processWebhookQueue(): Promise<void> {
                 continue;
             }
 
-            const payloadString = JSON.stringify(log.payload);
-            const headers: Record<string, string> = {
-                'Content-Type': 'application/json',
-                'User-Agent': 'AutoWhats-Webhook-Retry/1.0',
-                'X-Webhook-Event': log.eventType
-            };
+            const payload = log.payload as Record<string, any>;
+            const payloadString = JSON.stringify(payload);
+            const retryTimestamp = typeof payload.timestamp === 'string' ? payload.timestamp : new Date().toISOString();
+            const retryEventId = typeof payload.eventId === 'string'
+                ? payload.eventId
+                : createWebhookEventId(log.eventType as WebhookEventType, config.tenantId || undefined, payload.data || payload);
+            const headers = buildWebhookHeaders({
+                event: log.eventType as WebhookEventType,
+                eventId: retryEventId,
+                timestamp: retryTimestamp,
+                userAgent: 'WhatsPoint-Webhook-Retry/1.0'
+            });
 
             // Apply custom headers from config
             let customHeaders = config.headers;
@@ -360,11 +430,7 @@ export async function processWebhookQueue(): Promise<void> {
             if (customHeaders && typeof customHeaders === 'object') {
                 Object.assign(headers, customHeaders);
             }
-
-            if (config.secret) {
-                const signature = generateSignature(payloadString, config.secret);
-                headers['X-Webhook-Signature'] = `sha256=${signature}`;
-            }
+            applyWebhookSignature(headers, payloadString, config.secret);
 
             let statusCode: number | null = null;
             let responseBody: string | null = null;
