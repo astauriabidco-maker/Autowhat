@@ -14,6 +14,8 @@ describe('GET /api/docs/public-v1.yaml', () => {
 
         expect(response.headers['content-type']).toContain('application/yaml');
         expect(response.text).toContain('title: WhatsPoint Public API');
+        expect(response.text).toContain('/api/v1/employees:');
+        expect(response.text).toContain('/api/v1/attendance/summary:');
         expect(response.text).toContain('/api/v1/messages:');
         expect(response.text).toContain('/admin/tenants/{tenantId}/api-keys:');
     }, 15000);

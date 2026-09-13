@@ -4,6 +4,8 @@ import prisma from '../lib/prisma';
 
 export const PUBLIC_API_SCOPES = [
     'tenant:read',
+    'employees:read',
+    'attendance:read',
     'messages:send'
 ] as const;
 

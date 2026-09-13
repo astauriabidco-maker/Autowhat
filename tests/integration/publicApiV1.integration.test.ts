@@ -203,6 +203,82 @@ describeIntegration('public API v1 foundation', () => {
         expect(JSON.stringify(idempotencyRecord.responseBody)).not.toContain(seeded.employee.phoneNumber);
     });
 
+    it('exposes read-only employee and attendance data for MCP without raw PII', async () => {
+        const seeded = await seedTenantGraph('PublicApiMcp');
+        const checkIn = new Date('2026-09-12T07:05:00.000Z');
+        const checkOut = new Date('2026-09-12T15:45:00.000Z');
+        await prisma.attendance.create({
+            data: {
+                employeeId: seeded.employee.id,
+                tenantId: seeded.tenant.id,
+                siteId: seeded.site.id,
+                checkIn,
+                checkOut,
+                status: 'LATE',
+                gpsVerdict: 'WARNING',
+                locationWarning: true,
+                latitude: 48.8566,
+                longitude: 2.3522,
+                photoUrl: 'https://storage.example/private-proof.jpg'
+            }
+        });
+        const { token } = await createPublicApiKey({
+            tenantId: seeded.tenant.id,
+            name: 'MCP read-only',
+            scopes: ['employees:read', 'attendance:read']
+        });
+        const { createApp } = await import('../../src/app');
+        const app = createApp();
+
+        await request(app)
+            .get('/api/v1/employees?limit=10')
+            .set('Authorization', `Bearer ${token}`)
+            .expect(200)
+            .expect(({ body }) => {
+                expect(body.data.employees).toEqual(
+                    expect.arrayContaining([
+                        expect.objectContaining({
+                            id: seeded.employee.id,
+                            name: seeded.employee.name,
+                            phoneLast4: seeded.employee.phoneNumber.slice(-4),
+                            site: expect.objectContaining({
+                                id: seeded.site.id,
+                                name: seeded.site.name
+                            })
+                        })
+                    ])
+                );
+                expect(JSON.stringify(body)).not.toContain(seeded.employee.phoneNumber);
+            });
+
+        await request(app)
+            .get('/api/v1/attendance/summary?from=2026-09-12T00:00:00.000Z&to=2026-09-13T00:00:00.000Z')
+            .set('Authorization', `Bearer ${token}`)
+            .expect(200)
+            .expect(({ body }) => {
+                expect(body.data.totals).toMatchObject({
+                    records: 1,
+                    late: 1,
+                    gpsWarnings: 1
+                });
+                expect(body.data.daily).toEqual([
+                    expect.objectContaining({
+                        date: '2026-09-12',
+                        records: 1,
+                        late: 1
+                    })
+                ]);
+                expect(body.data.recentRecords[0]).toMatchObject({
+                    id: expect.any(String),
+                    status: 'LATE',
+                    gpsVerdict: 'WARNING',
+                    hasLocationWarning: true
+                });
+                expect(JSON.stringify(body)).not.toContain('48.8566');
+                expect(JSON.stringify(body)).not.toContain('storage.example');
+            });
+    });
+
     it('rejects idempotency conflicts and cross-tenant recipients', async () => {
         const tenantA = await seedTenantGraph('PublicApiTenantA');
         const tenantB = await seedTenantGraph('PublicApiTenantB');

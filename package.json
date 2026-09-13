@@ -19,6 +19,7 @@
     "env:check": "ts-node scripts/checkProductionEnv.ts",
     "env:check:runtime": "node scripts/checkProductionEnv.js",
     "env:check:strict": "node scripts/checkProductionEnv.js --strict-warnings",
+    "mcp:whatspoint": "node mcp/whatspoint-mcp-server.mjs",
     "prod:readiness": "npm run env:check:strict",
     "migrate:whatsapp-tokens": "ts-node scripts/migrateWhatsappTokensToGcm.ts",
     "db:backup": "bash scripts/db-backup.sh",

@@ -33,6 +33,63 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/employees:
+    get:
+      tags: [Public API]
+      summary: Lister les collaborateurs actifs du tenant.
+      description: Réponse compatible MCP, sans numéro de téléphone complet.
+      security:
+        - publicApiKey: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Collaborateurs actifs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/attendance/summary:
+    get:
+      tags: [Public API]
+      summary: Synthèse des pointages du tenant.
+      description: Fenêtre limitée à 31 jours, sans coordonnées GPS ni justificatifs.
+      security:
+        - publicApiKey: []
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Synthèse de présence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceSummaryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/messages:
     post:
       tags: [Public API]
@@ -241,7 +298,7 @@ components:
           type: array
           items:
             type: string
-            enum: [tenant:read, messages:send]
+            enum: [tenant:read, employees:read, attendance:read, messages:send]
         expiresAt:
           type: string
           format: date-time
@@ -276,6 +333,150 @@ components:
           type: array
           items:
             type: string
+    EmployeeListResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            employees:
+              type: array
+              items:
+                $ref: "#/components/schemas/EmployeeSummary"
+            pagination:
+              type: object
+              properties:
+                limit:
+                  type: integer
+                returned:
+                  type: integer
+        meta:
+          $ref: "#/components/schemas/PublicApiMeta"
+    EmployeeSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          nullable: true
+        role:
+          type: string
+          example: EMPLOYEE
+        language:
+          type: string
+          example: fr
+        workProfile:
+          type: string
+          example: SEDENTARY
+        phoneLast4:
+          type: string
+          nullable: true
+          description: Quatre derniers chiffres uniquement.
+        hasCompletedOnboarding:
+          type: boolean
+        isOptedOut:
+          type: boolean
+        site:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/SiteSummary"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    SiteSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        country:
+          type: string
+        gpsMode:
+          type: string
+    AttendanceSummaryResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            range:
+              type: object
+              properties:
+                from:
+                  type: string
+                  format: date-time
+                to:
+                  type: string
+                  format: date-time
+            totals:
+              $ref: "#/components/schemas/AttendanceCounts"
+            daily:
+              type: array
+              items:
+                allOf:
+                  - type: object
+                    properties:
+                      date:
+                        type: string
+                        format: date
+                  - $ref: "#/components/schemas/AttendanceCounts"
+            recentRecords:
+              type: array
+              items:
+                $ref: "#/components/schemas/AttendanceRecordSummary"
+        meta:
+          $ref: "#/components/schemas/PublicApiMeta"
+    AttendanceCounts:
+      type: object
+      properties:
+        records:
+          type: integer
+        present:
+          type: integer
+        late:
+          type: integer
+        absent:
+          type: integer
+        openSessions:
+          type: integer
+        gpsWarnings:
+          type: integer
+    AttendanceRecordSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        employee:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+              nullable: true
+        site:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/SiteSummary"
+        checkIn:
+          type: string
+          format: date-time
+        checkOut:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+        gpsVerdict:
+          type: string
+          nullable: true
+        hasLocationWarning:
+          type: boolean
     PublicApiMeta:
       type: object
       properties:

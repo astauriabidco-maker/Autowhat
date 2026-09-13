@@ -28,6 +28,33 @@ function publicApiEnvelope(res: Response, data: Prisma.InputJsonValue): Prisma.I
     };
 }
 
+function parseBoundedLimit(value: unknown, fallback = 50, max = 200): number {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return fallback;
+    }
+
+    return Math.min(Math.floor(parsed), max);
+}
+
+function parseDateQuery(value: unknown): Date | null {
+    if (typeof value !== 'string' || !value.trim()) {
+        return null;
+    }
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDateKey(date: Date): string {
+    return date.toISOString().slice(0, 10);
+}
+
+function maskPhoneLast4(phoneNumber: string | null): string | null {
+    const digits = phoneNumber?.replace(/\D/g, '') ?? '';
+    return digits.length >= 4 ? digits.slice(-4) : null;
+}
+
 export async function getMe(req: Request, res: Response): Promise<void> {
     if (!req.publicApi) {
         sendPublicApiError(res, 401, 'unauthorized', 'Invalid or missing API key.');
@@ -48,6 +75,179 @@ export async function getMe(req: Request, res: Response): Promise<void> {
             prefix: req.publicApi.apiKeyPrefix,
             scopes: req.publicApi.scopes
         }
+    });
+}
+
+export async function listEmployees(req: Request, res: Response): Promise<void> {
+    if (!req.publicApi) {
+        sendPublicApiError(res, 401, 'unauthorized', 'Invalid or missing API key.');
+        return;
+    }
+
+    const limit = parseBoundedLimit(req.query.limit);
+    const employees = await prisma.employee.findMany({
+        where: {
+            tenantId: req.publicApi.tenantId,
+            role: { not: 'ARCHIVED' }
+        },
+        select: {
+            id: true,
+            name: true,
+            role: true,
+            language: true,
+            workProfile: true,
+            phoneNumber: true,
+            hasCompletedOnboarding: true,
+            isOptedOut: true,
+            createdAt: true,
+            updatedAt: true,
+            site: {
+                select: {
+                    id: true,
+                    name: true,
+                    country: true,
+                    gpsMode: true
+                }
+            }
+        },
+        orderBy: [
+            { role: 'asc' },
+            { name: 'asc' }
+        ],
+        take: limit
+    });
+
+    sendPublicApiData(res, {
+        employees: employees.map(employee => ({
+            id: employee.id,
+            name: employee.name,
+            role: employee.role,
+            language: employee.language,
+            workProfile: employee.workProfile,
+            phoneLast4: maskPhoneLast4(employee.phoneNumber),
+            hasCompletedOnboarding: employee.hasCompletedOnboarding,
+            isOptedOut: employee.isOptedOut,
+            site: employee.site,
+            createdAt: employee.createdAt,
+            updatedAt: employee.updatedAt
+        })),
+        pagination: {
+            limit,
+            returned: employees.length
+        }
+    });
+}
+
+export async function getAttendanceSummary(req: Request, res: Response): Promise<void> {
+    if (!req.publicApi) {
+        sendPublicApiError(res, 401, 'unauthorized', 'Invalid or missing API key.');
+        return;
+    }
+
+    const to = parseDateQuery(req.query.to) ?? new Date();
+    const from = parseDateQuery(req.query.from) ?? new Date(to.getTime() - 6 * 24 * 60 * 60 * 1000);
+    const rangeMs = to.getTime() - from.getTime();
+
+    if (rangeMs < 0) {
+        sendPublicApiError(res, 400, 'invalid_date_range', 'from must be before to.');
+        return;
+    }
+
+    if (rangeMs > 31 * 24 * 60 * 60 * 1000) {
+        sendPublicApiError(res, 400, 'date_range_too_large', 'Attendance summary range is limited to 31 days.');
+        return;
+    }
+
+    const records = await prisma.attendance.findMany({
+        where: {
+            tenantId: req.publicApi.tenantId,
+            checkIn: {
+                gte: from,
+                lte: to
+            }
+        },
+        select: {
+            id: true,
+            checkIn: true,
+            checkOut: true,
+            status: true,
+            gpsVerdict: true,
+            locationWarning: true,
+            employee: {
+                select: {
+                    id: true,
+                    name: true,
+                    site: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
+                    }
+                }
+            }
+        },
+        orderBy: { checkIn: 'desc' },
+        take: 500
+    });
+
+    const totals = {
+        records: records.length,
+        present: 0,
+        late: 0,
+        absent: 0,
+        openSessions: 0,
+        gpsWarnings: 0
+    };
+    const daily = new Map<string, typeof totals>();
+
+    for (const record of records) {
+        const status = record.status.toUpperCase();
+        totals.present += status === 'PRESENT' ? 1 : 0;
+        totals.late += status === 'LATE' ? 1 : 0;
+        totals.absent += status === 'ABSENT' ? 1 : 0;
+        totals.openSessions += record.checkOut ? 0 : 1;
+        totals.gpsWarnings += record.locationWarning || record.gpsVerdict === 'WARNING' ? 1 : 0;
+
+        const key = formatDateKey(record.checkIn);
+        const day = daily.get(key) ?? {
+            records: 0,
+            present: 0,
+            late: 0,
+            absent: 0,
+            openSessions: 0,
+            gpsWarnings: 0
+        };
+        day.records += 1;
+        day.present += status === 'PRESENT' ? 1 : 0;
+        day.late += status === 'LATE' ? 1 : 0;
+        day.absent += status === 'ABSENT' ? 1 : 0;
+        day.openSessions += record.checkOut ? 0 : 1;
+        day.gpsWarnings += record.locationWarning || record.gpsVerdict === 'WARNING' ? 1 : 0;
+        daily.set(key, day);
+    }
+
+    sendPublicApiData(res, {
+        range: {
+            from: from.toISOString(),
+            to: to.toISOString()
+        },
+        totals,
+        daily: Array.from(daily.entries())
+            .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+            .map(([date, counts]) => ({ date, ...counts })),
+        recentRecords: records.slice(0, 25).map(record => ({
+            id: record.id,
+            employee: {
+                id: record.employee.id,
+                name: record.employee.name
+            },
+            site: record.employee.site,
+            checkIn: record.checkIn,
+            checkOut: record.checkOut,
+            status: record.status,
+            gpsVerdict: record.gpsVerdict,
+            hasLocationWarning: record.locationWarning
+        }))
     });
 }
 
