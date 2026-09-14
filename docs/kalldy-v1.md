@@ -203,6 +203,8 @@ Le statut superadmin du connecteur Kalldy v1 expose:
 - evenements manquants.
 - historique recent des livraisons avec `eventId`, statut, HTTP, latence, retries et prochaine tentative.
 
+Le panneau `/superadmin/integrations` permet aussi d'envoyer un test controle par evenement actif. Chaque test demande une confirmation navigateur avant emission vers Kalldy.
+
 Etats possibles:
 
 - `healthy`: dernier webhook reussi et contrat complet;

@@ -130,6 +130,7 @@ export default function Integrations() {
     const [customKey, setCustomKey] = useState({ provider: '', key: '', value: '' });
     const [kalldyStatus, setKalldyStatus] = useState<KalldyStatus | null>(null);
     const [savingKalldyWebhookId, setSavingKalldyWebhookId] = useState<string | null>(null);
+    const [testingKalldy, setTestingKalldy] = useState<string | null>(null);
 
     const token = localStorage.getItem('superadmin_token');
 
@@ -206,6 +207,28 @@ export default function Integrations() {
             alert('Erreur lors de la mise à jour des événements Kalldy');
         } finally {
             setSavingKalldyWebhookId(null);
+        }
+    };
+
+    const testKalldyEvent = async (webhookId: string, eventType: string) => {
+        const confirmed = confirm(`Envoyer un test "${eventType}" vers le connecteur Kalldy ?`);
+        if (!confirmed) return;
+
+        const testKey = `${webhookId}:${eventType}`;
+        setTestingKalldy(testKey);
+        try {
+            const res = await axios.post(`/admin/webhooks/${webhookId}/test`, { eventType }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            alert(res.data.success ? `Test "${res.data.eventType || eventType}" réussi.` : `Échec: ${res.data.error}`);
+            await fetchIntegrations();
+        } catch (error: unknown) {
+            const message = axios.isAxiosError(error)
+                ? error.response?.data?.error || error.response?.data?.message || error.message
+                : 'Erreur inconnue';
+            alert(`Erreur: ${message}`);
+        } finally {
+            setTestingKalldy(null);
         }
     };
 
@@ -374,6 +397,32 @@ export default function Integrations() {
                                                 Kalldy v1 doit être configuré sur un tenant précis avant activation.
                                             </p>
                                         )}
+                                    </div>
+                                    <div className="mt-4 border border-gray-100 rounded-lg p-3">
+                                        <p className="text-xs font-medium text-gray-500">Tests contrôlés</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
+                                            {kalldyStatus.requiredEvents.map(event => {
+                                                const testKey = `${webhook.id}:${event}`;
+                                                const disabled = !webhook.isActive || !webhook.tenantId || !webhook.events.includes(event) || testingKalldy !== null;
+
+                                                return (
+                                                    <button
+                                                        key={event}
+                                                        type="button"
+                                                        disabled={disabled}
+                                                        onClick={() => testKalldyEvent(webhook.id, event)}
+                                                        className="inline-flex items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        {testingKalldy === testKey ? (
+                                                            <Loader2 size={14} className="animate-spin" />
+                                                        ) : (
+                                                            <Activity size={14} />
+                                                        )}
+                                                        Tester {event}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                     {webhook.recentDeliveries.length > 0 && (
                                         <div className="mt-4 overflow-x-auto border border-gray-100 rounded-lg">
