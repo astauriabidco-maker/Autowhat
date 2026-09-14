@@ -85,7 +85,7 @@ Le fichier n'est pas envoye en base64 dans le webhook. Le payload doit contenir 
   "data": {
     "employeeRef": "emp_123",
     "employeePhoneNumber": "+33612345678",
-    "purpose": "sensitive_payroll_data_completion",
+    "purpose": "PROFILE_UPDATE",
     "deliveryChannel": "whatsapp",
     "secureLink": "https://testbed.fr.paie.kalldy.com/pwa/secure-intake/temporary-token",
     "secureLinkExpiresAt": "2026-06-01T10:40:00.000Z",

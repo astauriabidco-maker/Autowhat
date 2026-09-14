@@ -249,7 +249,7 @@ describe('webhookService outgoing contract', () => {
             data: expect.objectContaining({
                 employeeRef: 'emp_poc_001',
                 employeePhoneNumber: '+33612345678',
-                purpose: 'sensitive_payroll_data_completion',
+                purpose: 'PROFILE_UPDATE',
                 deliveryChannel: 'whatsapp',
                 sensitiveDataInWhatsApp: false
             })
