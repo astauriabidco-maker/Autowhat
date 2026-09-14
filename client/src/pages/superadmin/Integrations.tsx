@@ -129,6 +129,7 @@ export default function Integrations() {
     const [showAddCustom, setShowAddCustom] = useState(false);
     const [customKey, setCustomKey] = useState({ provider: '', key: '', value: '' });
     const [kalldyStatus, setKalldyStatus] = useState<KalldyStatus | null>(null);
+    const [savingKalldyWebhookId, setSavingKalldyWebhookId] = useState<string | null>(null);
 
     const token = localStorage.getItem('superadmin_token');
 
@@ -190,6 +191,21 @@ export default function Integrations() {
             alert('Erreur lors de la sauvegarde');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const updateKalldyEvents = async (webhookId: string, events: string[]) => {
+        setSavingKalldyWebhookId(webhookId);
+        try {
+            await axios.put(`/admin/integrations/kalldy/webhooks/${webhookId}/events`, { events }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            await fetchIntegrations();
+        } catch (error) {
+            console.error('Error updating Kalldy events:', error);
+            alert('Erreur lors de la mise à jour des événements Kalldy');
+        } finally {
+            setSavingKalldyWebhookId(null);
         }
     };
 
@@ -320,6 +336,45 @@ export default function Integrations() {
                                             Événements manquants: {webhook.missingEvents.join(', ')}
                                         </p>
                                     )}
+                                    <div className="mt-4 border border-gray-100 rounded-lg p-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-xs font-medium text-gray-500">Événements activés pour ce tenant</p>
+                                            {savingKalldyWebhookId === webhook.id && (
+                                                <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                                                    <Loader2 size={13} className="animate-spin" />
+                                                    Sauvegarde
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
+                                            {kalldyStatus.requiredEvents.map(event => {
+                                                const enabledEvents = kalldyStatus.requiredEvents.filter(requiredEvent => webhook.events.includes(requiredEvent));
+                                                const checked = enabledEvents.includes(event);
+                                                const nextEvents = checked
+                                                    ? enabledEvents.filter(currentEvent => currentEvent !== event)
+                                                    : [...enabledEvents, event];
+
+                                                return (
+                                                    <label key={event} className="flex items-center gap-2 text-sm text-gray-700">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={checked}
+                                                            disabled={savingKalldyWebhookId === webhook.id || !webhook.tenantId}
+                                                            onChange={() => updateKalldyEvents(webhook.id, nextEvents)}
+                                                            className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                                                        />
+                                                        <span className="truncate">{event}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                        {!webhook.tenantId && (
+                                            <p className="mt-3 flex items-center gap-2 text-xs text-amber-700">
+                                                <AlertTriangle size={14} />
+                                                Kalldy v1 doit être configuré sur un tenant précis avant activation.
+                                            </p>
+                                        )}
+                                    </div>
                                     {webhook.recentDeliveries.length > 0 && (
                                         <div className="mt-4 overflow-x-auto border border-gray-100 rounded-lg">
                                             <div className="grid min-w-[860px] grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-3 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-500">

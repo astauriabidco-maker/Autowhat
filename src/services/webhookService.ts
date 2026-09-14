@@ -6,6 +6,7 @@
 import crypto from 'crypto';
 import prisma from '../lib/prisma';
 import { sanitizeLogText } from '../utils/safeWebhookLogger';
+import { isKalldyConnectorEvent, isKalldyWebhookTarget } from './kalldyConnectorService';
 
 const SENSITIVE_PAYLOAD_KEY_PATTERN = /(phone|email|name|url|link|token|secret|authorization|gps|lat|lng|longitude|latitude|address|rib|nir|bulletin|identity|document)/i;
 const MAX_AUDIT_STRING_LENGTH = 180;
@@ -177,21 +178,39 @@ export async function dispatchWebhook(
             }
         });
 
-        if (webhooks.length === 0) {
+        const deliverableWebhooks = webhooks.filter(webhook => {
+            if (!isKalldyConnectorEvent(eventType) || !isKalldyWebhookTarget(webhook)) {
+                return true;
+            }
+
+            if (tenantId && webhook.tenantId === tenantId) {
+                return true;
+            }
+
+            console.warn('Kalldy webhook skipped because it is not tenant-scoped for this event', {
+                webhookId: webhook.id,
+                eventType,
+                hasTenantId: Boolean(tenantId),
+                webhookTenantId: webhook.tenantId || null
+            });
+            return false;
+        });
+
+        if (deliverableWebhooks.length === 0) {
             return; // No webhooks configured for this event
         }
 
-        console.log(`🔔 Dispatching ${eventType} to ${webhooks.length} webhook(s)`);
+        console.log(`🔔 Dispatching ${eventType} to ${deliverableWebhooks.length} webhook(s)`);
 
         // Dispatch to all webhooks in parallel
         const results = await Promise.allSettled(
-            webhooks.map(webhook => sendWebhook(webhook, eventType, data, tenantId))
+            deliverableWebhooks.map(webhook => sendWebhook(webhook, eventType, data, tenantId))
         );
 
         // Log results
         results.forEach((result, index) => {
             if (result.status === 'rejected') {
-                console.error(`❌ Webhook ${webhooks[index].name} failed:`, result.reason);
+                console.error(`❌ Webhook ${deliverableWebhooks[index].name} failed:`, result.reason);
             }
         });
     } catch (error) {

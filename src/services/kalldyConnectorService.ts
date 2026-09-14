@@ -9,6 +9,7 @@ export const KALLDY_REQUIRED_EVENTS = [
 
 const KALLDY_SANDBOX_ENDPOINT = 'https://api.testbed.fr.paie.kalldy.com/api/webhooks/whatspoint';
 const KALLDY_PRODUCTION_ENDPOINT = 'https://api.fr.paie.kalldy.com/api/webhooks/whatspoint';
+const KALLDY_REQUIRED_EVENT_SET = new Set<string>(KALLDY_REQUIRED_EVENTS);
 
 type KalldyWebhook = {
     id: string;
@@ -41,6 +42,17 @@ function inferEnvironment(url: string): 'sandbox' | 'production' | 'custom' {
     if (url === KALLDY_SANDBOX_ENDPOINT || url.includes('testbed.fr.paie.kalldy.com')) return 'sandbox';
     if (url === KALLDY_PRODUCTION_ENDPOINT || url.includes('fr.paie.kalldy.com')) return 'production';
     return 'custom';
+}
+
+export function isKalldyWebhookTarget(webhook: { name?: string | null; url?: string | null }) {
+    const name = webhook.name?.toLowerCase() || '';
+    const url = webhook.url?.toLowerCase() || '';
+
+    return name.includes('kalldy') || url.includes('kalldy');
+}
+
+export function isKalldyConnectorEvent(eventType: string) {
+    return KALLDY_REQUIRED_EVENT_SET.has(eventType);
 }
 
 function missingRequiredEvents(events: string[]) {
@@ -193,5 +205,63 @@ export async function getKalldyConnectorStatus() {
         },
         recentDeliveries: logs.map(toDeliverySummary),
         webhooks: webhookSummaries
+    };
+}
+
+export async function updateKalldyWebhookEvents(webhookId: string, events: string[]) {
+    const normalizedEvents = [...new Set(events.map(event => String(event).trim()).filter(Boolean))];
+    const invalidEvents = normalizedEvents.filter(event => !KALLDY_REQUIRED_EVENT_SET.has(event));
+
+    if (invalidEvents.length > 0) {
+        return {
+            ok: false as const,
+            status: 400,
+            error: `Événements Kalldy invalides: ${invalidEvents.join(', ')}`
+        };
+    }
+
+    const webhook = await prisma.webhookConfig.findUnique({
+        where: { id: webhookId },
+        select: {
+            id: true,
+            name: true,
+            url: true,
+            tenantId: true
+        }
+    });
+
+    if (!webhook || !isKalldyWebhookTarget(webhook)) {
+        return {
+            ok: false as const,
+            status: 404,
+            error: 'Webhook Kalldy introuvable'
+        };
+    }
+
+    if (!webhook.tenantId) {
+        return {
+            ok: false as const,
+            status: 400,
+            error: 'Le connecteur Kalldy v1 doit être rattaché à un tenant'
+        };
+    }
+
+    const updated = await prisma.webhookConfig.update({
+        where: { id: webhookId },
+        data: { events: normalizedEvents },
+        select: {
+            id: true,
+            events: true,
+            updatedAt: true
+        }
+    });
+
+    return {
+        ok: true as const,
+        webhook: {
+            id: updated.id,
+            events: updated.events,
+            updatedAt: updated.updatedAt.toISOString()
+        }
     };
 }

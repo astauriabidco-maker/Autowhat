@@ -246,6 +246,7 @@ router.get('/superadmin/documents/stats', authenticateSuperAdmin, documentContro
 // Integrations Vault
 router.get('/admin/integrations', authenticateSuperAdmin, integrationController.getIntegrations);
 router.get('/admin/integrations/kalldy/status', authenticateSuperAdmin, kalldyConnectorController.getKalldyStatus);
+router.put('/admin/integrations/kalldy/webhooks/:id/events', authenticateSuperAdmin, kalldyConnectorController.updateKalldyEvents);
 router.put('/admin/integrations', authenticateSuperAdmin, integrationController.upsertIntegration);
 router.delete('/admin/integrations', authenticateSuperAdmin, integrationController.deleteIntegration);
 

@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const prismaMock = vi.hoisted(() => ({
     webhookConfig: {
-        findMany: vi.fn()
+        findMany: vi.fn(),
+        findUnique: vi.fn(),
+        update: vi.fn()
     },
     webhookLog: {
         findMany: vi.fn()
@@ -227,5 +229,69 @@ describe('kalldyConnectorService', () => {
         ]);
         expect(JSON.stringify(status)).not.toContain('+33612345678');
         expect(JSON.stringify(status)).not.toContain('mediaUrl');
+    });
+
+    it('updates only valid Kalldy v1 events for a tenant-scoped webhook', async () => {
+        prismaMock.webhookConfig.findUnique.mockResolvedValue({
+            id: 'webhook_kalldy',
+            name: 'Kalldy POC',
+            url: 'https://api.testbed.fr.paie.kalldy.com/api/webhooks/whatspoint',
+            tenantId: 'tenant_fr'
+        });
+        prismaMock.webhookConfig.update.mockResolvedValue({
+            id: 'webhook_kalldy',
+            events: ['leave.approved', 'document.received'],
+            updatedAt: new Date('2026-09-14T18:00:00.000Z')
+        });
+
+        const { updateKalldyWebhookEvents } = await import('../../src/services/kalldyConnectorService');
+        const result = await updateKalldyWebhookEvents('webhook_kalldy', [
+            'leave.approved',
+            'document.received',
+            'leave.approved'
+        ]);
+
+        expect(result).toEqual({
+            ok: true,
+            webhook: {
+                id: 'webhook_kalldy',
+                events: ['leave.approved', 'document.received'],
+                updatedAt: '2026-09-14T18:00:00.000Z'
+            }
+        });
+        expect(prismaMock.webhookConfig.update).toHaveBeenCalledWith({
+            where: { id: 'webhook_kalldy' },
+            data: { events: ['leave.approved', 'document.received'] },
+            select: {
+                id: true,
+                events: true,
+                updatedAt: true
+            }
+        });
+    });
+
+    it('rejects invalid events and global Kalldy webhooks', async () => {
+        const { updateKalldyWebhookEvents } = await import('../../src/services/kalldyConnectorService');
+
+        await expect(updateKalldyWebhookEvents('webhook_kalldy', ['expense.submitted']))
+            .resolves.toEqual({
+                ok: false,
+                status: 400,
+                error: 'Événements Kalldy invalides: expense.submitted'
+            });
+
+        prismaMock.webhookConfig.findUnique.mockResolvedValue({
+            id: 'webhook_kalldy',
+            name: 'Kalldy POC',
+            url: 'https://api.testbed.fr.paie.kalldy.com/api/webhooks/whatspoint',
+            tenantId: null
+        });
+
+        await expect(updateKalldyWebhookEvents('webhook_kalldy', ['leave.approved']))
+            .resolves.toEqual({
+                ok: false,
+                status: 400,
+                error: 'Le connecteur Kalldy v1 doit être rattaché à un tenant'
+            });
     });
 });

@@ -31,7 +31,14 @@ Les evenements obligatoires du connecteur v1 sont:
 - `document.received`
 - `employee.secure_link.requested`
 
-Le webhook Kalldy doit etre tenant-scope et actif sur ces trois evenements.
+Le webhook Kalldy doit etre tenant-scope. Chaque evenement peut etre active ou desactive par tenant depuis `/superadmin/integrations`.
+
+Regles d'emission:
+
+- WhatsPoint n'envoie un evenement Kalldy v1 que si le webhook du tenant ecoute explicitement cet evenement.
+- Un webhook Kalldy global, sans `tenantId`, est refuse pour les evenements v1.
+- Un evenement non active contractuellement ne doit pas sortir, meme si le webhook existe techniquement.
+- Le passage sandbox -> production doit conserver des webhooks, secrets et activations separes.
 
 ## Payloads v1
 
@@ -186,6 +193,7 @@ Le statut superadmin du connecteur Kalldy v1 expose:
 
 - version du contrat;
 - evenements requis;
+- evenements actives par webhook tenant;
 - endpoint sandbox/production detecte;
 - webhooks actifs;
 - compteur succes/echec;

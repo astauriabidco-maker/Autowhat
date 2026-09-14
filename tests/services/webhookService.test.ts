@@ -310,6 +310,73 @@ describe('webhookService outgoing contract', () => {
         });
     });
 
+    it('does not deliver Kalldy v1 tenant events through a global webhook', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        prismaMock.webhookConfig.findMany.mockResolvedValue([
+            {
+                id: 'webhook_kalldy_global',
+                name: 'Kalldy Global',
+                url: 'https://kalldy.test/webhooks/whatspoint',
+                secret: 'kalldy-secret',
+                events: ['leave.approved'],
+                isActive: true,
+                tenantId: null,
+                headers: null,
+                httpMethod: 'POST',
+                payloadMapping: null
+            }
+        ]);
+
+        const { WEBHOOK_EVENTS, dispatchWebhook } = await import('../../src/services/webhookService');
+
+        await dispatchWebhook(WEBHOOK_EVENTS.LEAVE_APPROVED, {
+            leaveRequestId: 'leave_123',
+            status: 'APPROVED'
+        }, 'tenant_fr');
+
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(prismaMock.webhookLog.create).not.toHaveBeenCalled();
+        expect(warnSpy).toHaveBeenCalledWith(
+            'Kalldy webhook skipped because it is not tenant-scoped for this event',
+            expect.objectContaining({
+                webhookId: 'webhook_kalldy_global',
+                eventType: 'leave.approved',
+                hasTenantId: true,
+                webhookTenantId: null
+            })
+        );
+        warnSpy.mockRestore();
+    });
+
+    it('keeps non-Kalldy global webhooks working for tenant events', async () => {
+        prismaMock.webhookConfig.findMany.mockResolvedValue([
+            {
+                id: 'webhook_generic_global',
+                name: 'Generic Payroll',
+                url: 'https://payroll.test/webhooks/whatspoint',
+                secret: 'payroll-secret',
+                events: ['leave.approved'],
+                isActive: true,
+                tenantId: null,
+                headers: null,
+                httpMethod: 'POST',
+                payloadMapping: null
+            }
+        ]);
+
+        const { WEBHOOK_EVENTS, dispatchWebhook } = await import('../../src/services/webhookService');
+
+        await dispatchWebhook(WEBHOOK_EVENTS.LEAVE_APPROVED, {
+            leaveRequestId: 'leave_123',
+            status: 'APPROVED'
+        }, 'tenant_fr');
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            'https://payroll.test/webhooks/whatspoint',
+            expect.objectContaining({ method: 'POST' })
+        );
+    });
+
     it('keeps the exact payload only while a webhook retry is pending', async () => {
         fetchMock.mockResolvedValue(new Response('temporary failure for +33612345678 at https://kalldy.test/private-token', { status: 503 }));
         prismaMock.webhookConfig.findMany.mockResolvedValue([
