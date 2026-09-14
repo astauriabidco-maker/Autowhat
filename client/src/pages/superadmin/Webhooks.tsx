@@ -53,6 +53,7 @@ export default function Webhooks() {
     const [expandedWebhook, setExpandedWebhook] = useState<string | null>(null);
     const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
     const [testing, setTesting] = useState<string | null>(null);
+    const [selectedTestEvents, setSelectedTestEvents] = useState<Record<string, string>>({});
 
     // Form state
     const [form, setForm] = useState({
@@ -136,9 +137,18 @@ export default function Webhooks() {
         }
     };
 
+    const getTestableEvents = (webhook: WebhookConfig) => {
+        const preferred = ['leave.approved', 'document.received'];
+        const pocEvents = preferred.filter(event => webhook.events.includes(event));
+        return pocEvents.length > 0 ? pocEvents : webhook.events;
+    };
+
     const getPreferredTestEvent = (webhook: WebhookConfig) => {
+        const testableEvents = getTestableEvents(webhook);
+        const selectedEvent = selectedTestEvents[webhook.id];
+        if (selectedEvent && testableEvents.includes(selectedEvent)) return selectedEvent;
         if (webhook.events.includes('leave.approved')) return 'leave.approved';
-        return webhook.events[0];
+        return testableEvents[0];
     };
 
     const handleTest = async (webhook: WebhookConfig) => {
@@ -278,6 +288,20 @@ export default function Webhooks() {
 
                                     {/* Actions */}
                                     <div className="flex items-center gap-2">
+                                        <select
+                                            value={getPreferredTestEvent(webhook) || ''}
+                                            onChange={(event) => setSelectedTestEvents(prev => ({
+                                                ...prev,
+                                                [webhook.id]: event.target.value
+                                            }))}
+                                            className="h-9 max-w-44 rounded-lg border border-gray-200 bg-white px-2 text-xs text-gray-700"
+                                            title="Événement de test"
+                                        >
+                                            {getTestableEvents(webhook).map(event => (
+                                                <option key={event} value={event}>{event}</option>
+                                            ))}
+                                        </select>
+
                                         <button
                                             onClick={() => handleTest(webhook)}
                                             disabled={testing === webhook.id}

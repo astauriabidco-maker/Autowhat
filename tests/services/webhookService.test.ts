@@ -160,4 +160,56 @@ describe('webhookService outgoing contract', () => {
             'X-WhatsPoint-Signature': expectedSignature
         }));
     });
+
+    it('can send a strict document.received payload from the webhook test endpoint path', async () => {
+        prismaMock.webhookConfig.findUnique.mockResolvedValue({
+            id: 'webhook_kalldy',
+            name: 'Kalldy POC',
+            url: 'https://kalldy.test/webhooks/whatspoint',
+            secret: 'kalldy-secret',
+            events: ['document.received'],
+            isActive: true,
+            tenantId: 'tenant_fr',
+            headers: null,
+            httpMethod: 'POST',
+            payloadMapping: null
+        });
+
+        const { WEBHOOK_EVENTS, testWebhook } = await import('../../src/services/webhookService');
+
+        const result = await testWebhook('webhook_kalldy', {
+            eventType: WEBHOOK_EVENTS.DOCUMENT_RECEIVED
+        });
+
+        expect(result).toEqual({ success: true, statusCode: 200 });
+
+        const [, request] = fetchMock.mock.calls[0];
+        const body = JSON.parse(request.body);
+        const expectedSignature = `sha256=${crypto
+            .createHmac('sha256', 'kalldy-secret')
+            .update(request.body)
+            .digest('hex')}`;
+
+        expect(body).toEqual(expect.objectContaining({
+            eventId: expect.stringMatching(/^wp_evt_[a-f0-9]{32}$/),
+            event: 'document.received',
+            tenantId: 'tenant_fr',
+            data: expect.objectContaining({
+                documentId: 'doc_poc_001',
+                employeePhoneNumber: '+33612345678',
+                documentType: 'absence_justification',
+                fileName: 'justificatif-absence-poc.pdf',
+                mimeType: 'application/pdf',
+                mediaId: 'media_poc_001'
+            })
+        }));
+        expect(body.data.mediaUrl).toContain('https://api.testbed.whatspoint.com/api/files/signed/');
+        expect(new Date(body.data.mediaUrlExpiresAt).getTime()).toBeGreaterThan(Date.now());
+        expect(request.headers).toEqual(expect.objectContaining({
+            'X-WhatsPoint-Event': 'document.received',
+            'X-WhatsPoint-Event-Id': body.eventId,
+            'X-WhatsPoint-Timestamp': body.timestamp,
+            'X-WhatsPoint-Signature': expectedSignature
+        }));
+    });
 });

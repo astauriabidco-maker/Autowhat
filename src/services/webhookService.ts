@@ -339,6 +339,28 @@ function buildTestWebhookPayload(params: {
         };
     }
 
+    if (params.eventType === WEBHOOK_EVENTS.DOCUMENT_RECEIVED) {
+        const data = {
+            documentId: 'doc_poc_001',
+            employeePhoneNumber: '+33612345678',
+            documentType: 'absence_justification',
+            fileName: 'justificatif-absence-poc.pdf',
+            mimeType: 'application/pdf',
+            fileSizeBytes: 245760,
+            mediaId: 'media_poc_001',
+            mediaUrl: 'https://api.testbed.whatspoint.com/api/files/signed/poc-document-token',
+            mediaUrlExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+        };
+
+        return {
+            eventId: createWebhookEventId(params.eventType, params.tenantId || undefined, data),
+            event: params.eventType,
+            timestamp: params.timestamp,
+            tenantId: params.tenantId || undefined,
+            data
+        };
+    }
+
     const data = {
         message: 'This is a test webhook from WhatsPoint',
         webhookId: params.webhookId,
