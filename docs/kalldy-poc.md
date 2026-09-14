@@ -15,6 +15,7 @@ WhatsPoint ne doit pas faire transiter de donnees sensibles de paie dans WhatsAp
 - Frontend preproduction: `https://testbed.whatspoint.com`
 - API preproduction: `https://api.testbed.whatspoint.com`
 - OpenAPI publique: `https://api.testbed.whatspoint.com/api/docs/public-v1.yaml`
+- Endpoint webhook Kalldy POC: `https://api.testbed.fr.paie.kalldy.com/api/webhooks/whatspoint`
 
 ## Evenements POC
 
@@ -114,7 +115,7 @@ Les appels d'ecriture sensibles doivent fournir un header `Idempotency-Key`.
 
 Avant execution en preproduction, il faut:
 
-1. confirmer l'URL de reception webhook Kalldy ou un endpoint sandbox equivalent;
+1. utiliser l'URL de reception webhook Kalldy: `https://api.testbed.fr.paie.kalldy.com/api/webhooks/whatspoint`;
 2. creer/activer une configuration webhook `Kalldy POC` limitee au tenant de test;
 3. declencher une demande d'absence fictive;
 4. valider/refuser la demande depuis l'Inbox;
