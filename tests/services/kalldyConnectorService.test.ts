@@ -38,12 +38,19 @@ describe('kalldyConnectorService', () => {
         ]);
         prismaMock.webhookLog.findMany.mockResolvedValue([
             {
+                id: 'log_secure_link',
                 webhookId: 'webhook_kalldy',
                 eventType: 'employee.secure_link.requested',
+                payload: {
+                    eventId: 'wp_evt_secure_link',
+                    event: 'employee.secure_link.requested'
+                },
                 status: 'SUCCESS',
                 statusCode: 200,
                 duration: 420,
                 error: null,
+                retryCount: 0,
+                nextRetryAt: null,
                 createdAt: new Date('2026-09-14T16:05:00.000Z')
             }
         ]);
@@ -87,14 +94,49 @@ describe('kalldyConnectorService', () => {
                     },
                     missingEvents: [],
                     latestDelivery: {
+                        id: 'log_secure_link',
+                        webhookId: 'webhook_kalldy',
+                        eventId: 'wp_evt_secure_link',
                         eventType: 'employee.secure_link.requested',
                         status: 'SUCCESS',
                         statusCode: 200,
                         durationMs: 420,
                         error: null,
+                        retryCount: 0,
+                        nextRetryAt: null,
                         createdAt: '2026-09-14T16:05:00.000Z'
-                    }
+                    },
+                    recentDeliveries: [
+                        {
+                            id: 'log_secure_link',
+                            webhookId: 'webhook_kalldy',
+                            eventId: 'wp_evt_secure_link',
+                            eventType: 'employee.secure_link.requested',
+                            status: 'SUCCESS',
+                            statusCode: 200,
+                            durationMs: 420,
+                            error: null,
+                            retryCount: 0,
+                            nextRetryAt: null,
+                            createdAt: '2026-09-14T16:05:00.000Z'
+                        }
+                    ]
                 })
+            ],
+            recentDeliveries: [
+                {
+                    id: 'log_secure_link',
+                    webhookId: 'webhook_kalldy',
+                    eventId: 'wp_evt_secure_link',
+                    eventType: 'employee.secure_link.requested',
+                    status: 'SUCCESS',
+                    statusCode: 200,
+                    durationMs: 420,
+                    error: null,
+                    retryCount: 0,
+                    nextRetryAt: null,
+                    createdAt: '2026-09-14T16:05:00.000Z'
+                }
             ]
         });
     });
@@ -125,5 +167,65 @@ describe('kalldyConnectorService', () => {
             'document.received',
             'employee.secure_link.requested'
         ]);
+    });
+
+    it('exposes recent delivery metadata without leaking full webhook payloads', async () => {
+        prismaMock.webhookConfig.findMany.mockResolvedValue([
+            {
+                id: 'webhook_kalldy',
+                name: 'Kalldy POC',
+                url: 'https://api.testbed.fr.paie.kalldy.com/api/webhooks/whatspoint',
+                tenantId: 'tenant_fr',
+                events: ['leave.approved', 'document.received', 'employee.secure_link.requested'],
+                isActive: true,
+                lastTriggeredAt: new Date('2026-09-14T16:00:00.000Z'),
+                successCount: 3,
+                failureCount: 1,
+                updatedAt: new Date('2026-09-14T16:00:00.000Z')
+            }
+        ]);
+        prismaMock.webhookLog.findMany.mockResolvedValue([
+            {
+                id: 'log_failed',
+                webhookId: 'webhook_kalldy',
+                eventType: 'document.received',
+                payload: {
+                    eventId: 'wp_evt_document',
+                    data: {
+                        employeePhoneNumber: '[redacted]',
+                        mediaUrl: '[redacted]'
+                    }
+                },
+                status: 'PENDING',
+                statusCode: 503,
+                duration: 1500,
+                error: 'HTTP 503: unavailable',
+                retryCount: 1,
+                nextRetryAt: new Date('2026-09-14T16:10:00.000Z'),
+                createdAt: new Date('2026-09-14T16:05:00.000Z')
+            }
+        ]);
+        prismaMock.tenant.findMany.mockResolvedValue([]);
+
+        const { getKalldyConnectorStatus } = await import('../../src/services/kalldyConnectorService');
+        const status = await getKalldyConnectorStatus();
+
+        expect(status.recentDeliveries).toEqual([
+            {
+                id: 'log_failed',
+                webhookId: 'webhook_kalldy',
+                eventId: 'wp_evt_document',
+                eventType: 'document.received',
+                status: 'PENDING',
+                statusCode: 503,
+                durationMs: 1500,
+                error: 'HTTP 503: unavailable',
+                retryCount: 1,
+                nextRetryAt: '2026-09-14T16:10:00.000Z',
+                createdAt: '2026-09-14T16:05:00.000Z'
+            }
+        ]);
+        expect(JSON.stringify(status)).not.toContain('+33612345678');
+        expect(JSON.stringify(status)).not.toContain('mediaUrl');
     });
 });

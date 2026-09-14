@@ -35,6 +35,20 @@ interface Provider {
 
 type IntegrationsData = Record<string, Provider>;
 
+interface KalldyDelivery {
+    id: string;
+    webhookId: string;
+    eventId: string | null;
+    eventType: string;
+    status: string;
+    statusCode: number | null;
+    durationMs: number | null;
+    error: string | null;
+    retryCount: number;
+    nextRetryAt: string | null;
+    createdAt: string;
+}
+
 interface KalldyStatus {
     provider: 'KALLDY';
     version: string;
@@ -64,15 +78,10 @@ interface KalldyStatus {
         successCount: number;
         failureCount: number;
         lastTriggeredAt: string | null;
-        latestDelivery: {
-            eventType: string;
-            status: string;
-            statusCode: number | null;
-            durationMs: number | null;
-            error: string | null;
-            createdAt: string;
-        } | null;
+        latestDelivery: KalldyDelivery | null;
+        recentDeliveries: KalldyDelivery[];
     }>;
+    recentDeliveries: KalldyDelivery[];
 }
 
 // Icon mapping
@@ -94,6 +103,22 @@ const KALLDY_STATE_LABELS: Record<KalldyStatus['state'], { label: string; classN
     disabled: { label: 'Désactivé', className: 'bg-gray-100 text-gray-700 border-gray-200' },
     not_configured: { label: 'Non configuré', className: 'bg-gray-100 text-gray-700 border-gray-200' }
 };
+
+const DELIVERY_STATUS_LABELS: Record<string, { label: string; className: string }> = {
+    SUCCESS: { label: 'Succès', className: 'bg-green-100 text-green-700' },
+    PENDING: { label: 'Retry', className: 'bg-amber-100 text-amber-700' },
+    FAILED: { label: 'Échec', className: 'bg-red-100 text-red-700' }
+};
+
+function formatDateTime(value: string | null) {
+    if (!value) return '-';
+    return new Date(value).toLocaleString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
 
 export default function Integrations() {
     const [loading, setLoading] = useState(true);
@@ -294,6 +319,39 @@ export default function Integrations() {
                                         <p className="mt-3 text-sm text-amber-700">
                                             Événements manquants: {webhook.missingEvents.join(', ')}
                                         </p>
+                                    )}
+                                    {webhook.recentDeliveries.length > 0 && (
+                                        <div className="mt-4 overflow-x-auto border border-gray-100 rounded-lg">
+                                            <div className="grid min-w-[860px] grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-3 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-500">
+                                                <span>Événement</span>
+                                                <span>EventId</span>
+                                                <span>Statut</span>
+                                                <span>HTTP</span>
+                                                <span>Latence</span>
+                                                <span>Retry</span>
+                                                <span>Date</span>
+                                            </div>
+                                            {webhook.recentDeliveries.map(delivery => {
+                                                const statusMeta = DELIVERY_STATUS_LABELS[delivery.status] || {
+                                                    label: delivery.status,
+                                                    className: 'bg-gray-100 text-gray-700'
+                                                };
+
+                                                return (
+                                                    <div key={delivery.id} className="grid min-w-[860px] grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-3 border-t border-gray-100 px-3 py-2 text-xs text-gray-700">
+                                                        <span className="truncate font-medium">{delivery.eventType}</span>
+                                                        <span className="truncate font-mono text-gray-500">{delivery.eventId || '-'}</span>
+                                                        <span className={`px-2 py-0.5 rounded-full font-medium ${statusMeta.className}`}>
+                                                            {statusMeta.label}
+                                                        </span>
+                                                        <span>{delivery.statusCode || '-'}</span>
+                                                        <span>{delivery.durationMs ? `${delivery.durationMs}ms` : '-'}</span>
+                                                        <span>{delivery.retryCount}</span>
+                                                        <span>{formatDateTime(delivery.createdAt)}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     )}
                                 </div>
                             ))

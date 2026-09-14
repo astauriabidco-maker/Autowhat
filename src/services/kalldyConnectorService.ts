@@ -24,12 +24,16 @@ type KalldyWebhook = {
 };
 
 type KalldyLog = {
+    id: string;
     webhookId: string;
     eventType: string;
+    payload: unknown;
     status: string;
     statusCode: number | null;
     duration: number | null;
     error: string | null;
+    retryCount: number;
+    nextRetryAt: Date | null;
     createdAt: Date;
 };
 
@@ -58,6 +62,29 @@ function connectorState(webhooks: KalldyWebhook[], logs: KalldyLog[]) {
         return 'healthy';
     }
     return 'degraded';
+}
+
+function extractEventId(payload: unknown): string | null {
+    if (!payload || typeof payload !== 'object') return null;
+
+    const eventId = (payload as { eventId?: unknown }).eventId;
+    return typeof eventId === 'string' ? eventId : null;
+}
+
+function toDeliverySummary(log: KalldyLog) {
+    return {
+        id: log.id,
+        webhookId: log.webhookId,
+        eventId: extractEventId(log.payload),
+        eventType: log.eventType,
+        status: log.status,
+        statusCode: log.statusCode,
+        durationMs: log.duration,
+        error: log.error,
+        retryCount: log.retryCount,
+        nextRetryAt: log.nextRetryAt?.toISOString() || null,
+        createdAt: log.createdAt.toISOString()
+    };
 }
 
 export async function getKalldyConnectorStatus() {
@@ -90,12 +117,16 @@ export async function getKalldyConnectorStatus() {
             orderBy: { createdAt: 'desc' },
             take: 10,
             select: {
+                id: true,
                 webhookId: true,
                 eventType: true,
+                payload: true,
                 status: true,
                 statusCode: true,
                 duration: true,
                 error: true,
+                retryCount: true,
+                nextRetryAt: true,
                 createdAt: true
             }
         })
@@ -140,14 +171,8 @@ export async function getKalldyConnectorStatus() {
             successCount: webhook.successCount,
             failureCount: webhook.failureCount,
             lastTriggeredAt: webhook.lastTriggeredAt?.toISOString() || null,
-            latestDelivery: latestLog ? {
-                eventType: latestLog.eventType,
-                status: latestLog.status,
-                statusCode: latestLog.statusCode,
-                durationMs: latestLog.duration,
-                error: latestLog.error,
-                createdAt: latestLog.createdAt.toISOString()
-            } : null
+            latestDelivery: latestLog ? toDeliverySummary(latestLog) : null,
+            recentDeliveries: webhookLogs.slice(0, 5).map(toDeliverySummary)
         };
     });
 
@@ -166,6 +191,7 @@ export async function getKalldyConnectorStatus() {
             successes: webhooks.reduce((sum, webhook) => sum + webhook.successCount, 0),
             failures: webhooks.reduce((sum, webhook) => sum + webhook.failureCount, 0)
         },
+        recentDeliveries: logs.map(toDeliverySummary),
         webhooks: webhookSummaries
     };
 }
