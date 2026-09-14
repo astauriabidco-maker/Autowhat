@@ -56,6 +56,32 @@ function publicEmployee(employee: { id: string; name: string | null }) {
     };
 }
 
+function formatWebhookDate(date: Date): string {
+    return date.toISOString().slice(0, 10);
+}
+
+function calculateBusinessDays(startDate: Date, endDate: Date): number {
+    const current = new Date(Date.UTC(
+        startDate.getUTCFullYear(),
+        startDate.getUTCMonth(),
+        startDate.getUTCDate()
+    ));
+    const end = new Date(Date.UTC(
+        endDate.getUTCFullYear(),
+        endDate.getUTCMonth(),
+        endDate.getUTCDate()
+    ));
+
+    let businessDays = 0;
+    while (current <= end) {
+        const day = current.getUTCDay();
+        if (day !== 0 && day !== 6) businessDays += 1;
+        current.setUTCDate(current.getUTCDate() + 1);
+    }
+
+    return Math.max(businessDays, 1);
+}
+
 function clampLimit(rawLimit: unknown): number {
     const parsed = Number(rawLimit);
     if (!Number.isFinite(parsed) || parsed <= 0) return 50;
@@ -644,8 +670,10 @@ async function updateLeaveDecision(params: {
                 leaveRequestId: updated.id,
                 employeeId: updated.employee.id,
                 employeeName: updated.employee.name,
-                startDate: updated.startDate,
-                endDate: updated.endDate,
+                employeePhoneNumber: updated.employee.phoneNumber,
+                startDate: formatWebhookDate(updated.startDate),
+                endDate: formatWebhookDate(updated.endDate),
+                businessDays: calculateBusinessDays(updated.startDate, updated.endDate),
                 isHalfDayStart: updated.isHalfDayStart,
                 isHalfDayEnd: updated.isHalfDayEnd,
                 status,

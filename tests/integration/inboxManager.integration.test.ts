@@ -14,6 +14,16 @@ const whatsappServiceMocks = vi.hoisted(() => ({
 
 vi.mock('../../src/services/whatsappService', () => whatsappServiceMocks);
 
+const webhookServiceMocks = vi.hoisted(() => ({
+    dispatchWebhook: vi.fn(),
+    WEBHOOK_EVENTS: {
+        LEAVE_APPROVED: 'leave.approved',
+        LEAVE_REJECTED: 'leave.rejected'
+    }
+}));
+
+vi.mock('../../src/services/webhookService', () => webhookServiceMocks);
+
 describeIntegration('manager field HR inbox integration', () => {
     afterAll(disconnectTestDatabase);
 
@@ -132,6 +142,21 @@ describeIntegration('manager field HR inbox integration', () => {
         const stored = await prisma.leaveRequest.findUniqueOrThrow({ where: { id: leave.id } });
         expect(stored.status).toBe('APPROVED');
         expect(stored.managerComment).toBe('Validé pour remplacement organisé.');
+        expect(webhookServiceMocks.dispatchWebhook).toHaveBeenCalledWith(
+            'leave.approved',
+            expect.objectContaining({
+                leaveRequestId: leave.id,
+                employeeId: seeded.employee.id,
+                employeeName: seeded.employee.name,
+                employeePhoneNumber: seeded.employee.phoneNumber,
+                startDate: '2026-09-15',
+                endDate: '2026-09-16',
+                businessDays: 2,
+                status: 'APPROVED',
+                managerComment: 'Validé pour remplacement organisé.'
+            }),
+            seeded.tenant.id
+        );
         expect(whatsappServiceMocks.sendMessage).toHaveBeenCalledWith(
             seeded.employee.phoneNumber.replace(/^\+/, ''),
             expect.stringContaining('Validé pour remplacement organisé.'),
