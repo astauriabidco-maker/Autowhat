@@ -26,7 +26,7 @@ La configuration webhook Kalldy POC est geree dans l'espace superadmin WhatsPoin
 | --- | --- | --- | --- |
 | Absence validee | `leave.approved` | Valide | Inbox manager WhatsPoint -> webhook HMAC -> tenant/collaborateur Kalldy -> EVP cree |
 | Justificatif simple | `document.received` | Valide | Webhook HMAC -> tenant/collaborateur Kalldy -> document cree en `PENDING_REVIEW` |
-| Relance PWA securisee | `employee.secure_link.requested` | Smoke WhatsPoint reussi | Endpoint Kalldy a retourne un succes au test reel; attente confirmation cockpit Kalldy pour validation fonctionnelle finale |
+| Relance PWA securisee | `employee.secure_link.requested` | Valide | Webhook HMAC -> tenant/collaborateur Kalldy -> lien PWA temporaire cree -> statut Kalldy `PROCESSED` |
 
 ## Evenements POC
 
@@ -232,14 +232,21 @@ Pour le POC, le webhook doit rester limite a:
 - mapping valide par WhatsPoint et Kalldy;
 - aucun champ RIB, NIR, bulletin, piece d'identite ou donnees sensibles equivalentes dans le payload webhook ou le message WhatsApp.
 
-## Prochaine confirmation Kalldy
+## Validation finale Kalldy
 
-Le smoke reel WhatsPoint du troisieme flux a retourne un succes cote interface superadmin. Kalldy doit confirmer cote cockpit:
+Le smoke reel WhatsPoint du troisieme flux a retourne un succes cote interface superadmin. Kalldy a confirme cote cockpit et base preproduction:
 
-- reception de `employee.secure_link.requested`;
-- validation HMAC;
-- resolution tenant;
-- resolution collaborateur par telephone;
-- creation du lien PWA securise temporaire;
-- idempotence via `eventId`;
-- absence de donnee sensible transmise dans WhatsApp.
+- evenement recu: `employee.secure_link.requested`;
+- `eventId`: `wp_evt_d256e51b152ebdb74c7b94e38c833d4a`;
+- validation HMAC SHA-256 acceptee;
+- tenant pilote resolu: `699e8c48-4632-425f-a248-6c8aedbebc15`;
+- collaborateur resolu;
+- lien PWA securise temporaire cree;
+- type de lien: `PROFILE_UPDATE`;
+- source: `WHATSPOINT_SECURE_LINK`;
+- statut Kalldy: `PROCESSED`;
+- HTTP: `200`;
+- idempotence active via `eventId`;
+- aucune donnee sensible ne transite dans WhatsApp.
+
+Les trois flux POC sont donc valides fonctionnellement de bout en bout.
