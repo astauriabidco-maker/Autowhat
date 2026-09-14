@@ -8,6 +8,40 @@ import crypto from 'crypto';
 import { WEBHOOK_EVENTS, testWebhook } from '../services/webhookService';
 import prisma from '../lib/prisma';
 
+const SENSITIVE_HEADER_PATTERN = /^(authorization|proxy-authorization|x-api-key|api-key|x-auth-token|x-access-token|token|secret|x-webhook-signature|x-whatspoint-signature)$/i;
+
+function redactWebhookHeaders(headers: unknown): unknown {
+    if (!headers || typeof headers !== 'object' || Array.isArray(headers)) {
+        return headers ?? null;
+    }
+
+    return Object.fromEntries(
+        Object.entries(headers as Record<string, unknown>).map(([key, value]) => [
+            key,
+            SENSITIVE_HEADER_PATTERN.test(key) ? '[redacted]' : value
+        ])
+    );
+}
+
+function publicWebhookConfig(webhook: any) {
+    const { secret, headers, logs, ...safeWebhook } = webhook;
+    const response: any = {
+        ...safeWebhook,
+        secretConfigured: Boolean(secret),
+        headers: redactWebhookHeaders(headers)
+    };
+
+    if (logs) {
+        response.logs = logs.map((log: any) => ({
+            ...log,
+            payload: log.payload ?? null,
+            responseBody: typeof log.responseBody === 'string' ? log.responseBody.slice(0, 500) : log.responseBody
+        }));
+    }
+
+    return response;
+}
+
 
 /**
  * GET /admin/webhooks
@@ -28,7 +62,7 @@ export const getWebhooks = async (req: Request, res: Response): Promise<any> => 
             }
         });
 
-        return res.json(webhooks);
+        return res.json(webhooks.map(publicWebhookConfig));
     } catch (error) {
         console.error('Error fetching webhooks:', error);
         return res.status(500).json({ error: 'Internal server error' });
@@ -59,7 +93,7 @@ export const getWebhook = async (req: Request, res: Response): Promise<any> => {
             return res.status(404).json({ error: 'Webhook not found' });
         }
 
-        return res.json(webhook);
+        return res.json(publicWebhookConfig(webhook));
     } catch (error) {
         console.error('Error fetching webhook:', error);
         return res.status(500).json({ error: 'Internal server error' });
@@ -125,7 +159,7 @@ export const createWebhook = async (req: Request, res: Response): Promise<any> =
         console.log(`🔔 Webhook created: ${name} -> ${url}`);
 
         return res.status(201).json({
-            ...webhook,
+            ...publicWebhookConfig(webhook),
             // Only return the secret on creation
             secretPlaintext: secret
         });
@@ -192,7 +226,7 @@ export const updateWebhook = async (req: Request, res: Response): Promise<any> =
         console.log(`🔔 Webhook updated: ${webhook.name}`);
 
         return res.json({
-            ...webhook,
+            ...publicWebhookConfig(webhook),
             secretPlaintext: newSecret // Only if regenerated
         });
     } catch (error) {
