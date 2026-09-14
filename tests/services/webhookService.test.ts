@@ -106,4 +106,58 @@ describe('webhookService outgoing contract', () => {
         const secondBody = JSON.parse(fetchMock.mock.calls[1][1].body);
         expect(secondBody.eventId).toBe(body.eventId);
     });
+
+    it('can send a strict leave.approved payload from the webhook test endpoint path', async () => {
+        prismaMock.webhookConfig.findUnique.mockResolvedValue({
+            id: 'webhook_kalldy',
+            name: 'Kalldy POC',
+            url: 'https://kalldy.test/webhooks/whatspoint',
+            secret: 'kalldy-secret',
+            events: ['leave.approved'],
+            isActive: true,
+            tenantId: 'tenant_fr',
+            headers: null,
+            httpMethod: 'POST',
+            payloadMapping: null
+        });
+
+        const { WEBHOOK_EVENTS, testWebhook } = await import('../../src/services/webhookService');
+
+        const result = await testWebhook('webhook_kalldy', {
+            eventType: WEBHOOK_EVENTS.LEAVE_APPROVED
+        });
+
+        expect(result).toEqual({ success: true, statusCode: 200 });
+        expect(fetchMock).toHaveBeenCalledWith(
+            'https://kalldy.test/webhooks/whatspoint',
+            expect.objectContaining({ method: 'POST' })
+        );
+
+        const [, request] = fetchMock.mock.calls[0];
+        const body = JSON.parse(request.body);
+        const expectedSignature = `sha256=${crypto
+            .createHmac('sha256', 'kalldy-secret')
+            .update(request.body)
+            .digest('hex')}`;
+
+        expect(body).toEqual(expect.objectContaining({
+            eventId: expect.stringMatching(/^wp_evt_[a-f0-9]{32}$/),
+            event: 'leave.approved',
+            tenantId: 'tenant_fr',
+            data: {
+                leaveRequestId: 'leave_poc_001',
+                employeePhoneNumber: '+33612345678',
+                startDate: '2026-06-10',
+                endDate: '2026-06-17',
+                businessDays: 6,
+                status: 'APPROVED'
+            }
+        }));
+        expect(request.headers).toEqual(expect.objectContaining({
+            'X-WhatsPoint-Event': 'leave.approved',
+            'X-WhatsPoint-Event-Id': body.eventId,
+            'X-WhatsPoint-Timestamp': body.timestamp,
+            'X-WhatsPoint-Signature': expectedSignature
+        }));
+    });
 });

@@ -48,6 +48,12 @@ interface WebhookPayload {
     data: Record<string, any>;
 }
 
+type TestWebhookEventType = WebhookEventType | 'test';
+
+interface TestWebhookOptions {
+    eventType?: TestWebhookEventType;
+}
+
 /**
  * Generate HMAC-SHA256 signature for webhook payload
  */
@@ -307,10 +313,57 @@ async function sendWebhook(
     }
 }
 
+function buildTestWebhookPayload(params: {
+    eventType: TestWebhookEventType;
+    timestamp: string;
+    tenantId?: string | null;
+    webhookId: string;
+    webhookName: string;
+}) {
+    if (params.eventType === WEBHOOK_EVENTS.LEAVE_APPROVED) {
+        const data = {
+            leaveRequestId: 'leave_poc_001',
+            employeePhoneNumber: '+33612345678',
+            startDate: '2026-06-10',
+            endDate: '2026-06-17',
+            businessDays: 6,
+            status: 'APPROVED'
+        };
+
+        return {
+            eventId: createWebhookEventId(params.eventType, params.tenantId || undefined, data),
+            event: params.eventType,
+            timestamp: params.timestamp,
+            tenantId: params.tenantId || undefined,
+            data
+        };
+    }
+
+    const data = {
+        message: 'This is a test webhook from WhatsPoint',
+        webhookId: params.webhookId,
+        webhookName: params.webhookName
+    };
+
+    return {
+        eventId: createWebhookEventId('test', params.tenantId || undefined, {
+            webhookId: params.webhookId,
+            webhookName: params.webhookName
+        }),
+        event: 'test',
+        timestamp: params.timestamp,
+        tenantId: params.tenantId || undefined,
+        data
+    };
+}
+
 /**
  * Test a webhook configuration by sending a test event
  */
-export async function testWebhook(webhookId: string): Promise<{ success: boolean; error?: string; statusCode?: number }> {
+export async function testWebhook(
+    webhookId: string,
+    options: TestWebhookOptions = {}
+): Promise<{ success: boolean; error?: string; statusCode?: number }> {
     const webhook = await prisma.webhookConfig.findUnique({
         where: { id: webhookId }
     });
@@ -321,23 +374,18 @@ export async function testWebhook(webhookId: string): Promise<{ success: boolean
 
     const startTime = Date.now();
     const timestamp = new Date().toISOString();
-    const payload = {
-        eventId: createWebhookEventId('test', webhook.tenantId || undefined, {
-            webhookId: webhook.id,
-            webhookName: webhook.name
-        }),
-        event: 'test',
+    const eventType = options.eventType || 'test';
+    const payload = buildTestWebhookPayload({
+        eventType,
         timestamp,
-        data: {
-            message: 'This is a test webhook from AutoWhats',
-            webhookId: webhook.id,
-            webhookName: webhook.name
-        }
-    };
+        tenantId: webhook.tenantId,
+        webhookId: webhook.id,
+        webhookName: webhook.name
+    });
 
     const payloadString = JSON.stringify(payload);
     const headers = buildWebhookHeaders({
-        event: 'test',
+        event: eventType,
         eventId: payload.eventId,
         timestamp
     });

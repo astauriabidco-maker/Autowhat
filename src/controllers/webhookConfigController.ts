@@ -241,18 +241,30 @@ export const testWebhookEndpoint = async (req: Request, res: Response): Promise<
 
         const existing = await prisma.webhookConfig.findFirst({
             where: isSuperAdmin ? { id } : { id, tenantId },
-            select: { id: true }
+            select: { id: true, events: true }
         });
         if (!existing) {
             return res.status(404).json({ error: 'Webhook not found' });
         }
 
-        const result = await testWebhook(id);
+        const eventType = typeof req.body?.eventType === 'string' ? req.body.eventType : undefined;
+        if (eventType) {
+            const validEvents = Object.values(WEBHOOK_EVENTS);
+            if (!validEvents.includes(eventType as any)) {
+                return res.status(400).json({ error: `Invalid eventType: ${eventType}` });
+            }
+            if (!existing.events.includes(eventType)) {
+                return res.status(400).json({ error: `Webhook is not subscribed to eventType: ${eventType}` });
+            }
+        }
+
+        const result = await testWebhook(id, { eventType: eventType as any });
 
         if (result.success) {
             return res.json({
                 success: true,
                 message: 'Test webhook sent successfully',
+                eventType: eventType || 'test',
                 statusCode: result.statusCode
             });
         } else {
