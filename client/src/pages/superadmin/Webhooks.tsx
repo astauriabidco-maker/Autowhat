@@ -136,13 +136,28 @@ export default function Webhooks() {
         }
     };
 
-    const handleTest = async (id: string) => {
+    const getPreferredTestEvent = (webhook: WebhookConfig) => {
+        if (webhook.events.includes('leave.approved')) return 'leave.approved';
+        return webhook.events[0];
+    };
+
+    const handleTest = async (webhook: WebhookConfig) => {
+        const eventType = getPreferredTestEvent(webhook);
+        if (!eventType) {
+            alert('Aucun événement configuré pour ce webhook.');
+            return;
+        }
+
+        const confirmed = confirm(`Envoyer un test "${eventType}" vers ce webhook ?`);
+        if (!confirmed) return;
+
+        const id = webhook.id;
         setTesting(id);
         try {
-            const res = await axios.post(`/admin/webhooks/${id}/test`, {}, {
+            const res = await axios.post(`/admin/webhooks/${id}/test`, { eventType }, {
                 headers: { Authorization: `Bearer ${getToken()}` }
             });
-            alert(res.data.success ? '✅ Test réussi !' : `❌ Échec: ${res.data.error}`);
+            alert(res.data.success ? `✅ Test "${res.data.eventType || eventType}" réussi !` : `❌ Échec: ${res.data.error}`);
             fetchWebhooks();
         } catch (error: unknown) {
             alert(`❌ Erreur: ${getErrorMessage(error, 'Erreur inconnue')}`);
@@ -264,7 +279,7 @@ export default function Webhooks() {
                                     {/* Actions */}
                                     <div className="flex items-center gap-2">
                                         <button
-                                            onClick={() => handleTest(webhook.id)}
+                                            onClick={() => handleTest(webhook)}
                                             disabled={testing === webhook.id}
                                             className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition"
                                             title="Tester"
