@@ -4,8 +4,9 @@ import path from 'path';
 import fs from 'fs';
 import { uploadDocument, getDocumentsForTenant, getDocumentsForSpecificEmployee, getEmployeesForTenant, DOCUMENT_TYPES, getExpiryStatus } from '../services/documentService';
 import { sendMessage } from '../services/whatsappService';
+import { dispatchWebhook, WEBHOOK_EVENTS } from '../services/webhookService';
 import prisma from '../lib/prisma';
-import { signUploadPath, verifySignedUploadPath } from '../utils/signedFileUrl';
+import { absoluteSignedUploadUrl, signUploadPath, verifySignedUploadPath } from '../utils/signedFileUrl';
 
 
 // Configure multer for file upload
@@ -42,6 +43,18 @@ export const upload = multer({
 
 function signedDocumentUrl(url: string): string {
     return signUploadPath(url);
+}
+
+function backendBaseUrl(req: Request): string {
+    return process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+}
+
+function signedDocumentWebhookUrl(req: Request, url: string): string {
+    return absoluteSignedUploadUrl(backendBaseUrl(req), url);
+}
+
+function signedDocumentWebhookExpiresAt(): string {
+    return new Date(Date.now() + 15 * 60 * 1000).toISOString();
 }
 
 function removeUploadedFile(file?: Express.Multer.File): void {
@@ -81,11 +94,11 @@ export const uploadDocumentHandler = async (req: Request, res: Response): Promis
             return res.status(400).json({ error: 'Type invalide. Utilisez CONTRACT, CERTIFICATE, IDENTITY ou OTHER.' });
         }
 
-        let targetEmployee: { phoneNumber: string } | null = null;
+        let targetEmployee: { id: string; name: string | null; phoneNumber: string } | null = null;
         if (employeeId) {
             targetEmployee = await prisma.employee.findFirst({
                 where: { id: employeeId, tenantId },
-                select: { phoneNumber: true }
+                select: { id: true, name: true, phoneNumber: true }
             });
 
             if (!targetEmployee) {
@@ -106,6 +119,26 @@ export const uploadDocumentHandler = async (req: Request, res: Response): Promis
         });
 
         console.log(`📄 Document uploaded: ${name} by tenant ${tenantId}`);
+
+        if (targetEmployee) {
+            await dispatchWebhook(
+                WEBHOOK_EVENTS.DOCUMENT_RECEIVED,
+                {
+                    documentId: document.id,
+                    employeeId: targetEmployee.id,
+                    employeeName: targetEmployee.name,
+                    employeePhoneNumber: targetEmployee.phoneNumber,
+                    documentType: type,
+                    fileName: req.file.originalname,
+                    mimeType: req.file.mimetype,
+                    fileSizeBytes: req.file.size,
+                    mediaId: document.id,
+                    mediaUrl: signedDocumentWebhookUrl(req, document.url),
+                    mediaUrlExpiresAt: signedDocumentWebhookExpiresAt()
+                },
+                tenantId
+            );
+        }
 
         // Send WhatsApp notification
         const notificationMessage = `🔔 *Nouveau document reçu*\n\n📄 *${name}*\n\n_Tapez '!doc' pour consulter vos documents._`;
