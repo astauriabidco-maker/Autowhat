@@ -5,7 +5,10 @@
 
 import crypto from 'crypto';
 import prisma from '../lib/prisma';
+import { sanitizeLogText } from '../utils/safeWebhookLogger';
 
+const SENSITIVE_PAYLOAD_KEY_PATTERN = /(phone|email|name|url|link|token|secret|authorization|gps|lat|lng|longitude|latitude|address|rib|nir|bulletin|identity|document)/i;
+const MAX_AUDIT_STRING_LENGTH = 180;
 
 // Supported webhook event types
 export const WEBHOOK_EVENTS = {
@@ -97,6 +100,33 @@ function createWebhookEventId(eventType: WebhookEventType | 'test', tenantId: st
     const hash = crypto.createHash('sha256').update(canonicalPayload).digest('hex').slice(0, 32);
 
     return `wp_evt_${hash}`;
+}
+
+function redactWebhookPayloadForAudit(value: unknown): unknown {
+    if (value instanceof Date) {
+        return value.toISOString();
+    }
+
+    if (Array.isArray(value)) {
+        return value.map(redactWebhookPayloadForAudit);
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(
+            Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => {
+                if (SENSITIVE_PAYLOAD_KEY_PATTERN.test(key)) {
+                    return [key, '[redacted]'];
+                }
+                return [key, redactWebhookPayloadForAudit(nestedValue)];
+            })
+        );
+    }
+
+    if (typeof value === 'string') {
+        return value.slice(0, MAX_AUDIT_STRING_LENGTH);
+    }
+
+    return value;
 }
 
 function buildWebhookHeaders(params: {
@@ -293,15 +323,16 @@ async function sendWebhook(
         nextRetryAt = new Date(Date.now() + 5 * 60 * 1000); // Retry in 5 minutes
     }
 
-    // Log the webhook attempt (or queue it)
+    // Keep the exact payload only while a retry is pending. Successful and final logs
+    // are audit records, not payload archives.
     await prisma.webhookLog.create({
         data: {
             webhookId: config.id,
             eventType,
-            payload: finalPayload as any,
+            payload: (error ? finalPayload : redactWebhookPayloadForAudit(finalPayload)) as any,
             statusCode,
-            responseBody: responseBody?.substring(0, 2000), // Limit stored response
-            error,
+            responseBody: responseBody ? sanitizeLogText(responseBody).substring(0, 2000) : null,
+            error: error ? sanitizeLogText(error) : null,
             duration,
             status,
             retryCount: 0,
@@ -586,7 +617,10 @@ export async function processWebhookQueue(): Promise<void> {
                     status: newStatus,
                     retryCount: newRetryCount,
                     nextRetryAt,
-                    error: error ? error : (log.error as string), // keep last error if needed
+                    ...(newStatus === 'SUCCESS' || newStatus === 'FAILED'
+                        ? { payload: redactWebhookPayloadForAudit(payload) as any }
+                        : {}),
+                    error: error ? sanitizeLogText(error) : (log.error as string), // keep last error if needed
                     statusCode: statusCode || log.statusCode
                 } as any
             });

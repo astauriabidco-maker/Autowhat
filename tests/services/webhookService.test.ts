@@ -264,4 +264,89 @@ describe('webhookService outgoing contract', () => {
             'X-WhatsPoint-Signature': expectedSignature
         }));
     });
+
+    it('redacts sensitive payload fields in successful webhook logs', async () => {
+        prismaMock.webhookConfig.findMany.mockResolvedValue([
+            {
+                id: 'webhook_kalldy',
+                name: 'Kalldy POC',
+                url: 'https://kalldy.test/webhooks/whatspoint',
+                secret: 'kalldy-secret',
+                events: ['employee.secure_link.requested'],
+                isActive: true,
+                tenantId: 'tenant_fr',
+                headers: null,
+                httpMethod: 'POST',
+                payloadMapping: null
+            }
+        ]);
+
+        const { WEBHOOK_EVENTS, dispatchWebhook } = await import('../../src/services/webhookService');
+
+        await dispatchWebhook(WEBHOOK_EVENTS.EMPLOYEE_SECURE_LINK_REQUESTED, {
+            employeePhoneNumber: '+33612345678',
+            employeeName: 'Camille Martin',
+            secureLink: 'https://kalldy.test/pwa/token-secret',
+            secureLinkExpiresAt: '2026-06-17T12:00:00.000Z',
+            purpose: 'PROFILE_UPDATE',
+            sensitiveDataInWhatsApp: false
+        }, 'tenant_fr');
+
+        expect(prismaMock.webhookLog.create).toHaveBeenCalledWith({
+            data: expect.objectContaining({
+                status: 'SUCCESS',
+                payload: expect.objectContaining({
+                    eventId: expect.stringMatching(/^wp_evt_[a-f0-9]{32}$/),
+                    data: expect.objectContaining({
+                        employeePhoneNumber: '[redacted]',
+                        employeeName: '[redacted]',
+                        secureLink: '[redacted]',
+                        secureLinkExpiresAt: '[redacted]',
+                        purpose: 'PROFILE_UPDATE',
+                        sensitiveDataInWhatsApp: false
+                    })
+                })
+            })
+        });
+    });
+
+    it('keeps the exact payload only while a webhook retry is pending', async () => {
+        fetchMock.mockResolvedValue(new Response('temporary failure for +33612345678 at https://kalldy.test/private-token', { status: 503 }));
+        prismaMock.webhookConfig.findMany.mockResolvedValue([
+            {
+                id: 'webhook_kalldy',
+                name: 'Kalldy POC',
+                url: 'https://kalldy.test/webhooks/whatspoint',
+                secret: 'kalldy-secret',
+                events: ['document.received'],
+                isActive: true,
+                tenantId: 'tenant_fr',
+                headers: null,
+                httpMethod: 'POST',
+                payloadMapping: null
+            }
+        ]);
+
+        const { WEBHOOK_EVENTS, dispatchWebhook } = await import('../../src/services/webhookService');
+
+        await dispatchWebhook(WEBHOOK_EVENTS.DOCUMENT_RECEIVED, {
+            employeePhoneNumber: '+33612345678',
+            mediaUrl: 'https://api.testbed.whatspoint.com/api/files/signed/private-token',
+            documentType: 'absence_justification'
+        }, 'tenant_fr');
+
+        expect(prismaMock.webhookLog.create).toHaveBeenCalledWith({
+            data: expect.objectContaining({
+                status: 'PENDING',
+                error: expect.stringContaining('[redacted_phone]'),
+                responseBody: expect.stringContaining('[redacted_url]'),
+                payload: expect.objectContaining({
+                    data: expect.objectContaining({
+                        employeePhoneNumber: '+33612345678',
+                        mediaUrl: 'https://api.testbed.whatspoint.com/api/files/signed/private-token'
+                    })
+                })
+            })
+        });
+    });
 });
