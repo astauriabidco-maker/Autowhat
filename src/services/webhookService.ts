@@ -30,6 +30,9 @@ export const WEBHOOK_EVENTS = {
     // Messages
     MESSAGE_STATUS_UPDATED: 'message.status.updated',
 
+    // Secure PWA handoff
+    EMPLOYEE_SECURE_LINK_REQUESTED: 'employee.secure_link.requested',
+
     // Geofencing
     GEOFENCE_ALERT: 'geofence.alert',
 
@@ -350,6 +353,34 @@ function buildTestWebhookPayload(params: {
             mediaId: 'media_poc_001',
             mediaUrl: 'https://api.testbed.whatspoint.com/api/files/signed/poc-document-token',
             mediaUrlExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+        };
+
+        return {
+            eventId: createWebhookEventId(params.eventType, params.tenantId || undefined, data),
+            event: params.eventType,
+            timestamp: params.timestamp,
+            tenantId: params.tenantId || undefined,
+            data
+        };
+    }
+
+    if (params.eventType === WEBHOOK_EVENTS.EMPLOYEE_SECURE_LINK_REQUESTED) {
+        const data = {
+            employeeRef: 'emp_poc_001',
+            employeePhoneNumber: '+33612345678',
+            purpose: 'sensitive_payroll_data_completion',
+            deliveryChannel: 'whatsapp',
+            secureLink: 'https://testbed.fr.paie.kalldy.com/pwa/secure-intake/poc-token',
+            secureLinkExpiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            sensitiveDataInWhatsApp: false,
+            messageTemplate: {
+                name: 'kalldy_secure_pwa_relaunch_fr',
+                language: 'fr',
+                variables: {
+                    firstName: 'Camille',
+                    expiresInMinutes: 30
+                }
+            }
         };
 
         return {

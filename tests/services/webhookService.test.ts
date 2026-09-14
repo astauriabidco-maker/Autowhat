@@ -212,4 +212,56 @@ describe('webhookService outgoing contract', () => {
             'X-WhatsPoint-Signature': expectedSignature
         }));
     });
+
+    it('can send a strict employee.secure_link.requested payload without sensitive WhatsApp data', async () => {
+        prismaMock.webhookConfig.findUnique.mockResolvedValue({
+            id: 'webhook_kalldy',
+            name: 'Kalldy POC',
+            url: 'https://kalldy.test/webhooks/whatspoint',
+            secret: 'kalldy-secret',
+            events: ['employee.secure_link.requested'],
+            isActive: true,
+            tenantId: 'tenant_fr',
+            headers: null,
+            httpMethod: 'POST',
+            payloadMapping: null
+        });
+
+        const { WEBHOOK_EVENTS, testWebhook } = await import('../../src/services/webhookService');
+
+        const result = await testWebhook('webhook_kalldy', {
+            eventType: WEBHOOK_EVENTS.EMPLOYEE_SECURE_LINK_REQUESTED
+        });
+
+        expect(result).toEqual({ success: true, statusCode: 200 });
+
+        const [, request] = fetchMock.mock.calls[0];
+        const body = JSON.parse(request.body);
+        const expectedSignature = `sha256=${crypto
+            .createHmac('sha256', 'kalldy-secret')
+            .update(request.body)
+            .digest('hex')}`;
+
+        expect(body).toEqual(expect.objectContaining({
+            eventId: expect.stringMatching(/^wp_evt_[a-f0-9]{32}$/),
+            event: 'employee.secure_link.requested',
+            tenantId: 'tenant_fr',
+            data: expect.objectContaining({
+                employeeRef: 'emp_poc_001',
+                employeePhoneNumber: '+33612345678',
+                purpose: 'sensitive_payroll_data_completion',
+                deliveryChannel: 'whatsapp',
+                sensitiveDataInWhatsApp: false
+            })
+        }));
+        expect(body.data.secureLink).toContain('https://testbed.fr.paie.kalldy.com/pwa/secure-intake/');
+        expect(new Date(body.data.secureLinkExpiresAt).getTime()).toBeGreaterThan(Date.now());
+        expect(JSON.stringify(body.data)).not.toMatch(/rib|nir|bulletin|identity|piece d'identite/i);
+        expect(request.headers).toEqual(expect.objectContaining({
+            'X-WhatsPoint-Event': 'employee.secure_link.requested',
+            'X-WhatsPoint-Event-Id': body.eventId,
+            'X-WhatsPoint-Timestamp': body.timestamp,
+            'X-WhatsPoint-Signature': expectedSignature
+        }));
+    });
 });

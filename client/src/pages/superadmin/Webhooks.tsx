@@ -138,7 +138,7 @@ export default function Webhooks() {
     };
 
     const getTestableEvents = (webhook: WebhookConfig) => {
-        const preferred = ['leave.approved', 'document.received'];
+        const preferred = ['leave.approved', 'document.received', 'employee.secure_link.requested'];
         const pocEvents = preferred.filter(event => webhook.events.includes(event));
         return pocEvents.length > 0 ? pocEvents : webhook.events;
     };

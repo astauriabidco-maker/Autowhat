@@ -25,6 +25,7 @@ Les evenements configurables cote webhooks sortants sont:
 - `leave.approved`
 - `leave.rejected`
 - `document.received`
+- `employee.secure_link.requested`
 - `message.status.updated`
 
 ## Payload absence validee
@@ -72,6 +73,36 @@ Les evenements configurables cote webhooks sortants sont:
 ```
 
 Le fichier n'est pas envoye en base64 dans le webhook. Le payload doit contenir une reference fichier ou une URL temporaire signee avec expiration.
+
+## Payload relance PWA securisee
+
+```json
+{
+  "eventId": "wp_evt_789",
+  "event": "employee.secure_link.requested",
+  "timestamp": "2026-06-01T10:10:00.000Z",
+  "tenantId": "00000000-0000-0000-0000-000000000000",
+  "data": {
+    "employeeRef": "emp_123",
+    "employeePhoneNumber": "+33612345678",
+    "purpose": "sensitive_payroll_data_completion",
+    "deliveryChannel": "whatsapp",
+    "secureLink": "https://testbed.fr.paie.kalldy.com/pwa/secure-intake/temporary-token",
+    "secureLinkExpiresAt": "2026-06-01T10:40:00.000Z",
+    "sensitiveDataInWhatsApp": false,
+    "messageTemplate": {
+      "name": "kalldy_secure_pwa_relaunch_fr",
+      "language": "fr",
+      "variables": {
+        "firstName": "Camille",
+        "expiresInMinutes": 30
+      }
+    }
+  }
+}
+```
+
+Ce flux sert uniquement a notifier le salarie et a le rediriger vers l'espace securise Kalldy. WhatsPoint ne collecte ni ne transmet dans WhatsApp les donnees sensibles telles que RIB, NIR, bulletin ou piece d'identite.
 
 ## Headers webhook
 

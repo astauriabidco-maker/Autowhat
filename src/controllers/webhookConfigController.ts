@@ -307,6 +307,7 @@ function getEventDescription(event: string): string {
         'leave.rejected': 'Déclenché quand un congé est refusé',
         'document.received': 'Déclenché quand un justificatif simple est reçu',
         'message.status.updated': 'Déclenché quand un statut de message WhatsApp évolue',
+        'employee.secure_link.requested': 'Déclenché quand un lien PWA sécurisé est demandé pour un salarié',
         'geofence.alert': 'Déclenché quand un employé pointe hors zone',
         'employee.created': 'Déclenché quand un employé est créé',
         'employee.deleted': 'Déclenché quand un employé est supprimé'
