@@ -40,6 +40,11 @@ const PROVIDER_DEFINITIONS: Record<string, { name: string; icon: string; keys: s
         icon: 'Map',
         keys: ['API_KEY'],
     },
+    KALLDY: {
+        name: 'Kalldy Paie',
+        icon: 'Webhook',
+        keys: ['WEBHOOK_SECRET', 'SANDBOX_ENDPOINT', 'PRODUCTION_ENDPOINT'],
+    },
 };
 
 /**

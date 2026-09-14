@@ -21,6 +21,7 @@ import * as externalApiController from '../controllers/externalApiController';
 import * as whatsappNumberController from '../controllers/whatsappNumberController';
 import * as onboardingController from '../controllers/onboardingController';
 import * as publicApiAdminController from '../controllers/publicApiAdminController';
+import * as kalldyConnectorController from '../controllers/kalldyConnectorController';
 import { authenticateManager } from '../middlewares/authMiddleware';
 import { authenticateSuperAdmin } from '../middlewares/adminMiddleware';
 import { requireLegacyOperations } from '../middlewares/legacyOperationsMiddleware';
@@ -244,6 +245,7 @@ router.get('/superadmin/documents/stats', authenticateSuperAdmin, documentContro
 
 // Integrations Vault
 router.get('/admin/integrations', authenticateSuperAdmin, integrationController.getIntegrations);
+router.get('/admin/integrations/kalldy/status', authenticateSuperAdmin, kalldyConnectorController.getKalldyStatus);
 router.put('/admin/integrations', authenticateSuperAdmin, integrationController.upsertIntegration);
 router.delete('/admin/integrations', authenticateSuperAdmin, integrationController.deleteIntegration);
 

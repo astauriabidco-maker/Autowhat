@@ -7,6 +7,9 @@ import {
     MessageSquare,
     Database,
     Map,
+    Webhook,
+    Activity,
+    ExternalLink,
     Save,
     Plus,
     X,
@@ -32,6 +35,46 @@ interface Provider {
 
 type IntegrationsData = Record<string, Provider>;
 
+interface KalldyStatus {
+    provider: 'KALLDY';
+    version: string;
+    requiredEvents: string[];
+    endpoints: {
+        sandbox: string;
+        production: string;
+    };
+    state: 'not_configured' | 'disabled' | 'partial' | 'configured' | 'healthy' | 'degraded';
+    totals: {
+        webhooks: number;
+        activeWebhooks: number;
+        successes: number;
+        failures: number;
+    };
+    webhooks: Array<{
+        id: string;
+        name: string;
+        environment: 'sandbox' | 'production' | 'custom';
+        endpoint: string;
+        tenantId: string | null;
+        tenant: { id: string; name: string; country: string | null; plan: string; status: string } | null;
+        isActive: boolean;
+        version: string;
+        events: string[];
+        missingEvents: string[];
+        successCount: number;
+        failureCount: number;
+        lastTriggeredAt: string | null;
+        latestDelivery: {
+            eventType: string;
+            status: string;
+            statusCode: number | null;
+            durationMs: number | null;
+            error: string | null;
+            createdAt: string;
+        } | null;
+    }>;
+}
+
 // Icon mapping
 const ICONS: Record<string, React.ElementType> = {
     CreditCard,
@@ -39,7 +82,17 @@ const ICONS: Record<string, React.ElementType> = {
     MessageSquare,
     Database,
     Map,
+    Webhook,
     Key,
+};
+
+const KALLDY_STATE_LABELS: Record<KalldyStatus['state'], { label: string; className: string }> = {
+    healthy: { label: 'Sain', className: 'bg-green-100 text-green-700 border-green-200' },
+    configured: { label: 'Configuré', className: 'bg-blue-100 text-blue-700 border-blue-200' },
+    partial: { label: 'Partiel', className: 'bg-amber-100 text-amber-700 border-amber-200' },
+    degraded: { label: 'Dégradé', className: 'bg-red-100 text-red-700 border-red-200' },
+    disabled: { label: 'Désactivé', className: 'bg-gray-100 text-gray-700 border-gray-200' },
+    not_configured: { label: 'Non configuré', className: 'bg-gray-100 text-gray-700 border-gray-200' }
 };
 
 export default function Integrations() {
@@ -50,15 +103,22 @@ export default function Integrations() {
     const [saving, setSaving] = useState(false);
     const [showAddCustom, setShowAddCustom] = useState(false);
     const [customKey, setCustomKey] = useState({ provider: '', key: '', value: '' });
+    const [kalldyStatus, setKalldyStatus] = useState<KalldyStatus | null>(null);
 
     const token = localStorage.getItem('superadmin_token');
 
     const fetchIntegrations = useCallback(async () => {
         try {
-            const res = await axios.get('/admin/integrations', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setIntegrations(res.data);
+            const [integrationsRes, kalldyRes] = await Promise.all([
+                axios.get('/admin/integrations', {
+                    headers: { Authorization: `Bearer ${token}` }
+                }),
+                axios.get('/admin/integrations/kalldy/status', {
+                    headers: { Authorization: `Bearer ${token}` }
+                })
+            ]);
+            setIntegrations(integrationsRes.data);
+            setKalldyStatus(kalldyRes.data);
         } catch (error) {
             console.error('Error fetching integrations:', error);
         } finally {
@@ -141,6 +201,106 @@ export default function Integrations() {
                     </button>
                 </div>
             </div>
+
+            {kalldyStatus && (
+                <section className="bg-white border border-gray-200 rounded-lg p-5">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-red-50 rounded-lg">
+                                    <Webhook className="text-red-600" size={22} />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-semibold text-gray-900">Connecteur Kalldy v1</h2>
+                                    <p className="text-sm text-gray-500">Convention {kalldyStatus.version} pour les flux paie validés.</p>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2 mt-4">
+                                {kalldyStatus.requiredEvents.map(event => (
+                                    <span key={event} className="px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded">
+                                        {event}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                            <span className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium border rounded-full ${KALLDY_STATE_LABELS[kalldyStatus.state].className}`}>
+                                <Activity size={15} />
+                                {KALLDY_STATE_LABELS[kalldyStatus.state].label}
+                            </span>
+                            <a
+                                href="/api/docs/public-v1.yaml"
+                                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
+                            >
+                                <ExternalLink size={15} />
+                                OpenAPI
+                            </a>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                            <p className="text-xs text-gray-500">Webhooks actifs</p>
+                            <p className="text-xl font-semibold text-gray-900">{kalldyStatus.totals.activeWebhooks}/{kalldyStatus.totals.webhooks}</p>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                            <p className="text-xs text-gray-500">Succès</p>
+                            <p className="text-xl font-semibold text-green-600">{kalldyStatus.totals.successes}</p>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                            <p className="text-xs text-gray-500">Échecs</p>
+                            <p className="text-xl font-semibold text-red-600">{kalldyStatus.totals.failures}</p>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                            <p className="text-xs text-gray-500">Endpoint</p>
+                            <p className="text-sm font-medium text-gray-900">{kalldyStatus.webhooks[0]?.environment || 'sandbox'}</p>
+                        </div>
+                    </div>
+
+                    <div className="mt-5 space-y-3">
+                        {kalldyStatus.webhooks.length === 0 ? (
+                            <p className="text-sm text-gray-500">Aucun webhook Kalldy détecté.</p>
+                        ) : (
+                            kalldyStatus.webhooks.map(webhook => (
+                                <div key={webhook.id} className="border border-gray-200 rounded-lg p-4">
+                                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                                        <div>
+                                            <p className="font-medium text-gray-900">{webhook.name}</p>
+                                            <p className="text-xs text-gray-500 font-mono break-all">{webhook.endpoint}</p>
+                                        </div>
+                                        <span className={`text-xs font-medium px-2 py-1 rounded ${webhook.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                                            {webhook.isActive ? 'Actif' : 'Inactif'}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3 text-sm">
+                                        <div>
+                                            <p className="text-xs text-gray-500">Tenant</p>
+                                            <p className="text-gray-800">{webhook.tenant?.name || webhook.tenantId || 'Global'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500">Dernier événement</p>
+                                            <p className="text-gray-800">{webhook.latestDelivery?.eventType || 'Aucun'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500">Dernier statut</p>
+                                            <p className="text-gray-800">
+                                                {webhook.latestDelivery
+                                                    ? `${webhook.latestDelivery.status} · HTTP ${webhook.latestDelivery.statusCode || '-'} · ${webhook.latestDelivery.durationMs || '-'}ms`
+                                                    : '-'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {webhook.missingEvents.length > 0 && (
+                                        <p className="mt-3 text-sm text-amber-700">
+                                            Événements manquants: {webhook.missingEvents.join(', ')}
+                                        </p>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </section>
+            )}
 
             {/* Security Notice */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
