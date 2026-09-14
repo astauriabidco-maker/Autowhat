@@ -26,7 +26,7 @@ La configuration webhook Kalldy POC est geree dans l'espace superadmin WhatsPoin
 | --- | --- | --- | --- |
 | Absence validee | `leave.approved` | Valide | Inbox manager WhatsPoint -> webhook HMAC -> tenant/collaborateur Kalldy -> EVP cree |
 | Justificatif simple | `document.received` | Valide | Webhook HMAC -> tenant/collaborateur Kalldy -> document cree en `PENDING_REVIEW` |
-| Relance PWA securisee | `employee.secure_link.requested` | Pret a confirmer | Webhook envoye par WhatsPoint, handler Kalldy deploye; attente confirmation fonctionnelle du smoke reel |
+| Relance PWA securisee | `employee.secure_link.requested` | Smoke WhatsPoint reussi | Endpoint Kalldy a retourne un succes au test reel; attente confirmation cockpit Kalldy pour validation fonctionnelle finale |
 
 ## Evenements POC
 
@@ -234,7 +234,7 @@ Pour le POC, le webhook doit rester limite a:
 
 ## Prochaine confirmation Kalldy
 
-Kalldy doit confirmer le smoke reel du troisieme flux:
+Le smoke reel WhatsPoint du troisieme flux a retourne un succes cote interface superadmin. Kalldy doit confirmer cote cockpit:
 
 - reception de `employee.secure_link.requested`;
 - validation HMAC;
