@@ -58,6 +58,17 @@ type ConnectorLog = {
     createdAt: Date;
 };
 
+type ConnectorIssueLog = ConnectorLog & {
+    webhook: {
+        id: string;
+        name: string;
+        url: string;
+        tenantId: string | null;
+        isActive: boolean;
+        events: string[];
+    };
+};
+
 function inferEnvironment(definition: ConnectorDefinition, url: string): ConnectorEnvironment {
     if (url === definition.endpoints.sandbox) return 'sandbox';
     if (url === definition.endpoints.production) return 'production';
@@ -118,6 +129,23 @@ function toDeliveryDetail(log: ConnectorLog) {
         replayable: ['PENDING', 'FAILED'].includes(log.status) && !containsRedactedConnectorLogPayload(log.payload),
         payload: redactConnectorLogPayload(log.payload),
         responseBody: log.responseBody ? sanitizeLogText(log.responseBody).substring(0, 2000) : null
+    };
+}
+
+function toDeliveryIssue(log: ConnectorIssueLog, definition: ConnectorDefinition, tenantById: Map<string, any>) {
+    return {
+        ...toDeliveryDetail(log),
+        provider: definition.provider,
+        connectorName: definition.displayName,
+        webhook: {
+            id: log.webhook.id,
+            name: log.webhook.name,
+            endpoint: log.webhook.url,
+            tenantId: log.webhook.tenantId,
+            isActive: log.webhook.isActive,
+            events: log.webhook.events
+        },
+        tenant: log.webhook.tenantId ? tenantById.get(log.webhook.tenantId) || null : null
     };
 }
 
@@ -524,6 +552,144 @@ export async function getConnectorWebhookLogs(provider: string, webhookId: strin
             limit
         },
         logs: page.map(toDeliveryDetail),
+        pagination: {
+            nextCursor: logs.length > limit ? logs[limit].id : null,
+            hasMore: logs.length > limit
+        }
+    };
+}
+
+export async function getConnectorDeliveryIssues(filters: {
+    provider?: string;
+    eventType?: string;
+    status?: string;
+    eventId?: string;
+    limit?: number;
+    cursor?: string;
+}) {
+    const definitions = await getRuntimeConnectorDefinitions();
+    const requestedProvider = filters.provider ? normalizeProvider(String(filters.provider)) : '';
+    const filteredDefinitions = requestedProvider
+        ? definitions.filter(definition => definition.provider === requestedProvider)
+        : definitions;
+
+    if (requestedProvider && filteredDefinitions.length === 0) {
+        return {
+            ok: false as const,
+            status: 404,
+            error: 'Connecteur inconnu'
+        };
+    }
+
+    const webhooks = await prisma.webhookConfig.findMany({
+        orderBy: [{ updatedAt: 'desc' }],
+        select: {
+            id: true,
+            name: true,
+            url: true,
+            tenantId: true,
+            events: true,
+            isActive: true,
+            updatedAt: true
+        }
+    });
+
+    const definitionByWebhookId = new Map<string, ConnectorDefinition>();
+    for (const webhook of webhooks) {
+        const definition = filteredDefinitions.find(candidate => candidate.matchWebhook(webhook));
+        if (definition) {
+            definitionByWebhookId.set(webhook.id, definition);
+        }
+    }
+
+    const webhookIds = [...definitionByWebhookId.keys()];
+    const limit = Math.min(Math.max(Number(filters.limit) || 50, 1), 100);
+    const status = String(filters.status || '').trim().toUpperCase();
+    const eventType = String(filters.eventType || '').trim();
+    const eventId = String(filters.eventId || '').trim();
+    const where: any = {
+        webhookId: { in: webhookIds },
+        status: ['FAILED', 'PENDING'].includes(status) ? status : { in: ['FAILED', 'PENDING'] }
+    };
+
+    if (eventType) where.eventType = eventType;
+    if (eventId) {
+        where.payload = {
+            path: ['eventId'],
+            equals: eventId
+        };
+    }
+
+    const logs = webhookIds.length > 0
+        ? await prisma.webhookLog.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            ...(filters.cursor ? { cursor: { id: String(filters.cursor) }, skip: 1 } : {}),
+            take: limit + 1,
+            select: {
+                id: true,
+                webhookId: true,
+                eventType: true,
+                payload: true,
+                status: true,
+                statusCode: true,
+                responseBody: true,
+                duration: true,
+                error: true,
+                retryCount: true,
+                nextRetryAt: true,
+                createdAt: true,
+                webhook: {
+                    select: {
+                        id: true,
+                        name: true,
+                        url: true,
+                        tenantId: true,
+                        isActive: true,
+                        events: true
+                    }
+                }
+            }
+        })
+        : [];
+    const page = logs.slice(0, limit) as ConnectorIssueLog[];
+    const tenantIds = [...new Set(page.map(log => log.webhook.tenantId).filter(Boolean))] as string[];
+    const tenants = tenantIds.length > 0
+        ? await prisma.tenant.findMany({
+            where: { id: { in: tenantIds } },
+            select: {
+                id: true,
+                name: true,
+                country: true,
+                plan: true,
+                status: true
+            }
+        })
+        : [];
+    const tenantById = new Map(tenants.map(tenant => [tenant.id, tenant]));
+
+    return {
+        ok: true as const,
+        filters: {
+            provider: requestedProvider || null,
+            status: ['FAILED', 'PENDING'].includes(status) ? status : null,
+            eventType: eventType || null,
+            eventId: eventId || null,
+            limit
+        },
+        providers: filteredDefinitions.map(definition => ({
+            provider: definition.provider,
+            displayName: definition.displayName
+        })),
+        issues: page
+            .map(log => {
+                const definition = definitionByWebhookId.get(log.webhookId);
+                return definition ? toDeliveryIssue(log, definition, tenantById) : null;
+            })
+            .filter(Boolean),
+        totals: {
+            matchedWebhooks: webhookIds.length
+        },
         pagination: {
             nextCursor: logs.length > limit ? logs[limit].id : null,
             hasMore: logs.length > limit

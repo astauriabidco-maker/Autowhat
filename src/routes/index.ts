@@ -250,6 +250,7 @@ router.get('/superadmin/documents/stats', authenticateSuperAdmin, documentContro
 router.get('/admin/integrations', authenticateSuperAdmin, integrationController.getIntegrations);
 router.get('/admin/connectors', authenticateSuperAdmin, connectorController.getConnectors);
 router.post('/admin/connectors', authenticateSuperAdmin, connectorController.createConnector);
+router.get('/admin/connectors/deliveries/issues', authenticateSuperAdmin, connectorController.getConnectorIssues);
 router.get('/admin/connectors/:provider/status', authenticateSuperAdmin, connectorController.getConnector);
 router.get('/admin/connectors/:provider/webhooks/:id/logs', authenticateSuperAdmin, connectorController.getConnectorLogs);
 router.post('/admin/connectors/:provider/webhooks/:id/logs/:logId/replay', authenticateSuperAdmin, connectorController.replayConnectorLog);

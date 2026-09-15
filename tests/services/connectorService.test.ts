@@ -284,4 +284,138 @@ describe('connectorService', () => {
             })
         });
     });
+
+    it('returns a global connector issue queue with replayability and redacted details', async () => {
+        prismaMock.webhookConfig.findMany.mockResolvedValue([
+            {
+                id: 'webhook_kalldy',
+                name: 'Kalldy POC',
+                url: 'https://api.testbed.fr.paie.kalldy.com/api/webhooks/whatspoint',
+                tenantId: 'tenant_fr',
+                events: ['leave.approved'],
+                isActive: true,
+                updatedAt: new Date('2026-09-15T11:00:00.000Z')
+            }
+        ]);
+        prismaMock.webhookLog.findMany.mockResolvedValue([
+            {
+                id: 'log_failed',
+                webhookId: 'webhook_kalldy',
+                eventType: 'leave.approved',
+                payload: {
+                    eventId: 'wp_evt_failed',
+                    event: 'leave.approved',
+                    data: {
+                        employeePhoneNumber: '+33612345678',
+                        businessDays: 2
+                    }
+                },
+                status: 'FAILED',
+                statusCode: 500,
+                responseBody: '{"error":"phone +33612345678 failed"}',
+                duration: 321,
+                error: 'HTTP 500: phone +33612345678 failed',
+                retryCount: 3,
+                nextRetryAt: null,
+                createdAt: new Date('2026-09-15T11:05:00.000Z'),
+                webhook: {
+                    id: 'webhook_kalldy',
+                    name: 'Kalldy POC',
+                    url: 'https://api.testbed.fr.paie.kalldy.com/api/webhooks/whatspoint',
+                    tenantId: 'tenant_fr',
+                    isActive: true,
+                    events: ['leave.approved']
+                }
+            },
+            {
+                id: 'log_cursor',
+                webhookId: 'webhook_kalldy',
+                eventType: 'leave.approved',
+                payload: { eventId: 'wp_evt_cursor', event: 'leave.approved' },
+                status: 'PENDING',
+                statusCode: null,
+                responseBody: null,
+                duration: null,
+                error: null,
+                retryCount: 1,
+                nextRetryAt: new Date('2026-09-15T11:10:00.000Z'),
+                createdAt: new Date('2026-09-15T11:04:00.000Z'),
+                webhook: {
+                    id: 'webhook_kalldy',
+                    name: 'Kalldy POC',
+                    url: 'https://api.testbed.fr.paie.kalldy.com/api/webhooks/whatspoint',
+                    tenantId: 'tenant_fr',
+                    isActive: true,
+                    events: ['leave.approved']
+                }
+            }
+        ]);
+        prismaMock.tenant.findMany.mockResolvedValue([
+            {
+                id: 'tenant_fr',
+                name: 'Tenant Pilote',
+                country: 'FR',
+                plan: 'PRO',
+                status: 'ACTIVE'
+            }
+        ]);
+
+        const { getConnectorDeliveryIssues } = await import('../../src/services/connectorService');
+        const result = await getConnectorDeliveryIssues({
+            provider: 'kalldy',
+            status: 'failed',
+            limit: 1
+        });
+
+        expect(result).toEqual({
+            ok: true,
+            filters: {
+                provider: 'KALLDY',
+                status: 'FAILED',
+                eventType: null,
+                eventId: null,
+                limit: 1
+            },
+            providers: [{ provider: 'KALLDY', displayName: 'Kalldy Paie' }],
+            issues: [
+                expect.objectContaining({
+                    id: 'log_failed',
+                    provider: 'KALLDY',
+                    connectorName: 'Kalldy Paie',
+                    eventId: 'wp_evt_failed',
+                    status: 'FAILED',
+                    replayable: true,
+                    tenant: expect.objectContaining({ id: 'tenant_fr', name: 'Tenant Pilote' }),
+                    webhook: expect.objectContaining({ id: 'webhook_kalldy', name: 'Kalldy POC' }),
+                    payload: expect.objectContaining({
+                        data: expect.objectContaining({
+                            employeePhoneNumber: '[redacted]',
+                            businessDays: 2
+                        })
+                    }),
+                    responseBody: expect.stringContaining('[redacted_phone]')
+                })
+            ],
+            totals: {
+                matchedWebhooks: 1
+            },
+            pagination: {
+                nextCursor: 'log_cursor',
+                hasMore: true
+            }
+        });
+        expect(prismaMock.webhookLog.findMany).toHaveBeenCalledWith({
+            where: {
+                webhookId: { in: ['webhook_kalldy'] },
+                status: 'FAILED'
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 2,
+            select: expect.objectContaining({
+                webhook: expect.any(Object),
+                payload: true,
+                responseBody: true
+            })
+        });
+    });
 });

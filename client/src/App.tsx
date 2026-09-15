@@ -48,6 +48,7 @@ const PlatformSettings = lazy(() => import('./pages/superadmin/PlatformSettings'
 const Integrations = lazy(() => import('./pages/superadmin/Integrations'));
 const PlansManager = lazy(() => import('./pages/superadmin/PlansManager'));
 const Webhooks = lazy(() => import('./pages/superadmin/Webhooks'));
+const WebhookIssues = lazy(() => import('./pages/superadmin/WebhookIssues'));
 const SupportInbox = lazy(() => import('./pages/superadmin/SupportInbox'));
 const TenantDetails = lazy(() => import('./pages/superadmin/TenantDetails'));
 const CreateTenant = lazy(() => import('./pages/superadmin/CreateTenant'));
@@ -169,6 +170,7 @@ function App() {
             <Route path="plans" element={<PlansManager />} />
             <Route path="pricing-matrix" element={<PricingMatrix />} />
             <Route path="webhooks" element={<Webhooks />} />
+            <Route path="webhook-issues" element={<WebhookIssues />} />
             <Route path="support" element={<SupportInbox />} />
             <Route path="marketing" element={<MarketingStudio />} />
             <Route path="leads" element={<Navigate to="/superadmin/tenants" replace />} />
