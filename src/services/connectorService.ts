@@ -677,7 +677,7 @@ export async function getConnectorDeliveryIssues(filters: {
             eventId: eventId || null,
             limit
         },
-        providers: filteredDefinitions.map(definition => ({
+        providers: definitions.map(definition => ({
             provider: definition.provider,
             displayName: definition.displayName
         })),

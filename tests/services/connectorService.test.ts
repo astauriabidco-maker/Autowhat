@@ -376,7 +376,10 @@ describe('connectorService', () => {
                 eventId: null,
                 limit: 1
             },
-            providers: [{ provider: 'KALLDY', displayName: 'Kalldy Paie' }],
+            providers: [
+                { provider: 'KALLDY', displayName: 'Kalldy Paie' },
+                { provider: 'SANDBOX_PARTNER', displayName: 'Partenaire Sandbox' }
+            ],
             issues: [
                 expect.objectContaining({
                     id: 'log_failed',
