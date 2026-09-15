@@ -159,6 +159,83 @@ describe('webhookService outgoing contract', () => {
             'X-WhatsPoint-Timestamp': body.timestamp,
             'X-WhatsPoint-Signature': expectedSignature
         }));
+        expect(prismaMock.webhookConfig.update).toHaveBeenCalledWith({
+            where: { id: 'webhook_kalldy' },
+            data: {
+                lastTriggeredAt: expect.any(Date),
+                successCount: { increment: 1 }
+            }
+        });
+        expect(prismaMock.webhookLog.create).toHaveBeenCalledWith({
+            data: expect.objectContaining({
+                webhookId: 'webhook_kalldy',
+                eventType: 'leave.approved',
+                status: 'SUCCESS',
+                statusCode: 200,
+                responseBody: 'ok',
+                error: null,
+                retryCount: 0,
+                nextRetryAt: null,
+                payload: expect.objectContaining({
+                    eventId: body.eventId,
+                    event: 'leave.approved',
+                    tenantId: 'tenant_fr',
+                    data: expect.objectContaining({
+                        employeePhoneNumber: '[redacted]',
+                        startDate: '2026-06-10',
+                        endDate: '2026-06-17',
+                        status: 'APPROVED'
+                    })
+                })
+            })
+        });
+    });
+
+    it('records failed controlled webhook tests without enqueueing retries', async () => {
+        fetchMock.mockResolvedValue(new Response('temporary failure', { status: 503 }));
+        prismaMock.webhookConfig.findUnique.mockResolvedValue({
+            id: 'webhook_kalldy',
+            name: 'Kalldy POC',
+            url: 'https://kalldy.test/webhooks/whatspoint',
+            secret: 'kalldy-secret',
+            events: ['leave.approved'],
+            isActive: true,
+            tenantId: 'tenant_fr',
+            headers: null,
+            httpMethod: 'POST',
+            payloadMapping: null
+        });
+
+        const { WEBHOOK_EVENTS, testWebhook } = await import('../../src/services/webhookService');
+
+        const result = await testWebhook('webhook_kalldy', {
+            eventType: WEBHOOK_EVENTS.LEAVE_APPROVED
+        });
+
+        expect(result).toEqual({
+            success: false,
+            error: 'HTTP 503: temporary failure',
+            statusCode: 503
+        });
+        expect(prismaMock.webhookConfig.update).toHaveBeenCalledWith({
+            where: { id: 'webhook_kalldy' },
+            data: {
+                lastTriggeredAt: expect.any(Date),
+                failureCount: { increment: 1 }
+            }
+        });
+        expect(prismaMock.webhookLog.create).toHaveBeenCalledWith({
+            data: expect.objectContaining({
+                webhookId: 'webhook_kalldy',
+                eventType: 'leave.approved',
+                status: 'FAILED',
+                statusCode: 503,
+                responseBody: 'temporary failure',
+                error: 'HTTP 503: temporary failure',
+                retryCount: 0,
+                nextRetryAt: null
+            })
+        });
     });
 
     it('can send a strict document.received payload from the webhook test endpoint path', async () => {

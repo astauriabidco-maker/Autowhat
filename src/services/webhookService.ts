@@ -460,6 +460,44 @@ function buildTestWebhookPayload(params: {
     };
 }
 
+async function recordTestWebhookDelivery(params: {
+    webhook: { id: string };
+    eventType: TestWebhookEventType;
+    payload: ReturnType<typeof buildTestWebhookPayload>;
+    statusCode?: number | null;
+    responseBody?: string | null;
+    error?: string | null;
+    duration: number;
+}): Promise<void> {
+    const failed = Boolean(params.error);
+
+    await prisma.webhookConfig.update({
+        where: { id: params.webhook.id },
+        data: {
+            lastTriggeredAt: new Date(),
+            ...(failed
+                ? { failureCount: { increment: 1 } }
+                : { successCount: { increment: 1 } }
+            )
+        }
+    });
+
+    await prisma.webhookLog.create({
+        data: {
+            webhookId: params.webhook.id,
+            eventType: params.eventType,
+            payload: redactWebhookPayloadForAudit(params.payload) as any,
+            statusCode: params.statusCode ?? null,
+            responseBody: params.responseBody ? sanitizeLogText(params.responseBody).substring(0, 2000) : null,
+            error: params.error ? sanitizeLogText(params.error) : null,
+            duration: params.duration,
+            status: failed ? 'FAILED' : 'SUCCESS',
+            retryCount: 0,
+            nextRetryAt: null
+        } as any
+    });
+}
+
 /**
  * Test a webhook configuration by sending a test event
  */
@@ -508,20 +546,49 @@ export async function testWebhook(
         clearTimeout(timeout);
 
         const duration = Date.now() - startTime;
+        const responseBody = await response.text().catch(() => '');
 
         if (response.ok) {
+            await recordTestWebhookDelivery({
+                webhook,
+                eventType,
+                payload,
+                statusCode: response.status,
+                responseBody,
+                duration
+            });
+
             console.log(`✅ Test webhook to ${webhook.name} succeeded in ${duration}ms`);
             return { success: true, statusCode: response.status };
         } else {
-            const body = await response.text().catch(() => '');
+            const error = `HTTP ${response.status}: ${responseBody.substring(0, 200)}`;
+            await recordTestWebhookDelivery({
+                webhook,
+                eventType,
+                payload,
+                statusCode: response.status,
+                responseBody,
+                error,
+                duration
+            });
+
             return {
                 success: false,
-                error: `HTTP ${response.status}: ${body.substring(0, 200)}`,
+                error,
                 statusCode: response.status
             };
         }
     } catch (err: any) {
-        return { success: false, error: err.message };
+        const error = err.message || 'Unknown error';
+        await recordTestWebhookDelivery({
+            webhook,
+            eventType,
+            payload,
+            error,
+            duration: Date.now() - startTime
+        });
+
+        return { success: false, error };
     }
 }
 
