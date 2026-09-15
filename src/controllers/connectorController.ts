@@ -3,6 +3,7 @@ import {
     SUPPORTED_CONNECTOR_EVENTS,
     createPartnerConnector,
     getConnectorDefinition,
+    getConnectorWebhookLogs,
     getConnectorsStatus,
     getConnectorStatus,
     updateConnectorWebhookEvents
@@ -77,6 +78,31 @@ export async function updateConnectorEvents(req: Request, res: Response) {
     } catch (error) {
         console.error('Error updating connector events:', error);
         res.status(500).json({ error: 'Erreur lors de la mise à jour des événements du connecteur' });
+    }
+}
+
+export async function getConnectorLogs(req: Request, res: Response) {
+    try {
+        const provider = String(req.params.provider || '');
+        const webhookId = String(req.params.id || '');
+        const result = await getConnectorWebhookLogs(provider, webhookId, {
+            eventType: req.query.eventType ? String(req.query.eventType) : undefined,
+            status: req.query.status ? String(req.query.status) : undefined,
+            eventId: req.query.eventId ? String(req.query.eventId) : undefined,
+            limit: req.query.limit ? Number(req.query.limit) : undefined,
+            cursor: req.query.cursor ? String(req.query.cursor) : undefined
+        });
+
+        if (!result.ok) {
+            return res.status(result.status).json({ error: result.error });
+        }
+
+        const { ok, ...payload } = result;
+        void ok;
+        res.json(payload);
+    } catch (error) {
+        console.error('Error fetching connector logs:', error);
+        res.status(500).json({ error: 'Erreur lors de la récupération des logs du connecteur' });
     }
 }
 

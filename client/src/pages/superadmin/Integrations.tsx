@@ -16,7 +16,9 @@ import {
     Loader2,
     Check,
     AlertTriangle,
-    RefreshCw
+    RefreshCw,
+    Eye,
+    Search
 } from 'lucide-react';
 
 interface IntegrationKey {
@@ -49,6 +51,29 @@ interface ConnectorDelivery {
     createdAt: string;
 }
 
+interface ConnectorDeliveryDetail extends ConnectorDelivery {
+    payload: unknown;
+    responseBody: string | null;
+}
+
+interface ConnectorWebhookStatus {
+    id: string;
+    name: string;
+    environment: 'sandbox' | 'production' | 'custom';
+    endpoint: string;
+    tenantId: string | null;
+    tenant: { id: string; name: string; country: string | null; plan: string; status: string } | null;
+    isActive: boolean;
+    version: string;
+    events: string[];
+    missingEvents: string[];
+    successCount: number;
+    failureCount: number;
+    lastTriggeredAt: string | null;
+    latestDelivery: ConnectorDelivery | null;
+    recentDeliveries: ConnectorDelivery[];
+}
+
 interface ConnectorStatus {
     provider: string;
     name: string;
@@ -68,24 +93,21 @@ interface ConnectorStatus {
         successes: number;
         failures: number;
     };
-    webhooks: Array<{
-        id: string;
-        name: string;
-        environment: 'sandbox' | 'production' | 'custom';
-        endpoint: string;
-        tenantId: string | null;
-        tenant: { id: string; name: string; country: string | null; plan: string; status: string } | null;
-        isActive: boolean;
-        version: string;
-        events: string[];
-        missingEvents: string[];
-        successCount: number;
-        failureCount: number;
-        lastTriggeredAt: string | null;
-        latestDelivery: ConnectorDelivery | null;
-        recentDeliveries: ConnectorDelivery[];
-    }>;
+    webhooks: ConnectorWebhookStatus[];
     recentDeliveries: ConnectorDelivery[];
+}
+
+interface ConnectorLogPanel {
+    provider: string;
+    connectorName: string;
+    requiredEvents: string[];
+    webhook: ConnectorWebhookStatus;
+}
+
+interface ConnectorLogFilters {
+    eventType: string;
+    status: string;
+    eventId: string;
 }
 
 // Icon mapping
@@ -124,6 +146,12 @@ function formatDateTime(value: string | null) {
     });
 }
 
+function formatJson(value: unknown) {
+    if (value === null || value === undefined) return '-';
+    if (typeof value === 'string') return value;
+    return JSON.stringify(value, null, 2);
+}
+
 export default function Integrations() {
     const [loading, setLoading] = useState(true);
     const [integrations, setIntegrations] = useState<IntegrationsData>({});
@@ -147,6 +175,16 @@ export default function Integrations() {
     });
     const [savingConnectorWebhookId, setSavingConnectorWebhookId] = useState<string | null>(null);
     const [testingConnector, setTestingConnector] = useState<string | null>(null);
+    const [connectorLogPanel, setConnectorLogPanel] = useState<ConnectorLogPanel | null>(null);
+    const [connectorLogFilters, setConnectorLogFilters] = useState<ConnectorLogFilters>({
+        eventType: '',
+        status: '',
+        eventId: ''
+    });
+    const [connectorLogs, setConnectorLogs] = useState<ConnectorDeliveryDetail[]>([]);
+    const [connectorLogsNextCursor, setConnectorLogsNextCursor] = useState<string | null>(null);
+    const [connectorLogsLoading, setConnectorLogsLoading] = useState(false);
+    const [selectedConnectorLog, setSelectedConnectorLog] = useState<ConnectorDeliveryDetail | null>(null);
 
     const token = localStorage.getItem('superadmin_token');
 
@@ -294,6 +332,51 @@ export default function Integrations() {
         } finally {
             setSaving(false);
         }
+    };
+
+    const loadConnectorLogs = async (
+        panel: ConnectorLogPanel,
+        filters: ConnectorLogFilters,
+        options: { append?: boolean; cursor?: string | null } = {}
+    ) => {
+        setConnectorLogsLoading(true);
+        try {
+            const res = await axios.get(`/admin/connectors/${panel.provider}/webhooks/${panel.webhook.id}/logs`, {
+                headers: { Authorization: `Bearer ${token}` },
+                params: {
+                    limit: 25,
+                    ...(filters.eventType ? { eventType: filters.eventType } : {}),
+                    ...(filters.status ? { status: filters.status } : {}),
+                    ...(filters.eventId ? { eventId: filters.eventId.trim() } : {}),
+                    ...(options.cursor ? { cursor: options.cursor } : {})
+                }
+            });
+            const logs = res.data.logs || [];
+            setConnectorLogs(currentLogs => options.append ? [...currentLogs, ...logs] : logs);
+            setConnectorLogsNextCursor(res.data.pagination?.nextCursor || null);
+            setSelectedConnectorLog(currentLog => {
+                if (options.append && currentLog) return currentLog;
+                return logs[0] || null;
+            });
+        } catch (error: unknown) {
+            const message = axios.isAxiosError(error)
+                ? error.response?.data?.error || error.response?.data?.message || error.message
+                : 'Erreur inconnue';
+            alert(`Erreur: ${message}`);
+        } finally {
+            setConnectorLogsLoading(false);
+        }
+    };
+
+    const openConnectorLogs = async (provider: string, connectorName: string, requiredEvents: string[], webhook: ConnectorWebhookStatus) => {
+        const panel = { provider, connectorName, requiredEvents, webhook };
+        const initialFilters = { eventType: '', status: '', eventId: '' };
+        setConnectorLogPanel(panel);
+        setConnectorLogFilters(initialFilters);
+        setConnectorLogs([]);
+        setConnectorLogsNextCursor(null);
+        setSelectedConnectorLog(null);
+        await loadConnectorLogs(panel, initialFilters);
     };
 
     if (loading) {
@@ -501,9 +584,19 @@ export default function Integrations() {
                                             <p className="font-medium text-gray-900">{webhook.name}</p>
                                             <p className="text-xs text-gray-500 font-mono break-all">{webhook.endpoint}</p>
                                         </div>
-                                        <span className={`text-xs font-medium px-2 py-1 rounded ${webhook.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                                            {webhook.isActive ? 'Actif' : 'Inactif'}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-xs font-medium px-2 py-1 rounded ${webhook.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                {webhook.isActive ? 'Actif' : 'Inactif'}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => openConnectorLogs(connectorStatus.provider, connectorStatus.name, connectorStatus.requiredEvents, webhook)}
+                                                className="inline-flex items-center gap-1 rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                            >
+                                                <Eye size={13} />
+                                                Détails
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3 text-sm">
                                         <div>
@@ -632,6 +725,153 @@ export default function Integrations() {
                     </div>
                 </section>
             ))}
+
+            {connectorLogPanel && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4">
+                    <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+                        <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">Détails connecteur</h3>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    {connectorLogPanel.connectorName} · {connectorLogPanel.webhook.name}
+                                </p>
+                                <p className="mt-1 max-w-3xl break-all font-mono text-xs text-gray-500">
+                                    {connectorLogPanel.webhook.endpoint}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setConnectorLogPanel(null)}
+                                className="rounded p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                                aria-label="Fermer"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="border-b border-gray-200 px-5 py-4">
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_160px_1fr_auto]">
+                                <select
+                                    value={connectorLogFilters.eventType}
+                                    onChange={(event) => setConnectorLogFilters({ ...connectorLogFilters, eventType: event.target.value })}
+                                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                                >
+                                    <option value="">Tous les événements</option>
+                                    {connectorLogPanel.requiredEvents.map(event => (
+                                        <option key={event} value={event}>{event}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={connectorLogFilters.status}
+                                    onChange={(event) => setConnectorLogFilters({ ...connectorLogFilters, status: event.target.value })}
+                                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                                >
+                                    <option value="">Tous les statuts</option>
+                                    <option value="SUCCESS">Succès</option>
+                                    <option value="PENDING">Retry</option>
+                                    <option value="FAILED">Échec</option>
+                                </select>
+                                <input
+                                    type="text"
+                                    value={connectorLogFilters.eventId}
+                                    onChange={(event) => setConnectorLogFilters({ ...connectorLogFilters, eventId: event.target.value })}
+                                    placeholder="EventId exact"
+                                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => loadConnectorLogs(connectorLogPanel, connectorLogFilters)}
+                                    disabled={connectorLogsLoading}
+                                    className="inline-flex items-center justify-center gap-2 rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                                >
+                                    {connectorLogsLoading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                                    Filtrer
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+                            <div className="min-h-0 overflow-auto border-r border-gray-200">
+                                <div className="grid min-w-[880px] grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-3 bg-gray-50 px-4 py-2 text-xs font-medium text-gray-500">
+                                    <span>Événement</span>
+                                    <span>EventId</span>
+                                    <span>Statut</span>
+                                    <span>HTTP</span>
+                                    <span>Latence</span>
+                                    <span>Date</span>
+                                </div>
+                                {connectorLogs.length === 0 && !connectorLogsLoading && (
+                                    <p className="px-4 py-8 text-center text-sm text-gray-500">Aucun log pour ces filtres.</p>
+                                )}
+                                {connectorLogs.map(log => {
+                                    const statusMeta = DELIVERY_STATUS_LABELS[log.status] || {
+                                        label: log.status,
+                                        className: 'bg-gray-100 text-gray-700'
+                                    };
+                                    const selected = selectedConnectorLog?.id === log.id;
+
+                                    return (
+                                        <button
+                                            key={log.id}
+                                            type="button"
+                                            onClick={() => setSelectedConnectorLog(log)}
+                                            className={`grid min-w-[880px] w-full grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-3 border-t border-gray-100 px-4 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 ${selected ? 'bg-red-50' : ''}`}
+                                        >
+                                            <span className="truncate font-medium">{log.eventType}</span>
+                                            <span className="truncate font-mono text-gray-500">{log.eventId || '-'}</span>
+                                            <span className={`px-2 py-0.5 rounded-full text-center font-medium ${statusMeta.className}`}>
+                                                {statusMeta.label}
+                                            </span>
+                                            <span>{log.statusCode || '-'}</span>
+                                            <span>{log.durationMs ? `${log.durationMs}ms` : '-'}</span>
+                                            <span>{formatDateTime(log.createdAt)}</span>
+                                        </button>
+                                    );
+                                })}
+                                {connectorLogsNextCursor && (
+                                    <div className="border-t border-gray-100 p-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => loadConnectorLogs(connectorLogPanel, connectorLogFilters, { append: true, cursor: connectorLogsNextCursor })}
+                                            disabled={connectorLogsLoading}
+                                            className="w-full rounded border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                                        >
+                                            Charger plus
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="min-h-0 overflow-auto bg-gray-50 p-4">
+                                {selectedConnectorLog ? (
+                                    <div className="space-y-4">
+                                        <div>
+                                            <p className="text-xs font-medium uppercase text-gray-500">Erreur</p>
+                                            <pre className="mt-2 max-h-36 overflow-auto rounded border border-gray-200 bg-white p-3 text-xs text-gray-700 whitespace-pre-wrap">
+                                                {selectedConnectorLog.error || '-'}
+                                            </pre>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium uppercase text-gray-500">Réponse partenaire</p>
+                                            <pre className="mt-2 max-h-44 overflow-auto rounded border border-gray-200 bg-white p-3 text-xs text-gray-700 whitespace-pre-wrap">
+                                                {selectedConnectorLog.responseBody || '-'}
+                                            </pre>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium uppercase text-gray-500">Payload redigé</p>
+                                            <pre className="mt-2 max-h-80 overflow-auto rounded border border-gray-200 bg-white p-3 font-mono text-xs text-gray-700 whitespace-pre-wrap">
+                                                {formatJson(selectedConnectorLog.payload)}
+                                            </pre>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="py-8 text-center text-sm text-gray-500">Sélectionnez une ligne pour inspecter le détail.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Security Notice */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

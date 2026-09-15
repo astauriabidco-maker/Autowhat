@@ -172,4 +172,116 @@ describe('connectorService', () => {
             select: expect.any(Object)
         });
     });
+
+    it('returns paginated connector webhook logs with filters and redacted payload details', async () => {
+        prismaMock.webhookConfig.findUnique.mockResolvedValue({
+            id: 'webhook_sandbox_partner',
+            name: 'Sandbox Partner POC',
+            url: 'https://sandbox.partner.invalid/webhooks/whatspoint',
+            tenantId: 'tenant_fr'
+        });
+        prismaMock.webhookLog.findMany.mockResolvedValue([
+            {
+                id: 'log_1',
+                webhookId: 'webhook_sandbox_partner',
+                eventType: 'employee.created',
+                payload: {
+                    eventId: 'wp_evt_1',
+                    event: 'employee.created',
+                    data: {
+                        employeePhoneNumber: '+33612345678',
+                        secureLink: 'https://partner.test/private-token'
+                    }
+                },
+                status: 'SUCCESS',
+                statusCode: 200,
+                responseBody: '{"success":true,"profileUrl":"https://partner.test/private-token","phone":"+33612345678"}',
+                duration: 244,
+                error: null,
+                retryCount: 0,
+                nextRetryAt: null,
+                createdAt: new Date('2026-09-15T10:50:00.000Z')
+            },
+            {
+                id: 'log_2',
+                webhookId: 'webhook_sandbox_partner',
+                eventType: 'employee.created',
+                payload: {
+                    eventId: 'wp_evt_2',
+                    event: 'employee.created'
+                },
+                status: 'SUCCESS',
+                statusCode: 200,
+                responseBody: '{"success":true}',
+                duration: 200,
+                error: null,
+                retryCount: 0,
+                nextRetryAt: null,
+                createdAt: new Date('2026-09-15T10:49:00.000Z')
+            }
+        ]);
+
+        const { getConnectorWebhookLogs } = await import('../../src/services/connectorService');
+
+        const result = await getConnectorWebhookLogs('SANDBOX_PARTNER', 'webhook_sandbox_partner', {
+            eventType: 'employee.created',
+            status: 'success',
+            eventId: 'wp_evt_1',
+            limit: 1
+        });
+
+        expect(result).toEqual({
+            ok: true,
+            provider: 'SANDBOX_PARTNER',
+            webhook: {
+                id: 'webhook_sandbox_partner',
+                name: 'Sandbox Partner POC',
+                tenantId: 'tenant_fr',
+                endpoint: 'https://sandbox.partner.invalid/webhooks/whatspoint'
+            },
+            filters: {
+                eventType: 'employee.created',
+                status: 'SUCCESS',
+                eventId: 'wp_evt_1',
+                limit: 1
+            },
+            logs: [
+                expect.objectContaining({
+                    id: 'log_1',
+                    eventId: 'wp_evt_1',
+                    eventType: 'employee.created',
+                    status: 'SUCCESS',
+                    responseBody: expect.stringContaining('[redacted_url]'),
+                    payload: expect.objectContaining({
+                        eventId: 'wp_evt_1',
+                        data: expect.objectContaining({
+                            employeePhoneNumber: '[redacted]',
+                            secureLink: '[redacted]'
+                        })
+                    })
+                })
+            ],
+            pagination: {
+                nextCursor: 'log_2',
+                hasMore: true
+            }
+        });
+        expect(prismaMock.webhookLog.findMany).toHaveBeenCalledWith({
+            where: {
+                webhookId: 'webhook_sandbox_partner',
+                eventType: 'employee.created',
+                status: 'SUCCESS',
+                payload: {
+                    path: ['eventId'],
+                    equals: 'wp_evt_1'
+                }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 2,
+            select: expect.objectContaining({
+                payload: true,
+                responseBody: true
+            })
+        });
+    });
 });

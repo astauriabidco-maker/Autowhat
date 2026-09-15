@@ -9,6 +9,7 @@ import {
     isConnectorEvent,
     isConnectorWebhookTarget
 } from './connectorRegistry';
+import { sanitizeLogText } from '../utils/safeWebhookLogger';
 
 const SUPPORTED_CONNECTOR_EVENTS = [
     'check_in',
@@ -27,6 +28,7 @@ const SUPPORTED_CONNECTOR_EVENTS = [
     'employee.created',
     'employee.deleted'
 ] as const;
+const SENSITIVE_CONNECTOR_LOG_KEY_PATTERN = /(phone|email|name|url|link|token|secret|authorization|gps|lat|lng|longitude|latitude|address|rib|nir|bulletin|identity|document)/i;
 
 type ConnectorWebhook = {
     id: string;
@@ -48,6 +50,7 @@ type ConnectorLog = {
     payload: unknown;
     status: string;
     statusCode: number | null;
+    responseBody?: string | null;
     duration: number | null;
     error: string | null;
     retryCount: number;
@@ -107,6 +110,41 @@ function toDeliverySummary(log: ConnectorLog) {
         nextRetryAt: log.nextRetryAt?.toISOString() || null,
         createdAt: log.createdAt.toISOString()
     };
+}
+
+function toDeliveryDetail(log: ConnectorLog) {
+    return {
+        ...toDeliverySummary(log),
+        payload: redactConnectorLogPayload(log.payload),
+        responseBody: log.responseBody ? sanitizeLogText(log.responseBody).substring(0, 2000) : null
+    };
+}
+
+function redactConnectorLogPayload(value: unknown): unknown {
+    if (value instanceof Date) {
+        return value.toISOString();
+    }
+
+    if (Array.isArray(value)) {
+        return value.map(redactConnectorLogPayload);
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(
+            Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => {
+                if (SENSITIVE_CONNECTOR_LOG_KEY_PATTERN.test(key)) {
+                    return [key, '[redacted]'];
+                }
+                return [key, redactConnectorLogPayload(nestedValue)];
+            })
+        );
+    }
+
+    if (typeof value === 'string' && value.length > 180) {
+        return `${value.slice(0, 180)}...`;
+    }
+
+    return value;
 }
 
 function buildWebhookWhere(definition: ConnectorDefinition) {
@@ -384,6 +422,101 @@ export async function updateConnectorWebhookEvents(provider: string, webhookId: 
             id: updated.id,
             events: updated.events,
             updatedAt: updated.updatedAt.toISOString()
+        }
+    };
+}
+
+export async function getConnectorWebhookLogs(provider: string, webhookId: string, filters: {
+    eventType?: string;
+    status?: string;
+    eventId?: string;
+    limit?: number;
+    cursor?: string;
+}) {
+    const definition = await getRuntimeConnectorDefinition(provider);
+    if (!definition) {
+        return {
+            ok: false as const,
+            status: 404,
+            error: 'Connecteur inconnu'
+        };
+    }
+
+    const webhook = await prisma.webhookConfig.findUnique({
+        where: { id: webhookId },
+        select: {
+            id: true,
+            name: true,
+            url: true,
+            tenantId: true
+        }
+    });
+
+    if (!webhook || !definition.matchWebhook(webhook)) {
+        return {
+            ok: false as const,
+            status: 404,
+            error: `Webhook ${definition.name} introuvable`
+        };
+    }
+
+    const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100);
+    const where: any = { webhookId };
+    const eventType = String(filters.eventType || '').trim();
+    const status = String(filters.status || '').trim().toUpperCase();
+    const eventId = String(filters.eventId || '').trim();
+
+    if (eventType) where.eventType = eventType;
+    if (status) where.status = status;
+    if (eventId) {
+        where.payload = {
+            path: ['eventId'],
+            equals: eventId
+        };
+    }
+
+    const logs = await prisma.webhookLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        ...(filters.cursor ? { cursor: { id: String(filters.cursor) }, skip: 1 } : {}),
+        take: limit + 1,
+        select: {
+            id: true,
+            webhookId: true,
+            eventType: true,
+            payload: true,
+            status: true,
+            statusCode: true,
+            responseBody: true,
+            duration: true,
+            error: true,
+            retryCount: true,
+            nextRetryAt: true,
+            createdAt: true
+        }
+    });
+
+    const page = logs.slice(0, limit);
+
+    return {
+        ok: true as const,
+        provider: definition.provider,
+        webhook: {
+            id: webhook.id,
+            name: webhook.name,
+            tenantId: webhook.tenantId,
+            endpoint: webhook.url
+        },
+        filters: {
+            eventType: eventType || null,
+            status: status || null,
+            eventId: eventId || null,
+            limit
+        },
+        logs: page.map(toDeliveryDetail),
+        pagination: {
+            nextCursor: logs.length > limit ? logs[limit].id : null,
+            hasMore: logs.length > limit
         }
     };
 }
