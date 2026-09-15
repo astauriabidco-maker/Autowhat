@@ -92,10 +92,10 @@ function toDeliverySummary(log: ConnectorLog) {
 
 function buildWebhookWhere(definition: ConnectorDefinition) {
     return {
-        OR: [
-            { name: { contains: definition.name, mode: 'insensitive' as const } },
-            { url: { contains: definition.name.toLowerCase(), mode: 'insensitive' as const } }
-        ]
+        OR: definition.searchTerms.flatMap(term => [
+            { name: { contains: term, mode: 'insensitive' as const } },
+            { url: { contains: term, mode: 'insensitive' as const } }
+        ])
     };
 }
 

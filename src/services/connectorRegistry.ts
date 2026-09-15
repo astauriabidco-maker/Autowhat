@@ -1,5 +1,5 @@
 export type ConnectorEnvironment = 'sandbox' | 'production' | 'custom';
-export type ConnectorProvider = 'KALLDY';
+export type ConnectorProvider = 'KALLDY' | 'SANDBOX_PARTNER';
 
 export type ConnectorDefinition = {
     provider: ConnectorProvider;
@@ -9,6 +9,7 @@ export type ConnectorDefinition = {
     docsUrl: string;
     openApiUrl: string;
     requiredEvents: readonly string[];
+    searchTerms: readonly string[];
     endpoints: {
         sandbox: string;
         production: string;
@@ -23,6 +24,11 @@ const KALLDY_REQUIRED_EVENTS = [
     'employee.secure_link.requested'
 ] as const;
 
+const SANDBOX_PARTNER_REQUIRED_EVENTS = [
+    'employee.created',
+    'message.status.updated'
+] as const;
+
 const CONNECTOR_DEFINITIONS: Record<ConnectorProvider, ConnectorDefinition> = {
     KALLDY: {
         provider: 'KALLDY',
@@ -32,6 +38,7 @@ const CONNECTOR_DEFINITIONS: Record<ConnectorProvider, ConnectorDefinition> = {
         docsUrl: '/docs/kalldy-v1.md',
         openApiUrl: '/api/docs/public-v1.yaml',
         requiredEvents: KALLDY_REQUIRED_EVENTS,
+        searchTerms: ['kalldy'],
         endpoints: {
             sandbox: 'https://api.testbed.fr.paie.kalldy.com/api/webhooks/whatspoint',
             production: 'https://api.fr.paie.kalldy.com/api/webhooks/whatspoint'
@@ -41,6 +48,26 @@ const CONNECTOR_DEFINITIONS: Record<ConnectorProvider, ConnectorDefinition> = {
             const name = webhook.name?.toLowerCase() || '';
             const url = webhook.url?.toLowerCase() || '';
             return name.includes('kalldy') || url.includes('kalldy');
+        }
+    },
+    SANDBOX_PARTNER: {
+        provider: 'SANDBOX_PARTNER',
+        name: 'Sandbox Partner',
+        displayName: 'Partenaire Sandbox',
+        version: 'SANDBOX_PARTNER_V1',
+        docsUrl: '/docs/connectors.md',
+        openApiUrl: '/api/docs/public-v1.yaml',
+        requiredEvents: SANDBOX_PARTNER_REQUIRED_EVENTS,
+        searchTerms: ['sandbox partner', 'sandbox.partner'],
+        endpoints: {
+            sandbox: 'https://sandbox.partner.invalid/webhooks/whatspoint',
+            production: 'https://partner.invalid/webhooks/whatspoint'
+        },
+        requiresTenantScopedEvents: true,
+        matchWebhook: webhook => {
+            const name = webhook.name?.toLowerCase() || '';
+            const url = webhook.url?.toLowerCase() || '';
+            return name.includes('sandbox partner') || url.includes('sandbox.partner');
         }
     }
 };
@@ -72,4 +99,4 @@ export function findConnectorForWebhookEvent(
     ) || null;
 }
 
-export { KALLDY_REQUIRED_EVENTS };
+export { KALLDY_REQUIRED_EVENTS, SANDBOX_PARTNER_REQUIRED_EVENTS };

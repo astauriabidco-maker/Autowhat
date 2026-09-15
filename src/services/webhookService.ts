@@ -448,11 +448,11 @@ function buildTestWebhookPayload(params: {
     };
 
     return {
-        eventId: createWebhookEventId('test', params.tenantId || undefined, {
+        eventId: createWebhookEventId(params.eventType, params.tenantId || undefined, {
             webhookId: params.webhookId,
             webhookName: params.webhookName
         }),
-        event: 'test',
+        event: params.eventType,
         timestamp: params.timestamp,
         tenantId: params.tenantId || undefined,
         data

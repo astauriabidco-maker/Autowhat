@@ -1,6 +1,6 @@
 # Registre Multi-Connecteurs
 
-Le panneau superadmin `/superadmin/integrations` s'appuie sur un registre de connecteurs versionnes. Kalldy est aujourd'hui la premiere definition active, mais le modele est commun aux prochains partenaires.
+Le panneau superadmin `/superadmin/integrations` s'appuie sur un registre de connecteurs versionnes. Kalldy est aujourd'hui la premiere definition active. `SANDBOX_PARTNER` sert de connecteur modele factice pour verifier que le panneau et les routes restent generiques quand un deuxieme partenaire existe.
 
 ## Principe
 
@@ -11,10 +11,16 @@ Chaque connecteur declare:
 - une version de contrat, par exemple `KALLDY_V1`;
 - les endpoints sandbox et production;
 - les evenements requis;
+- les termes de recherche permettant de rattacher les webhooks existants;
 - la regle permettant d'identifier les webhooks du partenaire;
 - si les evenements doivent obligatoirement etre rattaches a un tenant.
 
 Le registre vit dans `src/services/connectorRegistry.ts`.
+
+## Connecteurs enregistres
+
+- `KALLDY`: connecteur paie issu du POC Kalldy.
+- `SANDBOX_PARTNER`: connecteur modele non productif, endpoint `.invalid`, utilise pour tester l'architecture multi-connecteurs sans partenaire reel.
 
 ## Endpoints superadmin
 

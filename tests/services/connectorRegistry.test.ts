@@ -8,8 +8,9 @@ import {
 } from '../../src/services/connectorRegistry';
 
 describe('connectorRegistry', () => {
-    it('registers Kalldy as a versioned connector definition', () => {
+    it('registers Kalldy and the sandbox partner as versioned connector definitions', () => {
         const kalldy = getConnectorDefinition('kalldy');
+        const sandboxPartner = getConnectorDefinition('sandbox_partner');
 
         expect(kalldy).toEqual(expect.objectContaining({
             provider: 'KALLDY',
@@ -18,6 +19,13 @@ describe('connectorRegistry', () => {
             requiresTenantScopedEvents: true
         }));
         expect(getConnectorDefinitions()).toContain(kalldy);
+        expect(sandboxPartner).toEqual(expect.objectContaining({
+            provider: 'SANDBOX_PARTNER',
+            displayName: 'Partenaire Sandbox',
+            version: 'SANDBOX_PARTNER_V1',
+            requiresTenantScopedEvents: true
+        }));
+        expect(getConnectorDefinitions()).toContain(sandboxPartner);
     });
 
     it('matches connector webhooks and contract events without hard-coded service calls', () => {
@@ -31,5 +39,17 @@ describe('connectorRegistry', () => {
         expect(isConnectorEvent('KALLDY', 'expense.submitted')).toBe(false);
         expect(findConnectorForWebhookEvent(webhook, 'document.received')?.provider).toBe('KALLDY');
         expect(findConnectorForWebhookEvent(webhook, 'expense.submitted')).toBeNull();
+    });
+
+    it('matches the sandbox partner without any frontend-specific case', () => {
+        const webhook = {
+            name: 'Sandbox Partner POC',
+            url: 'https://sandbox.partner.invalid/webhooks/whatspoint'
+        };
+
+        expect(isConnectorWebhookTarget('SANDBOX_PARTNER', webhook)).toBe(true);
+        expect(isConnectorEvent('SANDBOX_PARTNER', 'employee.created')).toBe(true);
+        expect(isConnectorEvent('SANDBOX_PARTNER', 'leave.approved')).toBe(false);
+        expect(findConnectorForWebhookEvent(webhook, 'message.status.updated')?.provider).toBe('SANDBOX_PARTNER');
     });
 });
