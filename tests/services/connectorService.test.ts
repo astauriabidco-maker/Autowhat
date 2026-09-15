@@ -117,7 +117,7 @@ describe('connectorService', () => {
             name: 'ACME Paie',
             displayName: 'ACME Paie',
             version: 'ACME_PAYROLL_V1',
-            docsUrl: '/docs/connectors.md',
+            docsUrl: '/api/docs/partners/connectors.md',
             openApiUrl: '/api/docs/public-v1.yaml',
             requiredEvents: ['employee.created'],
             searchTerms: ['acme_payroll', 'https://acme.test/webhooks/whatspoint'],

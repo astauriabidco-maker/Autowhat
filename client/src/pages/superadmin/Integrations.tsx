@@ -582,6 +582,13 @@ export default function Integrations() {
                                 <ExternalLink size={15} />
                                 OpenAPI
                             </a>
+                            <a
+                                href={connectorStatus.docsUrl}
+                                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
+                            >
+                                <ExternalLink size={15} />
+                                Doc v1
+                            </a>
                         </div>
                     </div>
 

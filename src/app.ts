@@ -84,12 +84,57 @@ app.use(cookieParser());
 // Swagger API Documentation
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
+
+const partnerDocs = {
+    'kalldy-v1.md': {
+        title: 'Kalldy v1',
+        file: 'kalldy-v1.md',
+        path: path.join(process.cwd(), 'docs/kalldy-v1.md')
+    },
+    'kalldy-poc.md': {
+        title: 'Kalldy POC',
+        file: 'kalldy-poc.md',
+        path: path.join(process.cwd(), 'docs/kalldy-poc.md')
+    },
+    'connectors.md': {
+        title: 'Connecteurs partenaires',
+        file: 'connectors.md',
+        path: path.join(process.cwd(), 'docs/connectors.md')
+    }
+} as const;
+
 app.get('/api/docs/public-v1.yaml', (_req, res) => {
     const publicApiSpecPath = path.join(process.cwd(), 'docs/public-api-v1.openapi.yaml');
     res.setHeader('Content-Type', 'application/yaml; charset=utf-8');
     res.sendFile(publicApiSpecPath, (error) => {
         if (error && !res.headersSent) {
             res.status(404).json({ error: 'Public API OpenAPI spec not found' });
+        }
+    });
+});
+
+app.get('/api/docs/partners', (_req, res) => {
+    res.status(200).json({
+        docs: Object.entries(partnerDocs).map(([slug, doc]) => ({
+            slug,
+            title: doc.title,
+            url: `/api/docs/partners/${doc.file}`
+        }))
+    });
+});
+
+app.get('/api/docs/partners/:docFile', (req, res) => {
+    const doc = partnerDocs[req.params.docFile as keyof typeof partnerDocs];
+
+    if (!doc) {
+        res.status(404).json({ error: 'Partner documentation not found' });
+        return;
+    }
+
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.sendFile(doc.path, (error) => {
+        if (error && !res.headersSent) {
+            res.status(404).json({ error: 'Partner documentation not found' });
         }
     });
 });
