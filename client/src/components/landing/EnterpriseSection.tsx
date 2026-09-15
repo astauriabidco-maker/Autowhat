@@ -20,9 +20,9 @@ export default function EnterpriseSection() {
     const enterpriseFeatures = [
         {
             icon: <Smartphone size={32} />,
-            title: t('landing.enterprise.byon.title', 'BYON accompagné'),
-            description: t('landing.enterprise.byon.desc', 'Connectez votre ligne WhatsApp Business avec cadrage WhatsPoint, selon éligibilité Meta et contraintes de déploiement.'),
-            highlight: t('landing.enterprise.byon.highlight', 'Cadrage WhatsPoint'),
+            title: t('landing.enterprise.byon.title', 'Numéro adapté au lancement'),
+            description: t('landing.enterprise.byon.desc', 'Démarrez avec un numéro WhatsPoint mutualisé, dédié par pays ou BYON accompagné selon votre contexte Meta.'),
+            highlight: t('landing.enterprise.byon.highlight', 'Mutualisé, dédié, BYON'),
             color: '#22c55e'
         },
         {
@@ -34,9 +34,9 @@ export default function EnterpriseSection() {
         },
         {
             icon: <Shield size={32} />,
-            title: t('landing.enterprise.antiban.title', 'Gouvernance des flux'),
-            description: t('landing.enterprise.antiban.desc', 'Contrôlez les rôles, les accès, les exports et les intégrations vers vos outils existants.'),
-            highlight: t('landing.enterprise.antiban.highlight', 'Contrôles configurables'),
+            title: t('landing.enterprise.antiban.title', 'Connecteurs opérables'),
+            description: t('landing.enterprise.antiban.desc', 'Activez les événements par tenant, testez les webhooks et suivez les succès ou échecs depuis le backoffice.'),
+            highlight: t('landing.enterprise.antiban.highlight', 'API, webhooks, MCP'),
             color: '#8b5cf6'
         }
     ];
@@ -82,7 +82,7 @@ export default function EnterpriseSection() {
                         marginBottom: '1rem',
                         letterSpacing: 0
                     }}>
-                        {t('landing.enterprise.title', 'Prêt pour les grands comptes.')}
+                        {t('landing.enterprise.title', 'Pensé pour être déployé sans friction.')}
                     </h2>
                     <p style={{
                         color: '#64748b',
@@ -90,7 +90,7 @@ export default function EnterpriseSection() {
                         maxWidth: '600px',
                         margin: '0 auto'
                     }}>
-                        {t('landing.enterprise.subtitle', 'Un déploiement progressif, connecté à vos outils et adapté à vos équipes terrain.')}
+                        {t('landing.enterprise.subtitle', 'Numéros WhatsApp, tenants, connecteurs et règles de sécurité peuvent évoluer sans changer les habitudes des équipes terrain.')}
                     </p>
                 </motion.div>
 
@@ -213,7 +213,7 @@ export default function EnterpriseSection() {
                             color: '#475569',
                             fontSize: '1rem'
                         }}>
-                            {t('landing.enterprise.cta.desc', 'On valide votre contexte, vos flux et vos contraintes Meta avant le lancement.')}
+                            {t('landing.enterprise.cta.desc', 'On valide vos numéros, vos pays, vos flux RH/paie et vos contraintes Meta avant le lancement.')}
                         </p>
 
                         {/* Trust badges */}
@@ -224,9 +224,9 @@ export default function EnterpriseSection() {
                             flexWrap: 'wrap'
                         }}>
                             {[
-                                t('landing.enterprise.cta.b1', 'Cadrage WhatsApp Business'),
-                                t('landing.enterprise.cta.b2', 'Connecteurs métier'),
-                                t('landing.enterprise.cta.b3', 'Accompagnement lancement')
+                                t('landing.enterprise.cta.b1', 'Pool de numéros par pays'),
+                                t('landing.enterprise.cta.b2', 'Connecteurs paie/RH'),
+                                t('landing.enterprise.cta.b3', 'Smoke tests préprod')
                             ].map((badge, idx) => (
                                 <div key={idx} style={{
                                     display: 'flex',

@@ -25,14 +25,14 @@ export default function OperationsSection() {
         },
         {
             icon: <MessageCircle size={24} />,
-            title: 'Collecte guidée',
-            description: 'Messages, photos, documents, localisation ou choix interactifs deviennent des données RH exploitables.',
+            title: 'Collecte sans friction',
+            description: 'Pointage, absence, retard, photo ou document simple arrivent depuis la conversation habituelle.',
             color: '#ea580c'
         },
         {
             icon: <Route size={24} />,
-            title: 'Orientation métier',
-            description: 'Un retard, une absence, un justificatif ou une anomalie GPS arrive au bon manager.',
+            title: 'Décision manager',
+            description: 'L’Inbox concentre les demandes, les validations, les refus et les commentaires utiles.',
             color: '#16a34a'
         },
         {
@@ -43,8 +43,8 @@ export default function OperationsSection() {
         },
         {
             icon: <RefreshCw size={24} />,
-            title: 'Suivi asynchrone',
-            description: 'Accusé immédiat sur WhatsApp, transmission en arrière-plan, relances et reprise en cas d’erreur.',
+            title: 'Livraison suivie',
+            description: 'Chaque événement a un eventId, un statut, des retries et une trace exploitable.',
             color: '#0891b2'
         },
         {
@@ -100,7 +100,7 @@ export default function OperationsSection() {
                             marginBottom: '1rem',
                             letterSpacing: 0
                         }}>
-                            Chaque signal présence arrive au bon service.
+                            De WhatsApp à la paie, sans portail terrain.
                         </h2>
 
                         <p style={{
@@ -109,9 +109,8 @@ export default function OperationsSection() {
                             lineHeight: 1.65,
                             maxWidth: '560px'
                         }}>
-                            Le salarié prévient d’un retard, envoie un justificatif ou confirme son site.
-                            WhatsPoint transforme ces messages en informations propres et les envoie
-                            au manager concerné.
+                            WhatsPoint récupère les signaux terrain dans WhatsApp, les qualifie dans une Inbox manager,
+                            puis les transmet aux bons outils RH ou paie avec une preuve technique exploitable.
                         </p>
                     </div>
 
@@ -123,10 +122,10 @@ export default function OperationsSection() {
                         boxShadow: '0 18px 45px -30px rgba(15, 23, 42, 0.35)'
                     }}>
                         {[
-                            { label: 'Demande reçue sur WhatsApp', value: 'Nouveau', color: '#2563eb' },
-                            { label: 'Informations qualifiées', value: 'Structuré', color: '#ea580c' },
-                            { label: 'Envoyé au bon service', value: 'Orienté', color: '#16a34a' },
-                            { label: 'Réponse renvoyée dans WhatsApp', value: 'Notifié', color: '#7c3aed' }
+                            { label: 'Signal reçu sur WhatsApp', value: 'Capté', color: '#2563eb' },
+                            { label: 'Demande qualifiée pour le manager', value: 'Inbox', color: '#ea580c' },
+                            { label: 'Webhook signé vers RH/paie', value: 'HMAC', color: '#16a34a' },
+                            { label: 'Retour envoyé au collaborateur', value: 'Notifié', color: '#7c3aed' }
                         ].map((step, idx) => (
                             <div key={step.label} style={{
                                 display: 'grid',

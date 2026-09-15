@@ -2,7 +2,7 @@
 
 ## Positionnement
 
-`KALLDY_V1` est le contrat d'integration WhatsPoint x Kalldy issu du POC valide. Il s'appuie sur les webhooks sortants WhatsPoint, mais fixe une convention partenaire stable pour l'exploitation.
+`KALLDY_V1` est le contrat d'integration WhatsPoint x Kalldy issu du POC valide. Il s'appuie sur les webhooks sortants WhatsPoint, mais fixe une convention partenaire stable pour l'exploitation, le monitoring et le passage sandbox vers production.
 
 WhatsPoint reste le canal terrain:
 
@@ -39,6 +39,17 @@ Les evenements obligatoires du connecteur v1 sont:
 - `leave.approved`
 - `document.received`
 - `employee.secure_link.requested`
+
+L'evenement de statut message valide pour l'observabilite est:
+
+- `message.status.updated`
+
+Statuts supportes:
+
+- `sent`
+- `delivered`
+- `read`
+- `failed`
 
 Le webhook Kalldy doit etre tenant-scope. Chaque evenement peut etre active ou desactive par tenant depuis `/superadmin/integrations`.
 
@@ -131,6 +142,28 @@ Le fichier n'est pas transmis en base64. `mediaId` est la reference durable cote
 
 Ce flux sert uniquement a notifier le salarie et a l'orienter vers la PWA Kalldy. Les donnees sensibles sont collectees exclusivement cote Kalldy.
 
+### `message.status.updated`
+
+```json
+{
+  "eventId": "wp_evt_status_001",
+  "event": "message.status.updated",
+  "timestamp": "2026-06-01T10:15:00.000Z",
+  "tenantId": "699e8c48-4632-425f-a248-6c8aedbebc15",
+  "data": {
+    "messageId": "wp_msg_poc_delivered",
+    "providerMessageId": "wp_msg_poc_delivered",
+    "correlationId": "wp_evt_status_001",
+    "employeePhoneNumber": "+33612345678",
+    "templateId": "whatspoint_pwa_secure_link_fr",
+    "status": "delivered",
+    "statusAt": "2026-06-01T10:15:00.000Z"
+  }
+}
+```
+
+`status` prend une des valeurs `sent`, `delivered`, `read` ou `failed`. `correlationId` doit permettre de rattacher le statut au flux metier ou au message d'origine quand cette information est disponible.
+
 ## Securite
 
 WhatsPoint signe chaque webhook avec:
@@ -161,6 +194,8 @@ Le secret HMAC est affiche une seule fois lors de la creation ou regeneration du
 ## Retry, idempotence et dead-letter
 
 - `eventId` est stable pour un meme evenement metier et sert de cle d'idempotence principale.
+- Les retries reutilisent le meme `eventId`.
+- Kalldy doit repondre `2xx` lorsqu'un `eventId` deja traite est recu a nouveau sans effet secondaire supplementaire.
 - En cas d'echec HTTP ou reseau, WhatsPoint planifie un retry.
 - Premiere nouvelle tentative: environ 5 minutes.
 - Backoff exponentiel ensuite.
@@ -247,6 +282,52 @@ Principes v1:
 - purge de fin de POC a cadrer avant bascule production;
 - DPA a finaliser avant production;
 - Kalldy devient responsable de sa copie apres telechargement du media.
+
+Avant production, WhatsPoint et Kalldy doivent fixer par contrat:
+
+- duree de conservation des payloads webhook;
+- duree de conservation des fichiers simples collectes par WhatsPoint;
+- duree de conservation des logs techniques;
+- procedure de suppression sur demande tenant ou salarie;
+- procedure de purge de fin de POC;
+- liste des sous-traitants et lieux d'hebergement;
+- contact securite et delai de notification incident.
+
+## Checklist sandbox vers production
+
+### Cote WhatsPoint
+
+- Creer un connecteur Kalldy production distinct du connecteur sandbox.
+- Configurer l'endpoint production Kalldy: `https://api.fr.paie.kalldy.com/api/webhooks/whatspoint`.
+- Generer un nouveau secret HMAC production, distinct du secret sandbox.
+- Activer uniquement les evenements contractuels du tenant: `leave.approved`, `document.received`, `employee.secure_link.requested`, `message.status.updated`.
+- Verifier que le webhook est tenant-scope et rattache au bon `tenantId`.
+- Verifier que les logs ne remontent ni secret, ni URL signee complete au-dela du necessaire, ni donnees sensibles.
+- Lancer un test controle par evenement depuis `/superadmin/integrations`.
+- Verifier le statut `healthy`, le dernier HTTP `200`, la latence et le compteur d'echecs.
+
+### Cote Kalldy
+
+- Creer un endpoint production dedie et versionne.
+- Enregistrer le secret HMAC production dans le coffre de secrets Kalldy.
+- Activer la verification `X-WhatsPoint-Signature`, `X-WhatsPoint-Timestamp`, `X-WhatsPoint-Event` et `X-WhatsPoint-Event-Id`.
+- Appliquer une fenetre anti-rejeu stricte sur le timestamp.
+- Garantir l'idempotence durable par `eventId`.
+- Mapper les tenants WhatsPoint vers les tenants Kalldy de production.
+- Mapper les collaborateurs par telephone ou identifiant partenaire.
+- Telecharger les medias des reception si `mediaUrl` est fourni.
+- Exposer le monitoring reception, traitement, idempotence et dead-letter.
+
+### Go / No-Go
+
+Le passage production est autorise seulement si:
+
+- les quatre familles d'evenements sont recues en production test avec `HTTP 200`;
+- les erreurs fonctionnelles attendues sont documentees;
+- le rejeu d'un `eventId` deja traite est neutre;
+- les secrets sandbox et production sont differents;
+- les politiques de retention et suppression sont validees;
+- la procedure d'escalade incident est connue des deux equipes.
 
 ## Reference POC
 

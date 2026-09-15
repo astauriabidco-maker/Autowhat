@@ -164,11 +164,11 @@ function LandingContent() {
                         <a href="#operations" style={{ color: '#475569', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>
                             {t('landing.nav.operations', 'Flux RH')}
                         </a>
+                        <a href="#integrations" style={{ color: '#475569', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>
+                            Intégrations
+                        </a>
                         <a href="#sectors" style={{ color: '#475569', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>
                             {t('landing.nav.sectors')}
-                        </a>
-                        <a href="#testimonials" style={{ color: '#475569', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>
-                            {t('landing.nav.testimonials')}
                         </a>
                         <a href="#pricing" style={{ color: '#475569', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>
                             {t('landing.nav.pricing')}
@@ -305,10 +305,10 @@ function LandingContent() {
             <section style={{ padding: isMobile ? '1.1rem 4%' : '1.1rem 5%', background: '#ffffff', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
                     <p style={{ color: '#94a3b8', fontSize: '0.82rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.6rem' }}>
-                        Une plateforme terrain qui couvre les workflows essentiels
+                        Un sas WhatsApp pour les signaux RH terrain
                     </p>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: isMobile ? '1rem' : '2.25rem', flexWrap: 'wrap', opacity: 0.5, filter: 'grayscale(100%)' }}>
-                        {['Pointage', 'Présences', 'Plannings', 'Justificatifs', 'Documents', 'Exports'].map(module => (
+                        {['Pointage', 'Absences', 'Justificatifs', 'PWA sécurisée', 'API REST', 'Webhooks HMAC'].map(module => (
                             <span key={module} style={{ fontSize: isMobile ? '0.95rem' : '1.15rem', fontWeight: 850, color: '#475569', letterSpacing: 0 }}>{module}</span>
                         ))}
                     </div>

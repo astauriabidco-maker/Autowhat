@@ -27,6 +27,7 @@ La configuration webhook Kalldy POC est geree dans l'espace superadmin WhatsPoin
 | Absence validee | `leave.approved` | Valide | Inbox manager WhatsPoint -> webhook HMAC -> tenant/collaborateur Kalldy -> EVP cree |
 | Justificatif simple | `document.received` | Valide | Webhook HMAC -> tenant/collaborateur Kalldy -> document cree en `PENDING_REVIEW` |
 | Relance PWA securisee | `employee.secure_link.requested` | Valide | Webhook HMAC -> tenant/collaborateur Kalldy -> lien PWA temporaire cree -> statut Kalldy `PROCESSED` |
+| Statuts messages | `message.status.updated` | Valide | Webhook HMAC -> tenant/collaborateur Kalldy -> mapping `sent`, `delivered`, `read`, `failed` -> statut Kalldy `PROCESSED` |
 
 ## Evenements POC
 
@@ -120,6 +121,33 @@ Le fichier n'est pas envoye en base64 dans le webhook. Le payload contient une r
 ```
 
 Ce flux sert uniquement a notifier le salarie et a le rediriger vers l'espace securise Kalldy. WhatsPoint ne collecte ni ne transmet dans WhatsApp les donnees sensibles telles que RIB, NIR, bulletin ou piece d'identite.
+
+## Payload `message.status.updated`
+
+```json
+{
+  "eventId": "wp_evt_status_001",
+  "event": "message.status.updated",
+  "timestamp": "2026-06-01T10:15:00.000Z",
+  "tenantId": "699e8c48-4632-425f-a248-6c8aedbebc15",
+  "data": {
+    "messageId": "wp_msg_poc_delivered",
+    "providerMessageId": "wp_msg_poc_delivered",
+    "correlationId": "wp_evt_status_001",
+    "employeePhoneNumber": "+33612345678",
+    "templateId": "whatspoint_pwa_secure_link_fr",
+    "status": "delivered",
+    "statusAt": "2026-06-01T10:15:00.000Z"
+  }
+}
+```
+
+Statuts valides:
+
+- `sent`
+- `delivered`
+- `read`
+- `failed`
 
 ## Headers webhook
 
@@ -249,4 +277,24 @@ Le smoke reel WhatsPoint du troisieme flux a retourne un succes cote interface s
 - idempotence active via `eventId`;
 - aucune donnee sensible ne transite dans WhatsApp.
 
-Les trois flux POC sont donc valides fonctionnellement de bout en bout.
+Le flux `message.status.updated` a ensuite ete valide pour les quatre statuts WhatsPoint:
+
+- `sent` -> `SENT`;
+- `delivered` -> `DELIVERED`;
+- `read` -> `READ`;
+- `failed` -> `FAILED`.
+
+Kalldy a confirme pour ces tests:
+
+- reception webhook;
+- validation HMAC;
+- tenant pilote resolu;
+- collaborateur resolu;
+- historisation dans `WhatsPointEvents`;
+- statut `PROCESSED`;
+- HTTP `200`;
+- `DeliveryCount = 1`;
+- creation ou mise a jour dans `WhatsPointMessageStatuses`;
+- idempotence assuree via `eventId`.
+
+Les trois flux POC metier et le flux de statut message sont donc valides fonctionnellement de bout en bout.

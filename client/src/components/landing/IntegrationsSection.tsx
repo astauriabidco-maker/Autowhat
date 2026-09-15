@@ -4,10 +4,11 @@ import { useIsMobile } from '../../hooks/useMediaQuery';
 import {
     ArrowRightLeft,
     Cable,
+    CheckCircle2,
     FileJson,
     FileText,
     MapPin,
-    Receipt,
+    LockKeyhole,
     UserRoundCheck,
     Webhook,
 } from 'lucide-react';
@@ -21,7 +22,7 @@ export default function IntegrationsSection() {
         {
             title: 'Pointage & planning',
             example: 'Arrivée, départ, prise de service, prochain horaire.',
-            target: 'collecté puis transmis RH / planning',
+            target: 'structuré pour managers et RH',
             icon: <UserRoundCheck size={22} />,
             color: '#16a34a'
         },
@@ -35,41 +36,41 @@ export default function IntegrationsSection() {
         {
             title: 'Absences & justificatifs',
             example: 'Retard, arrêt maladie, absence ou document.',
-            target: 'contrôlé puis transmis RH / paie',
+            target: 'validé puis transmis paie',
             icon: <FileText size={22} />,
             color: '#8b5cf6'
         },
         {
-            title: 'Notes de frais',
-            example: 'Ticket, montant, catégorie, statut de validation.',
-            target: 'préparé puis transmis RH / compta',
-            icon: <Receipt size={22} />,
+            title: 'Lien PWA sécurisé',
+            example: 'RIB, NIR, pièce d’identité ou donnée sensible.',
+            target: 'collecté hors WhatsApp',
+            icon: <LockKeyhole size={22} />,
             color: '#2563eb'
         },
         {
-            title: 'Documents RH',
-            example: 'Contrat, certificat, justificatif ou document partagé.',
-            target: 'classé puis disponible côté manager',
-            icon: <FileText size={22} />,
-            color: '#16a34a'
+            title: 'Statuts message',
+            example: 'Envoyé, livré, lu, échoué.',
+            target: 'suivi partenaire bout en bout',
+            icon: <CheckCircle2 size={22} />,
+            color: '#0d9488'
         },
         {
-            title: 'Exports paie',
-            example: 'Heures, retards, absences et validations.',
-            target: 'envoyé vers paie ou SIRH',
+            title: 'Connecteurs paie',
+            example: 'Absences, documents, statuts et relances sécurisées.',
+            target: 'API et webhooks HMAC',
             icon: <ArrowRightLeft size={22} />,
-            color: '#0d9488'
+            color: '#7c3aed'
         }
     ];
 
     const capabilities = [
         { name: 'API', category: 'REST / JSON', icon: <FileJson size={18} /> },
-        { name: 'Webhooks', category: 'temps réel', icon: <Webhook size={18} /> },
-        { name: 'CSV / SFTP', category: 'flux batch', icon: <Cable size={18} /> }
+        { name: 'Webhooks', category: 'HMAC temps réel', icon: <Webhook size={18} /> },
+        { name: 'MCP', category: 'agents IA', icon: <Cable size={18} /> }
     ];
 
     return (
-        <section style={{
+        <section id="integrations" style={{
             padding: isMobile ? '2rem 4%' : '2.5rem 5%',
             background: '#f8fafc',
             borderBottom: '1px solid #e2e8f0',
@@ -95,7 +96,7 @@ export default function IntegrationsSection() {
                     }}>
                         <ArrowRightLeft size={16} color="#64748b" />
                         <span style={{ color: '#475569', fontSize: '0.85rem', fontWeight: 600 }}>
-                            Cas d’usage métiers
+                            Intégrations RH & paie
                         </span>
                     </div>
 
@@ -106,7 +107,7 @@ export default function IntegrationsSection() {
                         marginBottom: '0.75rem',
                         letterSpacing: 0
                     }}>
-                        Le pointage reste le centre du produit.
+                        WhatsPoint ne remplace pas vos outils. Il les alimente.
                     </h2>
                     <p style={{
                         color: '#64748b',
@@ -115,8 +116,8 @@ export default function IntegrationsSection() {
                         margin: '0 auto 1.5rem',
                         lineHeight: 1.6
                     }}>
-                        WhatsPoint collecte les présences, horaires, positions GPS et justificatifs dans WhatsApp,
-                        puis transmet ces données aux outils RH et paie qui en ont besoin.
+                        Les collaborateurs restent dans WhatsApp. Les managers valident. Les logiciels RH et paie
+                        reçoivent des événements propres, signés et traçables.
                     </p>
                 </motion.div>
 
@@ -203,7 +204,7 @@ export default function IntegrationsSection() {
                         fontWeight: 600,
                         marginBottom: '0.25rem'
                     }}>
-                        WhatsPoint ne remplace pas vos logiciels métier : il les alimente.
+                        Contrat d’intégration v1 : payloads versionnés, eventId stable, retry et idempotence.
                     </div>
                     {capabilities.map((capability, idx) => (
                         <motion.div
@@ -267,7 +268,7 @@ export default function IntegrationsSection() {
                         }}
                     >
                         <span style={{ color: '#0f172a', fontSize: '1.1rem', fontWeight: 800 }}>
-                            Votre outil
+                            Kalldy validé
                         </span>
                         <span style={{
                             color: '#64748b',
@@ -276,7 +277,7 @@ export default function IntegrationsSection() {
                             textTransform: 'uppercase',
                             letterSpacing: '0.05em'
                         }}>
-                            connecteur sur mesure
+                            POC paie bout en bout
                         </span>
                     </motion.div>
                 </div>

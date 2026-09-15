@@ -124,13 +124,13 @@ export default function HeroSection() {
         {
             id: 'export',
             icon: <ArrowRightLeft size={16} />,
-            h1: 'La réponse revient',
-            h1Accent: 'dans WhatsApp.',
-            label: '4. Notification',
-            title: 'Statut, document ou confirmation.',
-            desc: 'L’utilisateur n’a pas besoin d’ouvrir un portail métier. Il reçoit le suivi, la décision ou le document directement dans la conversation.',
-            userText: 'Avez-vous une mise à jour ?',
-            botText: '📩 Planning confirmé demain à 09:30.\nSite assigné.\nUn rappel sera envoyé automatiquement.',
+            h1: 'La paie reçoit',
+            h1Accent: 'des données propres.',
+            label: '4. Paie/RH',
+            title: 'API, webhooks, connecteurs.',
+            desc: 'Les présences, absences, justificatifs et statuts WhatsApp sont transmis aux outils RH ou paie avec eventId stable, signature HMAC et suivi de livraison.',
+            userText: 'Ma demande a été validée ?',
+            botText: '✅ Absence validée.\n📤 Paie/RH notifiée\nRéférence événement enregistrée.',
             color: '#8b5cf6'
         }
     ];
@@ -201,13 +201,13 @@ export default function HeroSection() {
                     }}>
                         {isMobile ? (
                             <>
-                                Pointer et voir son planning
+                                Le sas RH terrain
                                 <span style={{ color: '#2563eb' }}> dans WhatsApp.</span>
                             </>
                         ) : (
                             <>
-                                WhatsApp pour pointer, suivre et fiabiliser
-                                <span style={{ color: '#2563eb' }}> la présence.</span>
+                                Transformez WhatsApp en sas RH terrain
+                                <span style={{ color: '#2563eb' }}> connecté à votre paie.</span>
                             </>
                         )}
                     </h1>
@@ -220,9 +220,46 @@ export default function HeroSection() {
                         marginBottom: isMobile ? '0.65rem' : '1.1rem'
                     }}>
                         {isMobile
-                            ? 'Présences, horaires et justificatifs arrivent au bon service, sans nouvelle application.'
-                            : 'Vos équipes utilisent WhatsApp. WhatsPoint transforme leurs messages en présences, pointages GPS, horaires et justificatifs exploitables par vos managers.'}
+                            ? 'Pointage, absence, justificatif et relance PWA arrivent au bon service, sans nouvelle application.'
+                            : 'WhatsPoint capte les signaux simples dans WhatsApp, les structure pour les managers, puis les transmet aux outils RH/paie par API et webhooks signés. Les données sensibles restent hors WhatsApp.'}
                     </p>
+
+                    {!isMobile && (
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                            gap: '0.75rem',
+                            maxWidth: '640px',
+                            margin: '0 0 1.25rem'
+                        }}>
+                            {[
+                                { value: '0 app', label: 'à installer côté terrain' },
+                                { value: 'HMAC', label: 'webhooks signés' },
+                                { value: 'PWA', label: 'pour données sensibles' }
+                            ].map((proof) => (
+                                <div key={proof.value} style={{
+                                    background: 'rgba(255, 255, 255, 0.76)',
+                                    border: '1px solid rgba(148, 163, 184, 0.28)',
+                                    borderRadius: '0.75rem',
+                                    padding: '0.8rem 0.9rem',
+                                    boxShadow: '0 12px 28px rgba(15, 23, 42, 0.06)'
+                                }}>
+                                    <strong style={{
+                                        display: 'block',
+                                        color: '#0f172a',
+                                        fontSize: '1rem',
+                                        fontWeight: 850,
+                                        marginBottom: '0.2rem'
+                                    }}>
+                                        {proof.value}
+                                    </strong>
+                                    <span style={{ color: '#64748b', fontSize: '0.78rem', fontWeight: 650 }}>
+                                        {proof.label}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     {isMobile ? null : (
                         <div style={{
@@ -374,7 +411,7 @@ export default function HeroSection() {
                                 ? 'Demande reçue. Regardez vos messages WhatsApp dans quelques instants.'
                                 : accessStatus === 'error'
                                     ? 'Vérifiez le numéro ou réessayez dans quelques instants.'
-                                    : 'Un seul message de démarrage, sans compte Meta à configurer.'}
+                                    : 'Démarrage via numéro WhatsPoint mutualisé ou dédié, sans friction Meta côté client.'}
                         </span>
                         <a
                             href={whatsappDemoUrl}
@@ -433,8 +470,8 @@ export default function HeroSection() {
                         marginTop: '1rem'
                     }}>
                         {[
-                            { icon: <ShieldCheck size={17} />, text: t('landing.hero.badges.gdpr', 'Règles RGPD configurables') },
-                            { icon: <LockKeyhole size={17} />, text: t('landing.hero.badges.encrypted', 'Accès sécurisés') },
+                            { icon: <ShieldCheck size={17} />, text: t('landing.hero.badges.gdpr', 'Données sensibles hors WhatsApp') },
+                            { icon: <LockKeyhole size={17} />, text: t('landing.hero.badges.encrypted', 'API et webhooks signés') },
                             { icon: <Smartphone size={17} />, text: t('landing.hero.badges.noApp', 'Pas d\'app à installer') }
                         ].map((badge, idx) => (
                             <div key={idx} style={{

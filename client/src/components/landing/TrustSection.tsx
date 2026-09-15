@@ -20,8 +20,8 @@ export default function TrustSection() {
     const trustFeatures = [
         {
             icon: <EyeOff size={28} />,
-            title: t('landing.trust.stealth.title', 'Données minimisées'),
-            description: t('landing.trust.stealth.desc', 'WhatsPoint ne transmet que l’information utile au traitement métier, avec masquage des détails sensibles quand c’est nécessaire.'),
+            title: t('landing.trust.stealth.title', 'Sensible hors WhatsApp'),
+            description: t('landing.trust.stealth.desc', 'RIB, NIR, bulletin ou pièce d’identité restent dans l’espace sécurisé du partenaire. WhatsPoint notifie et oriente.'),
             color: '#8b5cf6'
         },
         {
@@ -32,8 +32,8 @@ export default function TrustSection() {
         },
         {
             icon: <Database size={28} />,
-            title: t('landing.trust.isolation.title', 'Cloisonnement client'),
-            description: t('landing.trust.isolation.desc', 'Chaque organisation garde son espace, ses rôles, ses flux et ses historiques séparés des autres clients.'),
+            title: t('landing.trust.isolation.title', 'Traçabilité intégration'),
+            description: t('landing.trust.isolation.desc', 'Webhooks signés, eventId stable, retries et suivi de statut rendent chaque transmission vérifiable.'),
             color: '#10b981'
         }
     ];
@@ -87,7 +87,7 @@ export default function TrustSection() {
                         lineHeight: 1.2,
                         letterSpacing: 0
                     }}>
-                        {t('landing.trust.title', 'WhatsApp est le canal, pas votre système métier.')}
+                        {t('landing.trust.title', 'WhatsApp reste le canal. Le sensible reste sécurisé.')}
                     </h2>
                     <p style={{
                         color: '#475569',
@@ -96,7 +96,7 @@ export default function TrustSection() {
                         margin: '0 auto',
                         lineHeight: 1.6
                     }}>
-                        {t('landing.trust.subtitle', 'WhatsPoint capte les échanges terrain, garde la maîtrise des données et transmet uniquement ce qui doit être traité.')}
+                        {t('landing.trust.subtitle', 'WhatsPoint capte les échanges terrain, transmet le strict nécessaire et redirige vers une PWA sécurisée dès qu’une donnée sensible doit être collectée.')}
                     </p>
                 </motion.div>
 
