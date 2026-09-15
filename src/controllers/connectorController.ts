@@ -8,7 +8,7 @@ import {
     getConnectorStatus,
     updateConnectorWebhookEvents
 } from '../services/connectorService';
-import { TestWebhookEventType, testWebhook } from '../services/webhookService';
+import { TestWebhookEventType, replayWebhookDelivery, testWebhook } from '../services/webhookService';
 
 export async function getConnectors(_req: Request, res: Response) {
     try {
@@ -103,6 +103,29 @@ export async function getConnectorLogs(req: Request, res: Response) {
     } catch (error) {
         console.error('Error fetching connector logs:', error);
         res.status(500).json({ error: 'Erreur lors de la récupération des logs du connecteur' });
+    }
+}
+
+export async function replayConnectorLog(req: Request, res: Response) {
+    try {
+        const provider = String(req.params.provider || '');
+        const webhookId = String(req.params.id || '');
+        const logId = String(req.params.logId || '');
+        const status = await getConnectorStatus(provider);
+        if (!status.ok) {
+            return res.status(status.status).json({ error: status.error });
+        }
+
+        const webhook = status.webhooks.find(candidate => candidate.id === webhookId);
+        if (!webhook) {
+            return res.status(404).json({ error: `Webhook ${status.name} introuvable` });
+        }
+
+        const result = await replayWebhookDelivery(webhookId, logId);
+        res.status(result.success ? 200 : 400).json(result);
+    } catch (error) {
+        console.error('Error replaying connector webhook log:', error);
+        res.status(500).json({ error: 'Erreur lors du rejeu du webhook' });
     }
 }
 

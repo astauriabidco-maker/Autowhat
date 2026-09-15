@@ -61,6 +61,18 @@ interface TestWebhookOptions {
     eventType?: TestWebhookEventType;
 }
 
+function containsRedactedValue(value: unknown): boolean {
+    if (Array.isArray(value)) {
+        return value.some(containsRedactedValue);
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.values(value as Record<string, unknown>).some(containsRedactedValue);
+    }
+
+    return value === '[redacted]';
+}
+
 /**
  * Generate HMAC-SHA256 signature for webhook payload
  */
@@ -155,6 +167,23 @@ function applyWebhookSignature(headers: Record<string, string>, payloadString: s
         headers['X-WhatsPoint-Signature'] = `sha256=${signature}`;
         headers['X-Webhook-Signature'] = `sha256=${signature}`;
     }
+}
+
+function normalizeCustomHeaders(customHeaders: unknown): Record<string, string> {
+    let normalizedHeaders = customHeaders;
+    if (typeof normalizedHeaders === 'string') {
+        try { normalizedHeaders = JSON.parse(normalizedHeaders); } catch {}
+    }
+
+    if (!normalizedHeaders || typeof normalizedHeaders !== 'object' || Array.isArray(normalizedHeaders)) {
+        return {};
+    }
+
+    return Object.fromEntries(
+        Object.entries(normalizedHeaders as Record<string, unknown>)
+            .filter(([, value]) => value !== null && value !== undefined)
+            .map(([key, value]) => [key, String(value)])
+    );
 }
 
 /**
@@ -592,6 +621,138 @@ export async function testWebhook(
     }
 }
 
+export async function replayWebhookDelivery(
+    webhookId: string,
+    logId: string
+): Promise<{ success: boolean; error?: string; statusCode?: number; eventId?: string | null; eventType?: string }> {
+    const sourceLog = await prisma.webhookLog.findUnique({
+        where: { id: logId },
+        include: { webhook: true }
+    });
+
+    if (!sourceLog || sourceLog.webhookId !== webhookId) {
+        return { success: false, error: 'Log webhook introuvable' };
+    }
+
+    if (!['PENDING', 'FAILED'].includes(sourceLog.status)) {
+        return { success: false, error: 'Seuls les webhooks en échec ou en retry peuvent être rejoués' };
+    }
+
+    const webhook = sourceLog.webhook;
+    if (!webhook || !webhook.isActive) {
+        return { success: false, error: 'Webhook inactif ou supprimé' };
+    }
+
+    const payload = sourceLog.payload as Record<string, any>;
+    const eventId = typeof payload?.eventId === 'string' ? payload.eventId : null;
+    if (!payload || typeof payload !== 'object' || !eventId || containsRedactedValue(payload)) {
+        return {
+            success: false,
+            error: 'Payload non rejouable: la charge utile complète n’est plus disponible'
+        };
+    }
+
+    const payloadString = JSON.stringify(payload);
+    const replayTimestamp = new Date().toISOString();
+    const headers = buildWebhookHeaders({
+        event: sourceLog.eventType as WebhookEventType,
+        eventId,
+        timestamp: replayTimestamp,
+        userAgent: 'WhatsPoint-Webhook-Replay/1.0'
+    });
+    Object.assign(headers, normalizeCustomHeaders(webhook.headers));
+    applyWebhookSignature(headers, payloadString, webhook.secret);
+
+    const startTime = Date.now();
+    let statusCode: number | null = null;
+    let responseBody: string | null = null;
+    let error: string | null = null;
+
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+
+        let response: Response;
+        try {
+            response = await fetch(webhook.url, {
+                method: webhook.httpMethod || 'POST',
+                headers,
+                body: payloadString,
+                signal: controller.signal
+            });
+
+            statusCode = response.status;
+            responseBody = await response.text().catch(() => null);
+        } finally {
+            clearTimeout(timeout);
+        }
+
+        if (!response.ok) {
+            error = `HTTP ${statusCode}: ${responseBody?.substring(0, 200) || 'No response body'}`;
+        }
+    } catch (err: any) {
+        error = err.message || 'Unknown error';
+    }
+
+    const duration = Date.now() - startTime;
+    const success = !error;
+
+    await prisma.webhookConfig.update({
+        where: { id: webhook.id },
+        data: {
+            lastTriggeredAt: new Date(),
+            ...(success
+                ? { successCount: { increment: 1 } }
+                : { failureCount: { increment: 1 } }
+            )
+        }
+    });
+
+    if (success && sourceLog.status === 'PENDING') {
+        await prisma.webhookLog.update({
+            where: { id: sourceLog.id },
+            data: {
+                status: 'SUCCESS',
+                nextRetryAt: null,
+                error: null,
+                statusCode,
+                responseBody: responseBody ? sanitizeLogText(responseBody).substring(0, 2000) : null
+            } as any
+        });
+    }
+
+    const auditPayload = {
+        ...payload,
+        replay: {
+            sourceLogId: sourceLog.id,
+            replayedAt: replayTimestamp
+        }
+    };
+
+    await prisma.webhookLog.create({
+        data: {
+            webhookId: webhook.id,
+            eventType: sourceLog.eventType,
+            payload: redactWebhookPayloadForAudit(auditPayload) as any,
+            statusCode,
+            responseBody: responseBody ? sanitizeLogText(responseBody).substring(0, 2000) : null,
+            error: error ? sanitizeLogText(error) : null,
+            duration,
+            status: success ? 'SUCCESS' : 'FAILED',
+            retryCount: 0,
+            nextRetryAt: null
+        } as any
+    });
+
+    return {
+        success,
+        ...(error ? { error: sanitizeLogText(error) } : {}),
+        ...(statusCode ? { statusCode } : {}),
+        eventId,
+        eventType: sourceLog.eventType
+    };
+}
+
 /**
  * Worker Function: Retry pending webhooks
  * This should be called by a cron job (e.g. every minute)
@@ -640,14 +801,7 @@ export async function processWebhookQueue(): Promise<void> {
                 userAgent: 'WhatsPoint-Webhook-Retry/1.0'
             });
 
-            // Apply custom headers from config
-            let customHeaders = config.headers;
-            if (typeof customHeaders === 'string') {
-                try { customHeaders = JSON.parse(customHeaders); } catch(e) {}
-            }
-            if (customHeaders && typeof customHeaders === 'object') {
-                Object.assign(headers, customHeaders);
-            }
+            Object.assign(headers, normalizeCustomHeaders(config.headers));
             applyWebhookSignature(headers, payloadString, config.secret);
 
             let statusCode: number | null = null;

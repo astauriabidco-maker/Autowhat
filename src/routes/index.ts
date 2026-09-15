@@ -252,6 +252,7 @@ router.get('/admin/connectors', authenticateSuperAdmin, connectorController.getC
 router.post('/admin/connectors', authenticateSuperAdmin, connectorController.createConnector);
 router.get('/admin/connectors/:provider/status', authenticateSuperAdmin, connectorController.getConnector);
 router.get('/admin/connectors/:provider/webhooks/:id/logs', authenticateSuperAdmin, connectorController.getConnectorLogs);
+router.post('/admin/connectors/:provider/webhooks/:id/logs/:logId/replay', authenticateSuperAdmin, connectorController.replayConnectorLog);
 router.put('/admin/connectors/:provider/webhooks/:id/events', authenticateSuperAdmin, connectorController.updateConnectorEvents);
 router.post('/admin/connectors/:provider/webhooks/:id/test', authenticateSuperAdmin, connectorController.testConnectorEvent);
 router.get('/admin/integrations/kalldy/status', authenticateSuperAdmin, kalldyConnectorController.getKalldyStatus);

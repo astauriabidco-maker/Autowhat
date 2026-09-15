@@ -9,6 +9,7 @@ const prismaMock = vi.hoisted(() => ({
     },
     webhookLog: {
         create: vi.fn(),
+        findUnique: vi.fn(),
         findMany: vi.fn(),
         update: vi.fn()
     }
@@ -27,6 +28,7 @@ describe('webhookService outgoing contract', () => {
         fetchMock.mockResolvedValue(new Response('ok', { status: 200 }));
         prismaMock.webhookConfig.update.mockResolvedValue({});
         prismaMock.webhookLog.create.mockResolvedValue({});
+        prismaMock.webhookLog.update.mockResolvedValue({});
     });
 
     afterEach(() => {
@@ -236,6 +238,126 @@ describe('webhookService outgoing contract', () => {
                 nextRetryAt: null
             })
         });
+    });
+
+    it('replays a pending webhook with the original payload and records a redacted replay audit log', async () => {
+        const payload = {
+            eventId: 'wp_evt_pending_1',
+            event: 'document.received',
+            timestamp: '2026-09-15T10:00:00.000Z',
+            tenantId: 'tenant_fr',
+            data: {
+                employeePhoneNumber: '+33612345678',
+                mediaUrl: 'https://api.testbed.whatspoint.com/api/files/signed/private-token'
+            }
+        };
+        prismaMock.webhookLog.findUnique.mockResolvedValue({
+            id: 'log_pending_1',
+            webhookId: 'webhook_kalldy',
+            eventType: 'document.received',
+            payload,
+            status: 'PENDING',
+            webhook: {
+                id: 'webhook_kalldy',
+                name: 'Kalldy POC',
+                url: 'https://kalldy.test/webhooks/whatspoint',
+                secret: 'kalldy-secret',
+                isActive: true,
+                headers: null,
+                httpMethod: 'POST'
+            }
+        });
+
+        const { replayWebhookDelivery } = await import('../../src/services/webhookService');
+
+        const result = await replayWebhookDelivery('webhook_kalldy', 'log_pending_1');
+
+        expect(result).toEqual({
+            success: true,
+            statusCode: 200,
+            eventId: 'wp_evt_pending_1',
+            eventType: 'document.received'
+        });
+        expect(fetchMock).toHaveBeenCalledWith(
+            'https://kalldy.test/webhooks/whatspoint',
+            expect.objectContaining({
+                method: 'POST',
+                body: JSON.stringify(payload)
+            })
+        );
+
+        const [, request] = fetchMock.mock.calls[0];
+        const expectedSignature = `sha256=${crypto
+            .createHmac('sha256', 'kalldy-secret')
+            .update(request.body)
+            .digest('hex')}`;
+        expect(request.headers).toEqual(expect.objectContaining({
+            'User-Agent': 'WhatsPoint-Webhook-Replay/1.0',
+            'X-WhatsPoint-Event': 'document.received',
+            'X-WhatsPoint-Event-Id': 'wp_evt_pending_1',
+            'X-WhatsPoint-Signature': expectedSignature
+        }));
+        expect(prismaMock.webhookLog.update).toHaveBeenCalledWith({
+            where: { id: 'log_pending_1' },
+            data: expect.objectContaining({
+                status: 'SUCCESS',
+                nextRetryAt: null,
+                error: null,
+                statusCode: 200,
+                responseBody: 'ok'
+            })
+        });
+        expect(prismaMock.webhookLog.create).toHaveBeenCalledWith({
+            data: expect.objectContaining({
+                webhookId: 'webhook_kalldy',
+                eventType: 'document.received',
+                status: 'SUCCESS',
+                payload: expect.objectContaining({
+                    eventId: 'wp_evt_pending_1',
+                    data: expect.objectContaining({
+                        employeePhoneNumber: '[redacted]',
+                        mediaUrl: '[redacted]'
+                    }),
+                    replay: expect.objectContaining({
+                        sourceLogId: 'log_pending_1'
+                    })
+                })
+            })
+        });
+    });
+
+    it('refuses to replay a webhook log when only the redacted payload remains', async () => {
+        prismaMock.webhookLog.findUnique.mockResolvedValue({
+            id: 'log_failed_1',
+            webhookId: 'webhook_kalldy',
+            eventType: 'document.received',
+            payload: {
+                eventId: 'wp_evt_failed_1',
+                event: 'document.received',
+                data: {
+                    mediaUrl: '[redacted]'
+                }
+            },
+            status: 'FAILED',
+            webhook: {
+                id: 'webhook_kalldy',
+                name: 'Kalldy POC',
+                url: 'https://kalldy.test/webhooks/whatspoint',
+                secret: 'kalldy-secret',
+                isActive: true
+            }
+        });
+
+        const { replayWebhookDelivery } = await import('../../src/services/webhookService');
+
+        const result = await replayWebhookDelivery('webhook_kalldy', 'log_failed_1');
+
+        expect(result).toEqual({
+            success: false,
+            error: 'Payload non rejouable: la charge utile complète n’est plus disponible'
+        });
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(prismaMock.webhookLog.create).not.toHaveBeenCalled();
     });
 
     it('can send a strict document.received payload from the webhook test endpoint path', async () => {

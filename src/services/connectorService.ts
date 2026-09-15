@@ -115,9 +115,19 @@ function toDeliverySummary(log: ConnectorLog) {
 function toDeliveryDetail(log: ConnectorLog) {
     return {
         ...toDeliverySummary(log),
+        replayable: ['PENDING', 'FAILED'].includes(log.status) && !containsRedactedConnectorLogPayload(log.payload),
         payload: redactConnectorLogPayload(log.payload),
         responseBody: log.responseBody ? sanitizeLogText(log.responseBody).substring(0, 2000) : null
     };
+}
+
+function containsRedactedConnectorLogPayload(value: unknown): boolean {
+    if (value === '[redacted]') return true;
+    if (Array.isArray(value)) return value.some(containsRedactedConnectorLogPayload);
+    if (value && typeof value === 'object') {
+        return Object.values(value as Record<string, unknown>).some(containsRedactedConnectorLogPayload);
+    }
+    return false;
 }
 
 function redactConnectorLogPayload(value: unknown): unknown {

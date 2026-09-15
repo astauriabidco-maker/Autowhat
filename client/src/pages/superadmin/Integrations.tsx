@@ -52,6 +52,7 @@ interface ConnectorDelivery {
 }
 
 interface ConnectorDeliveryDetail extends ConnectorDelivery {
+    replayable: boolean;
     payload: unknown;
     responseBody: string | null;
 }
@@ -185,6 +186,7 @@ export default function Integrations() {
     const [connectorLogsNextCursor, setConnectorLogsNextCursor] = useState<string | null>(null);
     const [connectorLogsLoading, setConnectorLogsLoading] = useState(false);
     const [selectedConnectorLog, setSelectedConnectorLog] = useState<ConnectorDeliveryDetail | null>(null);
+    const [replayingConnectorLogId, setReplayingConnectorLogId] = useState<string | null>(null);
 
     const token = localStorage.getItem('superadmin_token');
 
@@ -377,6 +379,31 @@ export default function Integrations() {
         setConnectorLogsNextCursor(null);
         setSelectedConnectorLog(null);
         await loadConnectorLogs(panel, initialFilters);
+    };
+
+    const replayConnectorLog = async (log: ConnectorDeliveryDetail) => {
+        if (!connectorLogPanel) return;
+        const confirmed = confirm(`Rejouer "${log.eventType}" (${log.eventId || log.id}) vers ${connectorLogPanel.connectorName} ?`);
+        if (!confirmed) return;
+
+        setReplayingConnectorLogId(log.id);
+        try {
+            const res = await axios.post(
+                `/admin/connectors/${connectorLogPanel.provider}/webhooks/${connectorLogPanel.webhook.id}/logs/${log.id}/replay`,
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            alert(res.data.success ? `Rejeu "${res.data.eventType || log.eventType}" réussi.` : `Échec: ${res.data.error}`);
+            await loadConnectorLogs(connectorLogPanel, connectorLogFilters);
+            await fetchIntegrations();
+        } catch (error: unknown) {
+            const message = axios.isAxiosError(error)
+                ? error.response?.data?.error || error.response?.data?.message || error.message
+                : 'Erreur inconnue';
+            alert(`Erreur: ${message}`);
+        } finally {
+            setReplayingConnectorLogId(null);
+        }
     };
 
     if (loading) {
@@ -792,13 +819,14 @@ export default function Integrations() {
 
                         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
                             <div className="min-h-0 overflow-auto border-r border-gray-200">
-                                <div className="grid min-w-[880px] grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-3 bg-gray-50 px-4 py-2 text-xs font-medium text-gray-500">
+                                <div className="grid min-w-[980px] grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-3 bg-gray-50 px-4 py-2 text-xs font-medium text-gray-500">
                                     <span>Événement</span>
                                     <span>EventId</span>
                                     <span>Statut</span>
                                     <span>HTTP</span>
                                     <span>Latence</span>
                                     <span>Date</span>
+                                    <span>Action</span>
                                 </div>
                                 {connectorLogs.length === 0 && !connectorLogsLoading && (
                                     <p className="px-4 py-8 text-center text-sm text-gray-500">Aucun log pour ces filtres.</p>
@@ -811,11 +839,18 @@ export default function Integrations() {
                                     const selected = selectedConnectorLog?.id === log.id;
 
                                     return (
-                                        <button
+                                        <div
                                             key={log.id}
-                                            type="button"
+                                            role="button"
+                                            tabIndex={0}
                                             onClick={() => setSelectedConnectorLog(log)}
-                                            className={`grid min-w-[880px] w-full grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-3 border-t border-gray-100 px-4 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 ${selected ? 'bg-red-50' : ''}`}
+                                            onKeyDown={(event) => {
+                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                    event.preventDefault();
+                                                    setSelectedConnectorLog(log);
+                                                }
+                                            }}
+                                            className={`grid min-w-[980px] w-full grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-3 border-t border-gray-100 px-4 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 ${selected ? 'bg-red-50' : ''}`}
                                         >
                                             <span className="truncate font-medium">{log.eventType}</span>
                                             <span className="truncate font-mono text-gray-500">{log.eventId || '-'}</span>
@@ -825,7 +860,26 @@ export default function Integrations() {
                                             <span>{log.statusCode || '-'}</span>
                                             <span>{log.durationMs ? `${log.durationMs}ms` : '-'}</span>
                                             <span>{formatDateTime(log.createdAt)}</span>
-                                        </button>
+                                            <span>
+                                                {log.replayable ? (
+                                                    <button
+                                                        type="button"
+                                                        disabled={replayingConnectorLogId !== null}
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            replayConnectorLog(log);
+                                                        }}
+                                                        className="inline-flex items-center justify-center rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        {replayingConnectorLogId === log.id ? 'Rejeu...' : 'Rejouer'}
+                                                    </button>
+                                                ) : log.status !== 'SUCCESS' ? (
+                                                    <span className="text-[11px] text-gray-400">Non rejouable</span>
+                                                ) : (
+                                                    <span className="text-gray-400">-</span>
+                                                )}
+                                            </span>
+                                        </div>
                                     );
                                 })}
                                 {connectorLogsNextCursor && (
