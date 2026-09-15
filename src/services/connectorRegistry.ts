@@ -1,5 +1,5 @@
 export type ConnectorEnvironment = 'sandbox' | 'production' | 'custom';
-export type ConnectorProvider = 'KALLDY' | 'SANDBOX_PARTNER';
+export type ConnectorProvider = string;
 
 export type ConnectorDefinition = {
     provider: ConnectorProvider;
@@ -77,7 +77,7 @@ export function getConnectorDefinitions() {
 }
 
 export function getConnectorDefinition(provider: string) {
-    return CONNECTOR_DEFINITIONS[provider.toUpperCase() as ConnectorProvider] || null;
+    return CONNECTOR_DEFINITIONS[provider.toUpperCase()] || null;
 }
 
 export function isConnectorWebhookTarget(provider: string, webhook: { name?: string | null; url?: string | null }) {

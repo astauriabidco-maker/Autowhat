@@ -178,10 +178,12 @@ export async function dispatchWebhook(
             }
         });
 
-        const deliverableWebhooks = webhooks.filter(webhook => {
-            const guard = getConnectorDispatchGuard(webhook, eventType, tenantId);
+        const deliverableWebhooks: typeof webhooks = [];
+        for (const webhook of webhooks) {
+            const guard = await getConnectorDispatchGuard(webhook, eventType, tenantId);
             if (guard.allowed) {
-                return true;
+                deliverableWebhooks.push(webhook);
+                continue;
             }
 
             console.warn('Connector webhook skipped because it is not tenant-scoped for this event', {
@@ -192,8 +194,7 @@ export async function dispatchWebhook(
                 hasTenantId: Boolean(tenantId),
                 webhookTenantId: webhook.tenantId || null
             });
-            return false;
-        });
+        }
 
         if (deliverableWebhooks.length === 0) {
             return; // No webhooks configured for this event

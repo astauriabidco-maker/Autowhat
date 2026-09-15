@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import {
+    SUPPORTED_CONNECTOR_EVENTS,
+    createPartnerConnector,
     getConnectorDefinition,
     getConnectorsStatus,
     getConnectorStatus,
@@ -10,10 +12,33 @@ import { TestWebhookEventType, testWebhook } from '../services/webhookService';
 export async function getConnectors(_req: Request, res: Response) {
     try {
         const connectors = await getConnectorsStatus();
-        res.json({ connectors });
+        res.json({ connectors, supportedEvents: SUPPORTED_CONNECTOR_EVENTS });
     } catch (error) {
         console.error('Error fetching connectors:', error);
         res.status(500).json({ error: 'Erreur lors de la récupération des connecteurs' });
+    }
+}
+
+export async function createConnector(req: Request, res: Response) {
+    try {
+        const result = await createPartnerConnector({
+            provider: req.body?.provider,
+            displayName: req.body?.displayName,
+            sandboxEndpoint: req.body?.sandboxEndpoint,
+            productionEndpoint: req.body?.productionEndpoint,
+            tenantId: req.body?.tenantId,
+            requiredEvents: req.body?.requiredEvents,
+            generateSecret: req.body?.generateSecret
+        });
+
+        if (!result.ok) {
+            return res.status(result.status).json({ error: result.error });
+        }
+
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Error creating connector:', error);
+        res.status(500).json({ error: 'Erreur lors de la création du connecteur' });
     }
 }
 
@@ -59,14 +84,14 @@ export async function testConnectorEvent(req: Request, res: Response) {
     try {
         const provider = String(req.params.provider || '');
         const webhookId = String(req.params.id || '');
-        const definition = getConnectorDefinition(provider);
-        if (!definition) {
+        const status = await getConnectorStatus(provider);
+        if (!status.ok) {
             return res.status(404).json({ error: 'Connecteur inconnu' });
         }
 
         const eventType = String(req.body?.eventType || '').trim();
-        if (!definition.requiredEvents.includes(eventType)) {
-            return res.status(400).json({ error: `Événement ${definition.name} invalide` });
+        if (!status.requiredEvents.includes(eventType)) {
+            return res.status(400).json({ error: `Événement ${status.name} invalide` });
         }
 
         const result = await testWebhook(webhookId, { eventType: eventType as TestWebhookEventType });

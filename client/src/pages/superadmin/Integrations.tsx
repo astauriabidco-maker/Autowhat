@@ -133,6 +133,18 @@ export default function Integrations() {
     const [showAddCustom, setShowAddCustom] = useState(false);
     const [customKey, setCustomKey] = useState({ provider: '', key: '', value: '' });
     const [connectorStatuses, setConnectorStatuses] = useState<ConnectorStatus[]>([]);
+    const [supportedEvents, setSupportedEvents] = useState<string[]>([]);
+    const [showAddConnector, setShowAddConnector] = useState(false);
+    const [connectorSecret, setConnectorSecret] = useState<string | null>(null);
+    const [newConnector, setNewConnector] = useState({
+        provider: '',
+        displayName: '',
+        sandboxEndpoint: '',
+        productionEndpoint: '',
+        tenantId: '',
+        requiredEvents: ['employee.created'],
+        generateSecret: true
+    });
     const [savingConnectorWebhookId, setSavingConnectorWebhookId] = useState<string | null>(null);
     const [testingConnector, setTestingConnector] = useState<string | null>(null);
 
@@ -150,6 +162,7 @@ export default function Integrations() {
             ]);
             setIntegrations(integrationsRes.data);
             setConnectorStatuses(connectorsRes.data.connectors || []);
+            setSupportedEvents(connectorsRes.data.supportedEvents || []);
         } catch (error) {
             console.error('Error fetching integrations:', error);
         } finally {
@@ -236,6 +249,53 @@ export default function Integrations() {
         }
     };
 
+    const toggleNewConnectorEvent = (event: string) => {
+        const checked = newConnector.requiredEvents.includes(event);
+        setNewConnector({
+            ...newConnector,
+            requiredEvents: checked
+                ? newConnector.requiredEvents.filter(currentEvent => currentEvent !== event)
+                : [...newConnector.requiredEvents, event]
+        });
+    };
+
+    const createConnector = async () => {
+        if (!newConnector.provider || !newConnector.displayName || !newConnector.sandboxEndpoint || !newConnector.tenantId) {
+            alert('Provider, nom, endpoint sandbox et tenantId sont requis');
+            return;
+        }
+        if (newConnector.requiredEvents.length === 0) {
+            alert('Sélectionnez au moins un événement');
+            return;
+        }
+
+        setSaving(true);
+        setConnectorSecret(null);
+        try {
+            const res = await axios.post('/admin/connectors', newConnector, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setConnectorSecret(res.data.webhook?.secretPlaintext || null);
+            setNewConnector({
+                provider: '',
+                displayName: '',
+                sandboxEndpoint: '',
+                productionEndpoint: '',
+                tenantId: '',
+                requiredEvents: ['employee.created'],
+                generateSecret: true
+            });
+            await fetchIntegrations();
+        } catch (error: unknown) {
+            const message = axios.isAxiosError(error)
+                ? error.response?.data?.error || error.response?.data?.message || error.message
+                : 'Erreur inconnue';
+            alert(`Erreur: ${message}`);
+        } finally {
+            setSaving(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -267,8 +327,113 @@ export default function Integrations() {
                         <Plus size={18} />
                         Clé personnalisée
                     </button>
+                    <button
+                        onClick={() => setShowAddConnector(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-lg"
+                    >
+                        <Webhook size={18} />
+                        Connecteur partenaire
+                    </button>
                 </div>
             </div>
+
+            {showAddConnector && (
+                <section className="bg-white border-2 border-gray-900 rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900">Nouveau connecteur partenaire</h3>
+                            <p className="text-sm text-gray-500">Crée une définition connecteur et un webhook HMAC tenant-scopé.</p>
+                        </div>
+                        <button onClick={() => setShowAddConnector(false)} className="text-gray-400 hover:text-gray-600">
+                            <X size={20} />
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input
+                            type="text"
+                            placeholder="Provider (ex: KALLDY, ACME_PAYROLL)"
+                            value={newConnector.provider}
+                            onChange={(e) => setNewConnector({ ...newConnector, provider: e.target.value.toUpperCase() })}
+                            className="px-4 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <input
+                            type="text"
+                            placeholder="Nom affiché (ex: ACME Paie)"
+                            value={newConnector.displayName}
+                            onChange={(e) => setNewConnector({ ...newConnector, displayName: e.target.value })}
+                            className="px-4 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <input
+                            type="url"
+                            placeholder="Endpoint sandbox"
+                            value={newConnector.sandboxEndpoint}
+                            onChange={(e) => setNewConnector({ ...newConnector, sandboxEndpoint: e.target.value })}
+                            className="px-4 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <input
+                            type="url"
+                            placeholder="Endpoint production (optionnel)"
+                            value={newConnector.productionEndpoint}
+                            onChange={(e) => setNewConnector({ ...newConnector, productionEndpoint: e.target.value })}
+                            className="px-4 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <input
+                            type="text"
+                            placeholder="Tenant ID pilote"
+                            value={newConnector.tenantId}
+                            onChange={(e) => setNewConnector({ ...newConnector, tenantId: e.target.value })}
+                            className="px-4 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <label className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-700">
+                            <input
+                                type="checkbox"
+                                checked={newConnector.generateSecret}
+                                onChange={(e) => setNewConnector({ ...newConnector, generateSecret: e.target.checked })}
+                                className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                            />
+                            Générer un secret HMAC
+                        </label>
+                    </div>
+                    <div className="mt-4">
+                        <p className="text-xs font-medium text-gray-500 mb-2">Événements activés</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            {supportedEvents.map(event => (
+                                <label key={event} className="flex items-center gap-2 text-sm text-gray-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={newConnector.requiredEvents.includes(event)}
+                                        onChange={() => toggleNewConnectorEvent(event)}
+                                        className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                                    />
+                                    <span className="truncate">{event}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                    {connectorSecret && (
+                        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                            <p className="text-sm font-medium text-amber-900">Secret HMAC généré</p>
+                            <p className="mt-1 font-mono text-xs text-amber-800 break-all">{connectorSecret}</p>
+                        </div>
+                    )}
+                    <div className="flex gap-2 mt-5">
+                        <button
+                            onClick={createConnector}
+                            disabled={saving}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50"
+                        >
+                            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                            Créer le connecteur
+                        </button>
+                        <button
+                            onClick={() => setShowAddConnector(false)}
+                            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg"
+                        >
+                            Fermer
+                        </button>
+                    </div>
+                </section>
+            )}
 
             {connectorStatuses.map(connectorStatus => (
                 <section key={connectorStatus.provider} className="bg-white border border-gray-200 rounded-lg p-5">

@@ -247,6 +247,7 @@ router.get('/superadmin/documents/stats', authenticateSuperAdmin, documentContro
 // Integrations Vault
 router.get('/admin/integrations', authenticateSuperAdmin, integrationController.getIntegrations);
 router.get('/admin/connectors', authenticateSuperAdmin, connectorController.getConnectors);
+router.post('/admin/connectors', authenticateSuperAdmin, connectorController.createConnector);
 router.get('/admin/connectors/:provider/status', authenticateSuperAdmin, connectorController.getConnector);
 router.put('/admin/connectors/:provider/webhooks/:id/events', authenticateSuperAdmin, connectorController.updateConnectorEvents);
 router.post('/admin/connectors/:provider/webhooks/:id/test', authenticateSuperAdmin, connectorController.testConnectorEvent);

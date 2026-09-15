@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma';
+import crypto from 'crypto';
 import {
     ConnectorDefinition,
     ConnectorEnvironment,
@@ -8,6 +9,24 @@ import {
     isConnectorEvent,
     isConnectorWebhookTarget
 } from './connectorRegistry';
+
+const SUPPORTED_CONNECTOR_EVENTS = [
+    'check_in',
+    'check_out',
+    'late_arrival',
+    'expense.submitted',
+    'expense.approved',
+    'expense.rejected',
+    'leave.requested',
+    'leave.approved',
+    'leave.rejected',
+    'document.received',
+    'message.status.updated',
+    'employee.secure_link.requested',
+    'geofence.alert',
+    'employee.created',
+    'employee.deleted'
+] as const;
 
 type ConnectorWebhook = {
     id: string;
@@ -99,8 +118,81 @@ function buildWebhookWhere(definition: ConnectorDefinition) {
     };
 }
 
+function normalizeProvider(value: string) {
+    return value
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9_]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
+
+function normalizeList(values: unknown, fallback: string[] = []) {
+    if (!Array.isArray(values)) return fallback;
+    return [...new Set(values.map(value => String(value).trim()).filter(Boolean))];
+}
+
+function toRuntimeDefinition(connector: any): ConnectorDefinition {
+    const searchTerms = normalizeList(connector.searchTerms, [connector.provider.toLowerCase()]);
+    return {
+        provider: connector.provider,
+        name: connector.name,
+        displayName: connector.displayName,
+        version: connector.version,
+        docsUrl: connector.docsUrl || '/docs/connectors.md',
+        openApiUrl: connector.openApiUrl || '/api/docs/public-v1.yaml',
+        requiredEvents: normalizeList(connector.requiredEvents),
+        searchTerms,
+        endpoints: {
+            sandbox: connector.sandboxEndpoint,
+            production: connector.productionEndpoint
+        },
+        requiresTenantScopedEvents: Boolean(connector.requiresTenantScopedEvents),
+        matchWebhook: webhook => {
+            const name = webhook.name?.toLowerCase() || '';
+            const url = webhook.url?.toLowerCase() || '';
+            return searchTerms.some(term => {
+                const normalizedTerm = term.toLowerCase();
+                return name.includes(normalizedTerm) || url.includes(normalizedTerm);
+            });
+        }
+    };
+}
+
+async function getRuntimeConnectorDefinitions() {
+    const partnerConnectorClient = (prisma as any).partnerConnector;
+    const dynamicConnectors = partnerConnectorClient?.findMany
+        ? await partnerConnectorClient.findMany({
+            where: { isActive: true },
+            orderBy: { displayName: 'asc' }
+        })
+        : [];
+    const staticDefinitions = getConnectorDefinitions();
+    const staticProviders = new Set(staticDefinitions.map(definition => definition.provider));
+    const dynamicDefinitions = dynamicConnectors
+        .filter((connector: any) => !staticProviders.has(connector.provider))
+        .map(toRuntimeDefinition);
+
+    return [...staticDefinitions, ...dynamicDefinitions];
+}
+
+async function getRuntimeConnectorDefinition(provider: string) {
+    const normalizedProvider = normalizeProvider(provider);
+    const staticDefinition = getConnectorDefinition(normalizedProvider);
+    if (staticDefinition) return staticDefinition;
+
+    const partnerConnectorClient = (prisma as any).partnerConnector;
+    if (!partnerConnectorClient?.findUnique) return null;
+
+    const connector = await partnerConnectorClient.findUnique({
+        where: { provider: normalizedProvider }
+    });
+
+    if (!connector || !connector.isActive) return null;
+    return toRuntimeDefinition(connector);
+}
+
 export async function getConnectorStatus(provider: string) {
-    const definition = getConnectorDefinition(provider);
+    const definition = await getRuntimeConnectorDefinition(provider);
     if (!definition) {
         return {
             ok: false as const,
@@ -215,8 +307,9 @@ export async function getConnectorStatus(provider: string) {
 }
 
 export async function getConnectorsStatus() {
+    const definitions = await getRuntimeConnectorDefinitions();
     const statuses = await Promise.all(
-        getConnectorDefinitions().map(definition => getConnectorStatus(definition.provider))
+        definitions.map(definition => getConnectorStatus(definition.provider))
     );
 
     return statuses
@@ -229,7 +322,7 @@ export async function getConnectorsStatus() {
 }
 
 export async function updateConnectorWebhookEvents(provider: string, webhookId: string, events: string[]) {
-    const definition = getConnectorDefinition(provider);
+    const definition = await getRuntimeConnectorDefinition(provider);
     if (!definition) {
         return {
             ok: false as const,
@@ -295,12 +388,14 @@ export async function updateConnectorWebhookEvents(provider: string, webhookId: 
     };
 }
 
-export function getConnectorDispatchGuard(
+export async function getConnectorDispatchGuard(
     webhook: { name?: string | null; url?: string | null; tenantId?: string | null; id?: string },
     eventType: string,
     tenantId?: string
 ) {
-    const definition = findConnectorForWebhookEvent(webhook, eventType);
+    const definition = (await getRuntimeConnectorDefinitions()).find(connector =>
+        connector.requiredEvents.includes(eventType) && connector.matchWebhook(webhook)
+    ) || findConnectorForWebhookEvent(webhook, eventType);
     if (!definition) {
         return { allowed: true as const };
     }
@@ -320,4 +415,115 @@ export function getConnectorDispatchGuard(
     };
 }
 
+export async function createPartnerConnector(input: {
+    provider: string;
+    displayName: string;
+    sandboxEndpoint: string;
+    productionEndpoint?: string;
+    tenantId: string;
+    requiredEvents: string[];
+    generateSecret?: boolean;
+}) {
+    const provider = normalizeProvider(input.provider);
+    const displayName = String(input.displayName || '').trim();
+    const sandboxEndpoint = String(input.sandboxEndpoint || '').trim();
+    const productionEndpoint = String(input.productionEndpoint || sandboxEndpoint).trim();
+    const tenantId = String(input.tenantId || '').trim();
+    const requiredEvents = normalizeList(input.requiredEvents);
+    const invalidEvents = requiredEvents.filter(event => !SUPPORTED_CONNECTOR_EVENTS.includes(event as any));
+
+    if (!provider || provider.length < 3) {
+        return { ok: false as const, status: 400, error: 'provider est requis et doit contenir au moins 3 caractères' };
+    }
+    if (getConnectorDefinition(provider)) {
+        return { ok: false as const, status: 409, error: 'Ce provider est réservé par un connecteur système' };
+    }
+    if (!displayName) {
+        return { ok: false as const, status: 400, error: 'displayName est requis' };
+    }
+    if (!tenantId) {
+        return { ok: false as const, status: 400, error: 'tenantId est requis' };
+    }
+    if (requiredEvents.length === 0 || invalidEvents.length > 0) {
+        return {
+            ok: false as const,
+            status: 400,
+            error: invalidEvents.length > 0
+                ? `Événements invalides: ${invalidEvents.join(', ')}`
+                : 'Au moins un événement est requis'
+        };
+    }
+
+    try {
+        new URL(sandboxEndpoint);
+        new URL(productionEndpoint);
+    } catch {
+        return { ok: false as const, status: 400, error: 'Endpoint invalide' };
+    }
+
+    const partnerConnectorClient = (prisma as any).partnerConnector;
+    if (!partnerConnectorClient?.findUnique || !partnerConnectorClient?.create) {
+        return { ok: false as const, status: 500, error: 'Modèle PartnerConnector indisponible' };
+    }
+
+    const existing = await partnerConnectorClient.findUnique({ where: { provider } });
+    if (existing) {
+        return { ok: false as const, status: 409, error: 'Connecteur déjà existant' };
+    }
+
+    const searchTerm = provider.toLowerCase();
+    const secret = input.generateSecret === false
+        ? null
+        : crypto.randomBytes(32).toString('hex');
+
+    const connector = await partnerConnectorClient.create({
+        data: {
+            provider,
+            name: displayName,
+            displayName,
+            version: `${provider}_V1`,
+            docsUrl: '/docs/connectors.md',
+            openApiUrl: '/api/docs/public-v1.yaml',
+            requiredEvents,
+            searchTerms: [searchTerm, sandboxEndpoint.toLowerCase()],
+            sandboxEndpoint,
+            productionEndpoint,
+            requiresTenantScopedEvents: true,
+            isActive: true
+        }
+    });
+
+    const webhook = await prisma.webhookConfig.create({
+        data: {
+            name: `${displayName} POC`,
+            url: sandboxEndpoint,
+            secret,
+            events: requiredEvents,
+            tenantId,
+            isActive: true,
+            httpMethod: 'POST'
+        },
+        select: {
+            id: true,
+            name: true,
+            url: true,
+            tenantId: true,
+            events: true,
+            isActive: true,
+            createdAt: true
+        }
+    });
+
+    return {
+        ok: true as const,
+        connector: toRuntimeDefinition(connector),
+        webhook: {
+            ...webhook,
+            createdAt: webhook.createdAt.toISOString(),
+            secretPlaintext: secret
+        }
+    };
+}
+
 export { getConnectorDefinition, getConnectorDefinitions, isConnectorEvent, isConnectorWebhookTarget };
+export { SUPPORTED_CONNECTOR_EVENTS };

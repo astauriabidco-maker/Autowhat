@@ -17,6 +17,8 @@ Chaque connecteur declare:
 
 Le registre vit dans `src/services/connectorRegistry.ts`.
 
+Les connecteurs systeme restent codes dans le registre. Les connecteurs partenaires crees depuis le superadmin sont stockes dans la table `PartnerConnector` et fusionnes au runtime avec les connecteurs systeme.
+
 ## Connecteurs enregistres
 
 - `KALLDY`: connecteur paie issu du POC Kalldy.
@@ -25,6 +27,7 @@ Le registre vit dans `src/services/connectorRegistry.ts`.
 ## Endpoints superadmin
 
 - `GET /admin/connectors`: liste les connecteurs connus, leur sante, leurs webhooks, les derniers envois et les evenements manquants.
+- `POST /admin/connectors`: cree un connecteur partenaire custom et le webhook tenant-scope associe.
 - `GET /admin/connectors/:provider/status`: lit un connecteur precis.
 - `PUT /admin/connectors/:provider/webhooks/:id/events`: active/desactive les evenements d'un webhook partenaire.
 - `POST /admin/connectors/:provider/webhooks/:id/test`: envoie un smoke test controle pour un evenement du connecteur.
@@ -39,6 +42,25 @@ Les anciennes routes Kalldy restent disponibles en compatibilite:
 Pour les connecteurs marques `requiresTenantScopedEvents`, WhatsPoint bloque l'envoi d'un evenement metier tenant-scoped vers un webhook global. Cela evite qu'un flux paie ou RH parte au mauvais partenaire ou au mauvais tenant.
 
 Le verrou est applique dans le dispatch sortant via `getConnectorDispatchGuard(...)`.
+
+## Creation superadmin
+
+Le panneau `/superadmin/integrations` permet de creer un connecteur partenaire sans repasser par le code:
+
+- provider technique, normalise en majuscules avec underscores;
+- nom affichable;
+- endpoint sandbox;
+- endpoint production optionnel;
+- tenant pilote;
+- evenements supportes;
+- secret HMAC genere a la demande.
+
+La creation ajoute:
+
+- une definition `PartnerConnector`;
+- un `WebhookConfig` actif, tenant-scope, signe HMAC.
+
+Le secret HMAC est visible uniquement dans la reponse de creation. Ensuite, les ecrans continuent a masquer les secrets.
 
 ## Ajouter un partenaire
 
