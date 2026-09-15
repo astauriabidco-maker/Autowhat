@@ -9,7 +9,9 @@ import {
     getConnectorStatus,
     updateConnectorWebhookEvents
 } from '../services/connectorService';
-import { TestWebhookEventType, replayWebhookDelivery, testWebhook } from '../services/webhookService';
+import { MessageStatusTestValue, TestWebhookEventType, WEBHOOK_EVENTS, replayWebhookDelivery, testWebhook } from '../services/webhookService';
+
+const MESSAGE_STATUS_TEST_VALUES = ['sent', 'delivered', 'read', 'failed'] as const;
 
 export async function getConnectors(_req: Request, res: Response) {
     try {
@@ -164,11 +166,22 @@ export async function testConnectorEvent(req: Request, res: Response) {
         }
 
         const eventType = String(req.body?.eventType || '').trim();
-        if (!status.requiredEvents.includes(eventType)) {
+        const testableEvents = status.testableEvents;
+        if (!testableEvents.includes(eventType)) {
             return res.status(400).json({ error: `Événement ${status.name} invalide` });
         }
 
-        const result = await testWebhook(webhookId, { eventType: eventType as TestWebhookEventType });
+        const messageStatus = String(req.body?.status || 'delivered').trim().toLowerCase();
+        if (eventType === WEBHOOK_EVENTS.MESSAGE_STATUS_UPDATED && !MESSAGE_STATUS_TEST_VALUES.includes(messageStatus as MessageStatusTestValue)) {
+            return res.status(400).json({ error: 'Statut message invalide' });
+        }
+
+        const result = await testWebhook(webhookId, {
+            eventType: eventType as TestWebhookEventType,
+            ...(eventType === WEBHOOK_EVENTS.MESSAGE_STATUS_UPDATED
+                ? { messageStatus: messageStatus as MessageStatusTestValue }
+                : {})
+        });
         res.status(result.success ? 200 : 400).json(result);
     } catch (error) {
         console.error('Error testing connector webhook:', error);

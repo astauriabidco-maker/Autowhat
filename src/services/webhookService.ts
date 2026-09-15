@@ -56,9 +56,11 @@ interface WebhookPayload {
 }
 
 export type TestWebhookEventType = WebhookEventType | 'test';
+export type MessageStatusTestValue = 'sent' | 'delivered' | 'read' | 'failed';
 
 interface TestWebhookOptions {
     eventType?: TestWebhookEventType;
+    messageStatus?: MessageStatusTestValue;
 }
 
 function containsRedactedValue(value: unknown): boolean {
@@ -401,6 +403,7 @@ function buildTestWebhookPayload(params: {
     tenantId?: string | null;
     webhookId: string;
     webhookName: string;
+    messageStatus?: MessageStatusTestValue;
 }) {
     if (params.eventType === WEBHOOK_EVENTS.LEAVE_APPROVED) {
         const data = {
@@ -468,6 +471,32 @@ function buildTestWebhookPayload(params: {
             timestamp: params.timestamp,
             tenantId: params.tenantId || undefined,
             data
+        };
+    }
+
+    if (params.eventType === WEBHOOK_EVENTS.MESSAGE_STATUS_UPDATED) {
+        const status = params.messageStatus || 'delivered';
+        const messageId = `wp_msg_poc_${status}`;
+        const data = {
+            messageId,
+            providerMessageId: messageId,
+            correlationId: 'wp_evt_secure_link_poc',
+            employeePhoneNumber: '+33612345678',
+            templateId: 'whatspoint_pwa_secure_link_fr',
+            status,
+            statusAt: params.timestamp
+        };
+
+        const eventId = createWebhookEventId(params.eventType, params.tenantId || undefined, data);
+        return {
+            eventId,
+            event: params.eventType,
+            timestamp: params.timestamp,
+            tenantId: params.tenantId || undefined,
+            data: {
+                ...data,
+                correlationId: eventId
+            }
         };
     }
 
@@ -550,7 +579,8 @@ export async function testWebhook(
         timestamp,
         tenantId: webhook.tenantId,
         webhookId: webhook.id,
-        webhookName: webhook.name
+        webhookName: webhook.name,
+        messageStatus: options.messageStatus
     });
 
     const payloadString = JSON.stringify(payload);

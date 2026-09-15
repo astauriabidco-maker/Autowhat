@@ -72,6 +72,7 @@ describe('kalldyConnectorService', () => {
             provider: 'KALLDY',
             version: 'KALLDY_V1',
             requiredEvents: ['leave.approved', 'document.received', 'employee.secure_link.requested'],
+            testableEvents: ['leave.approved', 'document.received', 'employee.secure_link.requested', 'message.status.updated'],
             endpoints: {
                 sandbox: 'https://api.testbed.fr.paie.kalldy.com/api/webhooks/whatspoint',
                 production: 'https://api.fr.paie.kalldy.com/api/webhooks/whatspoint'

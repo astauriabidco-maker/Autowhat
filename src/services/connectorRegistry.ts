@@ -9,6 +9,7 @@ export type ConnectorDefinition = {
     docsUrl: string;
     openApiUrl: string;
     requiredEvents: readonly string[];
+    testableEvents?: readonly string[];
     searchTerms: readonly string[];
     endpoints: {
         sandbox: string;
@@ -22,6 +23,11 @@ const KALLDY_REQUIRED_EVENTS = [
     'leave.approved',
     'document.received',
     'employee.secure_link.requested'
+] as const;
+
+const KALLDY_TESTABLE_EVENTS = [
+    ...KALLDY_REQUIRED_EVENTS,
+    'message.status.updated'
 ] as const;
 
 const SANDBOX_PARTNER_REQUIRED_EVENTS = [
@@ -38,6 +44,7 @@ const CONNECTOR_DEFINITIONS: Record<ConnectorProvider, ConnectorDefinition> = {
         docsUrl: '/docs/kalldy-v1.md',
         openApiUrl: '/api/docs/public-v1.yaml',
         requiredEvents: KALLDY_REQUIRED_EVENTS,
+        testableEvents: KALLDY_TESTABLE_EVENTS,
         searchTerms: ['kalldy'],
         endpoints: {
             sandbox: 'https://api.testbed.fr.paie.kalldy.com/api/webhooks/whatspoint',

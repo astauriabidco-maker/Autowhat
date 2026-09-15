@@ -83,6 +83,7 @@ interface ConnectorStatus {
     docsUrl: string;
     openApiUrl: string;
     requiredEvents: string[];
+    testableEvents?: string[];
     endpoints: {
         sandbox: string;
         production: string;
@@ -101,7 +102,7 @@ interface ConnectorStatus {
 interface ConnectorLogPanel {
     provider: string;
     connectorName: string;
-    requiredEvents: string[];
+    testableEvents: string[];
     webhook: ConnectorWebhookStatus;
 }
 
@@ -136,6 +137,8 @@ const DELIVERY_STATUS_LABELS: Record<string, { label: string; className: string 
     PENDING: { label: 'Retry', className: 'bg-amber-100 text-amber-700' },
     FAILED: { label: 'Échec', className: 'bg-red-100 text-red-700' }
 };
+
+const MESSAGE_STATUS_TEST_VALUES = ['sent', 'delivered', 'read', 'failed'] as const;
 
 function formatDateTime(value: string | null) {
     if (!value) return '-';
@@ -267,17 +270,18 @@ export default function Integrations() {
         }
     };
 
-    const testConnectorEvent = async (provider: string, connectorName: string, webhookId: string, eventType: string) => {
-        const confirmed = confirm(`Envoyer un test "${eventType}" vers le connecteur ${connectorName} ?`);
+    const testConnectorEvent = async (provider: string, connectorName: string, webhookId: string, eventType: string, status?: string) => {
+        const label = status ? `${eventType} (${status})` : eventType;
+        const confirmed = confirm(`Envoyer un test "${label}" vers le connecteur ${connectorName} ?`);
         if (!confirmed) return;
 
-        const testKey = `${webhookId}:${eventType}`;
+        const testKey = `${webhookId}:${eventType}:${status || 'default'}`;
         setTestingConnector(testKey);
         try {
-            const res = await axios.post(`/admin/connectors/${provider}/webhooks/${webhookId}/test`, { eventType }, {
+            const res = await axios.post(`/admin/connectors/${provider}/webhooks/${webhookId}/test`, { eventType, status }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            alert(res.data.success ? `Test "${res.data.eventType || eventType}" réussi.` : `Échec: ${res.data.error}`);
+            alert(res.data.success ? `Test "${label}" réussi.` : `Échec: ${res.data.error}`);
             await fetchIntegrations();
         } catch (error: unknown) {
             const message = axios.isAxiosError(error)
@@ -370,8 +374,8 @@ export default function Integrations() {
         }
     };
 
-    const openConnectorLogs = async (provider: string, connectorName: string, requiredEvents: string[], webhook: ConnectorWebhookStatus) => {
-        const panel = { provider, connectorName, requiredEvents, webhook };
+    const openConnectorLogs = async (provider: string, connectorName: string, testableEvents: string[], webhook: ConnectorWebhookStatus) => {
+        const panel = { provider, connectorName, testableEvents, webhook };
         const initialFilters = { eventType: '', status: '', eventId: '' };
         setConnectorLogPanel(panel);
         setConnectorLogFilters(initialFilters);
@@ -617,7 +621,7 @@ export default function Integrations() {
                                             </span>
                                             <button
                                                 type="button"
-                                                onClick={() => openConnectorLogs(connectorStatus.provider, connectorStatus.name, connectorStatus.requiredEvents, webhook)}
+                                                onClick={() => openConnectorLogs(connectorStatus.provider, connectorStatus.name, connectorStatus.testableEvents || connectorStatus.requiredEvents, webhook)}
                                                 className="inline-flex items-center gap-1 rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
                                             >
                                                 <Eye size={13} />
@@ -690,26 +694,30 @@ export default function Integrations() {
                                     <div className="mt-4 border border-gray-100 rounded-lg p-3">
                                         <p className="text-xs font-medium text-gray-500">Tests contrôlés</p>
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
-                                            {connectorStatus.requiredEvents.map(event => {
-                                                const testKey = `${webhook.id}:${event}`;
-                                                const disabled = !webhook.isActive || !webhook.tenantId || !webhook.events.includes(event) || testingConnector !== null;
+                                            {(connectorStatus.testableEvents || connectorStatus.requiredEvents).flatMap(event => {
+                                                const statusVariants = event === 'message.status.updated' ? MESSAGE_STATUS_TEST_VALUES : [undefined];
+                                                return statusVariants.map(status => {
+                                                    const testKey = `${webhook.id}:${event}:${status || 'default'}`;
+                                                    const disabled = !webhook.isActive || !webhook.tenantId || testingConnector !== null;
+                                                    const label = status ? `${event} ${status}` : event;
 
-                                                return (
-                                                    <button
-                                                        key={event}
-                                                        type="button"
-                                                        disabled={disabled}
-                                                        onClick={() => testConnectorEvent(connectorStatus.provider, connectorStatus.name, webhook.id, event)}
-                                                        className="inline-flex items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                                    >
-                                                        {testingConnector === testKey ? (
-                                                            <Loader2 size={14} className="animate-spin" />
-                                                        ) : (
-                                                            <Activity size={14} />
-                                                        )}
-                                                        Tester {event}
-                                                    </button>
-                                                );
+                                                    return (
+                                                        <button
+                                                            key={`${event}:${status || 'default'}`}
+                                                            type="button"
+                                                            disabled={disabled}
+                                                            onClick={() => testConnectorEvent(connectorStatus.provider, connectorStatus.name, webhook.id, event, status)}
+                                                            className="inline-flex items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            {testingConnector === testKey ? (
+                                                                <Loader2 size={14} className="animate-spin" />
+                                                            ) : (
+                                                                <Activity size={14} />
+                                                            )}
+                                                            Tester {label}
+                                                        </button>
+                                                    );
+                                                });
                                             })}
                                         </div>
                                     </div>
@@ -784,7 +792,7 @@ export default function Integrations() {
                                     className="rounded border border-gray-300 px-3 py-2 text-sm"
                                 >
                                     <option value="">Tous les événements</option>
-                                    {connectorLogPanel.requiredEvents.map(event => (
+                                    {connectorLogPanel.testableEvents.map(event => (
                                         <option key={event} value={event}>{event}</option>
                                     ))}
                                 </select>

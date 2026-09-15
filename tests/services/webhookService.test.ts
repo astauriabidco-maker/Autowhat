@@ -464,6 +464,59 @@ describe('webhookService outgoing contract', () => {
         }));
     });
 
+    it('can send a message.status.updated payload with a selected delivery status', async () => {
+        prismaMock.webhookConfig.findUnique.mockResolvedValue({
+            id: 'webhook_kalldy',
+            name: 'Kalldy POC',
+            url: 'https://kalldy.test/webhooks/whatspoint',
+            secret: 'kalldy-secret',
+            events: ['message.status.updated'],
+            isActive: true,
+            tenantId: 'tenant_fr',
+            headers: null,
+            httpMethod: 'POST',
+            payloadMapping: null
+        });
+
+        const { WEBHOOK_EVENTS, testWebhook } = await import('../../src/services/webhookService');
+
+        const result = await testWebhook('webhook_kalldy', {
+            eventType: WEBHOOK_EVENTS.MESSAGE_STATUS_UPDATED,
+            messageStatus: 'delivered'
+        });
+
+        expect(result).toEqual({ success: true, statusCode: 200 });
+
+        const [, request] = fetchMock.mock.calls[0];
+        const body = JSON.parse(request.body);
+        const expectedSignature = `sha256=${crypto
+            .createHmac('sha256', 'kalldy-secret')
+            .update(request.body)
+            .digest('hex')}`;
+
+        expect(body).toEqual(expect.objectContaining({
+            eventId: expect.stringMatching(/^wp_evt_[a-f0-9]{32}$/),
+            event: 'message.status.updated',
+            tenantId: 'tenant_fr',
+            data: expect.objectContaining({
+                messageId: 'wp_msg_poc_delivered',
+                providerMessageId: 'wp_msg_poc_delivered',
+                correlationId: expect.stringMatching(/^wp_evt_[a-f0-9]{32}$/),
+                employeePhoneNumber: '+33612345678',
+                templateId: 'whatspoint_pwa_secure_link_fr',
+                status: 'delivered',
+                statusAt: body.timestamp
+            })
+        }));
+        expect(body.data.correlationId).toBe(body.eventId);
+        expect(request.headers).toEqual(expect.objectContaining({
+            'X-WhatsPoint-Event': 'message.status.updated',
+            'X-WhatsPoint-Event-Id': body.eventId,
+            'X-WhatsPoint-Timestamp': body.timestamp,
+            'X-WhatsPoint-Signature': expectedSignature
+        }));
+    });
+
     it('redacts sensitive payload fields in successful webhook logs', async () => {
         prismaMock.webhookConfig.findMany.mockResolvedValue([
             {

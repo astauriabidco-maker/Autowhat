@@ -217,6 +217,7 @@ function toRuntimeDefinition(connector: any): ConnectorDefinition {
         docsUrl: connector.docsUrl || '/docs/connectors.md',
         openApiUrl: connector.openApiUrl || '/api/docs/public-v1.yaml',
         requiredEvents: normalizeList(connector.requiredEvents),
+        testableEvents: normalizeList(connector.testableEvents, normalizeList(connector.requiredEvents)),
         searchTerms,
         endpoints: {
             sandbox: connector.sandboxEndpoint,
@@ -369,6 +370,7 @@ export async function getConnectorStatus(provider: string) {
         docsUrl: definition.docsUrl,
         openApiUrl: definition.openApiUrl,
         requiredEvents: [...definition.requiredEvents],
+        testableEvents: [...(definition.testableEvents || definition.requiredEvents)],
         endpoints: definition.endpoints,
         state: connectorState(definition, webhooks, logs),
         totals: {
