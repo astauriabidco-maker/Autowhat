@@ -337,8 +337,10 @@ describe('webhookService outgoing contract', () => {
         expect(fetchMock).not.toHaveBeenCalled();
         expect(prismaMock.webhookLog.create).not.toHaveBeenCalled();
         expect(warnSpy).toHaveBeenCalledWith(
-            'Kalldy webhook skipped because it is not tenant-scoped for this event',
+            'Connector webhook skipped because it is not tenant-scoped for this event',
             expect.objectContaining({
+                provider: 'KALLDY',
+                reason: 'TENANT_SCOPED_EVENT_REQUIRES_TENANT_WEBHOOK',
                 webhookId: 'webhook_kalldy_global',
                 eventType: 'leave.approved',
                 hasTenantId: true,

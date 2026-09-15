@@ -35,7 +35,7 @@ interface Provider {
 
 type IntegrationsData = Record<string, Provider>;
 
-interface KalldyDelivery {
+interface ConnectorDelivery {
     id: string;
     webhookId: string;
     eventId: string | null;
@@ -49,9 +49,13 @@ interface KalldyDelivery {
     createdAt: string;
 }
 
-interface KalldyStatus {
-    provider: 'KALLDY';
+interface ConnectorStatus {
+    provider: string;
+    name: string;
+    displayName: string;
     version: string;
+    docsUrl: string;
+    openApiUrl: string;
     requiredEvents: string[];
     endpoints: {
         sandbox: string;
@@ -78,10 +82,10 @@ interface KalldyStatus {
         successCount: number;
         failureCount: number;
         lastTriggeredAt: string | null;
-        latestDelivery: KalldyDelivery | null;
-        recentDeliveries: KalldyDelivery[];
+        latestDelivery: ConnectorDelivery | null;
+        recentDeliveries: ConnectorDelivery[];
     }>;
-    recentDeliveries: KalldyDelivery[];
+    recentDeliveries: ConnectorDelivery[];
 }
 
 // Icon mapping
@@ -95,7 +99,7 @@ const ICONS: Record<string, React.ElementType> = {
     Key,
 };
 
-const KALLDY_STATE_LABELS: Record<KalldyStatus['state'], { label: string; className: string }> = {
+const CONNECTOR_STATE_LABELS: Record<ConnectorStatus['state'], { label: string; className: string }> = {
     healthy: { label: 'Sain', className: 'bg-green-100 text-green-700 border-green-200' },
     configured: { label: 'Configuré', className: 'bg-blue-100 text-blue-700 border-blue-200' },
     partial: { label: 'Partiel', className: 'bg-amber-100 text-amber-700 border-amber-200' },
@@ -128,24 +132,24 @@ export default function Integrations() {
     const [saving, setSaving] = useState(false);
     const [showAddCustom, setShowAddCustom] = useState(false);
     const [customKey, setCustomKey] = useState({ provider: '', key: '', value: '' });
-    const [kalldyStatus, setKalldyStatus] = useState<KalldyStatus | null>(null);
-    const [savingKalldyWebhookId, setSavingKalldyWebhookId] = useState<string | null>(null);
-    const [testingKalldy, setTestingKalldy] = useState<string | null>(null);
+    const [connectorStatuses, setConnectorStatuses] = useState<ConnectorStatus[]>([]);
+    const [savingConnectorWebhookId, setSavingConnectorWebhookId] = useState<string | null>(null);
+    const [testingConnector, setTestingConnector] = useState<string | null>(null);
 
     const token = localStorage.getItem('superadmin_token');
 
     const fetchIntegrations = useCallback(async () => {
         try {
-            const [integrationsRes, kalldyRes] = await Promise.all([
+            const [integrationsRes, connectorsRes] = await Promise.all([
                 axios.get('/admin/integrations', {
                     headers: { Authorization: `Bearer ${token}` }
                 }),
-                axios.get('/admin/integrations/kalldy/status', {
+                axios.get('/admin/connectors', {
                     headers: { Authorization: `Bearer ${token}` }
                 })
             ]);
             setIntegrations(integrationsRes.data);
-            setKalldyStatus(kalldyRes.data);
+            setConnectorStatuses(connectorsRes.data.connectors || []);
         } catch (error) {
             console.error('Error fetching integrations:', error);
         } finally {
@@ -195,29 +199,29 @@ export default function Integrations() {
         }
     };
 
-    const updateKalldyEvents = async (webhookId: string, events: string[]) => {
-        setSavingKalldyWebhookId(webhookId);
+    const updateConnectorEvents = async (provider: string, webhookId: string, events: string[]) => {
+        setSavingConnectorWebhookId(webhookId);
         try {
-            await axios.put(`/admin/integrations/kalldy/webhooks/${webhookId}/events`, { events }, {
+            await axios.put(`/admin/connectors/${provider}/webhooks/${webhookId}/events`, { events }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             await fetchIntegrations();
         } catch (error) {
-            console.error('Error updating Kalldy events:', error);
-            alert('Erreur lors de la mise à jour des événements Kalldy');
+            console.error('Error updating connector events:', error);
+            alert('Erreur lors de la mise à jour des événements du connecteur');
         } finally {
-            setSavingKalldyWebhookId(null);
+            setSavingConnectorWebhookId(null);
         }
     };
 
-    const testKalldyEvent = async (webhookId: string, eventType: string) => {
-        const confirmed = confirm(`Envoyer un test "${eventType}" vers le connecteur Kalldy ?`);
+    const testConnectorEvent = async (provider: string, connectorName: string, webhookId: string, eventType: string) => {
+        const confirmed = confirm(`Envoyer un test "${eventType}" vers le connecteur ${connectorName} ?`);
         if (!confirmed) return;
 
         const testKey = `${webhookId}:${eventType}`;
-        setTestingKalldy(testKey);
+        setTestingConnector(testKey);
         try {
-            const res = await axios.post(`/admin/webhooks/${webhookId}/test`, { eventType }, {
+            const res = await axios.post(`/admin/connectors/${provider}/webhooks/${webhookId}/test`, { eventType }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             alert(res.data.success ? `Test "${res.data.eventType || eventType}" réussi.` : `Échec: ${res.data.error}`);
@@ -228,7 +232,7 @@ export default function Integrations() {
                 : 'Erreur inconnue';
             alert(`Erreur: ${message}`);
         } finally {
-            setTestingKalldy(null);
+            setTestingConnector(null);
         }
     };
 
@@ -266,8 +270,8 @@ export default function Integrations() {
                 </div>
             </div>
 
-            {kalldyStatus && (
-                <section className="bg-white border border-gray-200 rounded-lg p-5">
+            {connectorStatuses.map(connectorStatus => (
+                <section key={connectorStatus.provider} className="bg-white border border-gray-200 rounded-lg p-5">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div>
                             <div className="flex items-center gap-3">
@@ -275,12 +279,12 @@ export default function Integrations() {
                                     <Webhook className="text-red-600" size={22} />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-semibold text-gray-900">Connecteur Kalldy v1</h2>
-                                    <p className="text-sm text-gray-500">Convention {kalldyStatus.version} pour les flux paie validés.</p>
+                                    <h2 className="text-lg font-semibold text-gray-900">Connecteur {connectorStatus.displayName}</h2>
+                                    <p className="text-sm text-gray-500">Convention {connectorStatus.version} pour les flux partenaire validés.</p>
                                 </div>
                             </div>
                             <div className="flex flex-wrap gap-2 mt-4">
-                                {kalldyStatus.requiredEvents.map(event => (
+                                {connectorStatus.requiredEvents.map(event => (
                                     <span key={event} className="px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded">
                                         {event}
                                     </span>
@@ -288,12 +292,12 @@ export default function Integrations() {
                             </div>
                         </div>
                         <div className="flex flex-wrap gap-3">
-                            <span className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium border rounded-full ${KALLDY_STATE_LABELS[kalldyStatus.state].className}`}>
+                            <span className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium border rounded-full ${CONNECTOR_STATE_LABELS[connectorStatus.state].className}`}>
                                 <Activity size={15} />
-                                {KALLDY_STATE_LABELS[kalldyStatus.state].label}
+                                {CONNECTOR_STATE_LABELS[connectorStatus.state].label}
                             </span>
                             <a
-                                href="/api/docs/public-v1.yaml"
+                                href={connectorStatus.openApiUrl}
                                 className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
                             >
                                 <ExternalLink size={15} />
@@ -305,27 +309,27 @@ export default function Integrations() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
                         <div className="p-3 bg-gray-50 rounded-lg">
                             <p className="text-xs text-gray-500">Webhooks actifs</p>
-                            <p className="text-xl font-semibold text-gray-900">{kalldyStatus.totals.activeWebhooks}/{kalldyStatus.totals.webhooks}</p>
+                            <p className="text-xl font-semibold text-gray-900">{connectorStatus.totals.activeWebhooks}/{connectorStatus.totals.webhooks}</p>
                         </div>
                         <div className="p-3 bg-gray-50 rounded-lg">
                             <p className="text-xs text-gray-500">Succès</p>
-                            <p className="text-xl font-semibold text-green-600">{kalldyStatus.totals.successes}</p>
+                            <p className="text-xl font-semibold text-green-600">{connectorStatus.totals.successes}</p>
                         </div>
                         <div className="p-3 bg-gray-50 rounded-lg">
                             <p className="text-xs text-gray-500">Échecs</p>
-                            <p className="text-xl font-semibold text-red-600">{kalldyStatus.totals.failures}</p>
+                            <p className="text-xl font-semibold text-red-600">{connectorStatus.totals.failures}</p>
                         </div>
                         <div className="p-3 bg-gray-50 rounded-lg">
                             <p className="text-xs text-gray-500">Endpoint</p>
-                            <p className="text-sm font-medium text-gray-900">{kalldyStatus.webhooks[0]?.environment || 'sandbox'}</p>
+                            <p className="text-sm font-medium text-gray-900">{connectorStatus.webhooks[0]?.environment || 'sandbox'}</p>
                         </div>
                     </div>
 
                     <div className="mt-5 space-y-3">
-                        {kalldyStatus.webhooks.length === 0 ? (
-                            <p className="text-sm text-gray-500">Aucun webhook Kalldy détecté.</p>
+                        {connectorStatus.webhooks.length === 0 ? (
+                            <p className="text-sm text-gray-500">Aucun webhook {connectorStatus.name} détecté.</p>
                         ) : (
-                            kalldyStatus.webhooks.map(webhook => (
+                            connectorStatus.webhooks.map(webhook => (
                                 <div key={webhook.id} className="border border-gray-200 rounded-lg p-4">
                                     <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                                         <div>
@@ -362,7 +366,7 @@ export default function Integrations() {
                                     <div className="mt-4 border border-gray-100 rounded-lg p-3">
                                         <div className="flex items-center justify-between gap-3">
                                             <p className="text-xs font-medium text-gray-500">Événements activés pour ce tenant</p>
-                                            {savingKalldyWebhookId === webhook.id && (
+                                            {savingConnectorWebhookId === webhook.id && (
                                                 <span className="inline-flex items-center gap-1 text-xs text-gray-500">
                                                     <Loader2 size={13} className="animate-spin" />
                                                     Sauvegarde
@@ -370,8 +374,8 @@ export default function Integrations() {
                                             )}
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
-                                            {kalldyStatus.requiredEvents.map(event => {
-                                                const enabledEvents = kalldyStatus.requiredEvents.filter(requiredEvent => webhook.events.includes(requiredEvent));
+                                            {connectorStatus.requiredEvents.map(event => {
+                                                const enabledEvents = connectorStatus.requiredEvents.filter(requiredEvent => webhook.events.includes(requiredEvent));
                                                 const checked = enabledEvents.includes(event);
                                                 const nextEvents = checked
                                                     ? enabledEvents.filter(currentEvent => currentEvent !== event)
@@ -382,8 +386,8 @@ export default function Integrations() {
                                                         <input
                                                             type="checkbox"
                                                             checked={checked}
-                                                            disabled={savingKalldyWebhookId === webhook.id || !webhook.tenantId}
-                                                            onChange={() => updateKalldyEvents(webhook.id, nextEvents)}
+                                                            disabled={savingConnectorWebhookId === webhook.id || !webhook.tenantId}
+                                                            onChange={() => updateConnectorEvents(connectorStatus.provider, webhook.id, nextEvents)}
                                                             className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
                                                         />
                                                         <span className="truncate">{event}</span>
@@ -394,26 +398,26 @@ export default function Integrations() {
                                         {!webhook.tenantId && (
                                             <p className="mt-3 flex items-center gap-2 text-xs text-amber-700">
                                                 <AlertTriangle size={14} />
-                                                Kalldy v1 doit être configuré sur un tenant précis avant activation.
+                                                {connectorStatus.name} doit être configuré sur un tenant précis avant activation.
                                             </p>
                                         )}
                                     </div>
                                     <div className="mt-4 border border-gray-100 rounded-lg p-3">
                                         <p className="text-xs font-medium text-gray-500">Tests contrôlés</p>
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
-                                            {kalldyStatus.requiredEvents.map(event => {
+                                            {connectorStatus.requiredEvents.map(event => {
                                                 const testKey = `${webhook.id}:${event}`;
-                                                const disabled = !webhook.isActive || !webhook.tenantId || !webhook.events.includes(event) || testingKalldy !== null;
+                                                const disabled = !webhook.isActive || !webhook.tenantId || !webhook.events.includes(event) || testingConnector !== null;
 
                                                 return (
                                                     <button
                                                         key={event}
                                                         type="button"
                                                         disabled={disabled}
-                                                        onClick={() => testKalldyEvent(webhook.id, event)}
+                                                        onClick={() => testConnectorEvent(connectorStatus.provider, connectorStatus.name, webhook.id, event)}
                                                         className="inline-flex items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                                                     >
-                                                        {testingKalldy === testKey ? (
+                                                        {testingConnector === testKey ? (
                                                             <Loader2 size={14} className="animate-spin" />
                                                         ) : (
                                                             <Activity size={14} />
@@ -462,7 +466,7 @@ export default function Integrations() {
                         )}
                     </div>
                 </section>
-            )}
+            ))}
 
             {/* Security Notice */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

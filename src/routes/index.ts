@@ -21,6 +21,7 @@ import * as externalApiController from '../controllers/externalApiController';
 import * as whatsappNumberController from '../controllers/whatsappNumberController';
 import * as onboardingController from '../controllers/onboardingController';
 import * as publicApiAdminController from '../controllers/publicApiAdminController';
+import * as connectorController from '../controllers/connectorController';
 import * as kalldyConnectorController from '../controllers/kalldyConnectorController';
 import { authenticateManager } from '../middlewares/authMiddleware';
 import { authenticateSuperAdmin } from '../middlewares/adminMiddleware';
@@ -245,6 +246,10 @@ router.get('/superadmin/documents/stats', authenticateSuperAdmin, documentContro
 
 // Integrations Vault
 router.get('/admin/integrations', authenticateSuperAdmin, integrationController.getIntegrations);
+router.get('/admin/connectors', authenticateSuperAdmin, connectorController.getConnectors);
+router.get('/admin/connectors/:provider/status', authenticateSuperAdmin, connectorController.getConnector);
+router.put('/admin/connectors/:provider/webhooks/:id/events', authenticateSuperAdmin, connectorController.updateConnectorEvents);
+router.post('/admin/connectors/:provider/webhooks/:id/test', authenticateSuperAdmin, connectorController.testConnectorEvent);
 router.get('/admin/integrations/kalldy/status', authenticateSuperAdmin, kalldyConnectorController.getKalldyStatus);
 router.put('/admin/integrations/kalldy/webhooks/:id/events', authenticateSuperAdmin, kalldyConnectorController.updateKalldyEvents);
 router.put('/admin/integrations', authenticateSuperAdmin, integrationController.upsertIntegration);

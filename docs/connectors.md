@@ -1,0 +1,46 @@
+# Registre Multi-Connecteurs
+
+Le panneau superadmin `/superadmin/integrations` s'appuie sur un registre de connecteurs versionnes. Kalldy est aujourd'hui la premiere definition active, mais le modele est commun aux prochains partenaires.
+
+## Principe
+
+Chaque connecteur declare:
+
+- un `provider` stable, par exemple `KALLDY`;
+- un nom affichable;
+- une version de contrat, par exemple `KALLDY_V1`;
+- les endpoints sandbox et production;
+- les evenements requis;
+- la regle permettant d'identifier les webhooks du partenaire;
+- si les evenements doivent obligatoirement etre rattaches a un tenant.
+
+Le registre vit dans `src/services/connectorRegistry.ts`.
+
+## Endpoints superadmin
+
+- `GET /admin/connectors`: liste les connecteurs connus, leur sante, leurs webhooks, les derniers envois et les evenements manquants.
+- `GET /admin/connectors/:provider/status`: lit un connecteur precis.
+- `PUT /admin/connectors/:provider/webhooks/:id/events`: active/desactive les evenements d'un webhook partenaire.
+- `POST /admin/connectors/:provider/webhooks/:id/test`: envoie un smoke test controle pour un evenement du connecteur.
+
+Les anciennes routes Kalldy restent disponibles en compatibilite:
+
+- `GET /admin/integrations/kalldy/status`
+- `PUT /admin/integrations/kalldy/webhooks/:id/events`
+
+## Verrou tenant
+
+Pour les connecteurs marques `requiresTenantScopedEvents`, WhatsPoint bloque l'envoi d'un evenement metier tenant-scoped vers un webhook global. Cela evite qu'un flux paie ou RH parte au mauvais partenaire ou au mauvais tenant.
+
+Le verrou est applique dans le dispatch sortant via `getConnectorDispatchGuard(...)`.
+
+## Ajouter un partenaire
+
+1. Ajouter une entree dans `CONNECTOR_DEFINITIONS`.
+2. Declarer les evenements requis et les endpoints sandbox/production.
+3. Definir `matchWebhook` pour reconnaitre les webhooks du partenaire.
+4. Choisir `requiresTenantScopedEvents`.
+5. Ajouter les payloads de test si le partenaire a besoin d'evenements specifiques.
+6. Completer la documentation partenaire et les tests de service.
+
+Le frontend n'a pas besoin d'un panneau dedie tant que le connecteur suit ce contrat.

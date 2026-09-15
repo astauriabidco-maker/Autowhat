@@ -6,7 +6,7 @@
 import crypto from 'crypto';
 import prisma from '../lib/prisma';
 import { sanitizeLogText } from '../utils/safeWebhookLogger';
-import { isKalldyConnectorEvent, isKalldyWebhookTarget } from './kalldyConnectorService';
+import { getConnectorDispatchGuard } from './connectorService';
 
 const SENSITIVE_PAYLOAD_KEY_PATTERN = /(phone|email|name|url|link|token|secret|authorization|gps|lat|lng|longitude|latitude|address|rib|nir|bulletin|identity|document)/i;
 const MAX_AUDIT_STRING_LENGTH = 180;
@@ -55,7 +55,7 @@ interface WebhookPayload {
     data: Record<string, any>;
 }
 
-type TestWebhookEventType = WebhookEventType | 'test';
+export type TestWebhookEventType = WebhookEventType | 'test';
 
 interface TestWebhookOptions {
     eventType?: TestWebhookEventType;
@@ -179,15 +179,14 @@ export async function dispatchWebhook(
         });
 
         const deliverableWebhooks = webhooks.filter(webhook => {
-            if (!isKalldyConnectorEvent(eventType) || !isKalldyWebhookTarget(webhook)) {
+            const guard = getConnectorDispatchGuard(webhook, eventType, tenantId);
+            if (guard.allowed) {
                 return true;
             }
 
-            if (tenantId && webhook.tenantId === tenantId) {
-                return true;
-            }
-
-            console.warn('Kalldy webhook skipped because it is not tenant-scoped for this event', {
+            console.warn('Connector webhook skipped because it is not tenant-scoped for this event', {
+                provider: guard.provider,
+                reason: guard.reason,
                 webhookId: webhook.id,
                 eventType,
                 hasTenantId: Boolean(tenantId),

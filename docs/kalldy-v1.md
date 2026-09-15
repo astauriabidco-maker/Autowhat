@@ -23,6 +23,15 @@ Kalldy reste le systeme de paie et l'espace securise pour RIB, NIR, bulletins, p
 
 Chaque environnement doit avoir ses propres cles API, secrets HMAC, webhooks et journaux.
 
+Kalldy est enregistre dans le registre multi-connecteurs WhatsPoint. Les endpoints d'exploitation generiques sont:
+
+- `GET /admin/connectors`
+- `GET /admin/connectors/KALLDY/status`
+- `PUT /admin/connectors/KALLDY/webhooks/:id/events`
+- `POST /admin/connectors/KALLDY/webhooks/:id/test`
+
+Voir aussi `docs/connectors.md` pour le modele commun aux prochains partenaires.
+
 ## Evenements v1
 
 Les evenements obligatoires du connecteur v1 sont:
