@@ -22,7 +22,7 @@ Les connecteurs systeme restent codes dans le registre. Les connecteurs partenai
 ## Connecteurs enregistres
 
 - `KALLDY`: connecteur paie issu du POC Kalldy.
-- `SANDBOX_PARTNER`: connecteur modele non productif, endpoint `.invalid`, utilise pour tester l'architecture multi-connecteurs sans partenaire reel.
+- `SANDBOX_PARTNER`: connecteur modele non productif, endpoint echo interne, utilise pour tester l'architecture multi-connecteurs sans partenaire reel.
 
 ## Endpoints superadmin
 
@@ -31,6 +31,20 @@ Les connecteurs systeme restent codes dans le registre. Les connecteurs partenai
 - `GET /admin/connectors/:provider/status`: lit un connecteur precis.
 - `PUT /admin/connectors/:provider/webhooks/:id/events`: active/desactive les evenements d'un webhook partenaire.
 - `POST /admin/connectors/:provider/webhooks/:id/test`: envoie un smoke test controle pour un evenement du connecteur.
+
+## Echo sandbox interne
+
+WhatsPoint expose un recepteur de test interne pour valider l'usine a connecteurs sans attendre un partenaire externe:
+
+- preproduction: `https://api.testbed.whatspoint.com/api/sandbox/webhooks/echo`
+- production: desactive par defaut, sauf activation explicite `ENABLE_SANDBOX_WEBHOOK_ECHO=true`
+
+Ce recepteur:
+
+- accepte uniquement les payloads signes avec les headers WhatsPoint (`X-WhatsPoint-Signature`, `X-WhatsPoint-Timestamp`, `X-WhatsPoint-Event`, `X-WhatsPoint-Event-Id`);
+- retrouve le webhook actif configure vers cette URL pour verifier le secret HMAC stocke cote WhatsPoint;
+- refuse les timestamps de plus de 5 minutes;
+- renvoie un accuse minimal (`event`, `eventId`, `tenantId`, `payloadKeys`) sans exposer le payload complet ni les donnees personnelles.
 
 Les anciennes routes Kalldy restent disponibles en compatibilite:
 

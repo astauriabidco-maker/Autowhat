@@ -23,6 +23,7 @@ import * as onboardingController from '../controllers/onboardingController';
 import * as publicApiAdminController from '../controllers/publicApiAdminController';
 import * as connectorController from '../controllers/connectorController';
 import * as kalldyConnectorController from '../controllers/kalldyConnectorController';
+import * as sandboxWebhookEchoController from '../controllers/sandboxWebhookEchoController';
 import { authenticateManager } from '../middlewares/authMiddleware';
 import { authenticateSuperAdmin } from '../middlewares/adminMiddleware';
 import { requireLegacyOperations } from '../middlewares/legacyOperationsMiddleware';
@@ -61,6 +62,7 @@ router.post('/auth/logout-manager', authController.logoutManager);
 // Public Config Routes (No Auth)
 router.get('/api/config/legal', adminController.getLegalContent);
 router.post('/api/onboarding/request-access', onboardingAccessRateLimit, onboardingController.requestAccess);
+router.post('/api/sandbox/webhooks/echo', sandboxWebhookEchoController.receiveSandboxEchoWebhook);
 
 // Dashboard API Routes (Protected - Manager only)
 router.get('/api/attendance', authenticateManager, dashboardController.getAttendance);

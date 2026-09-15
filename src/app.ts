@@ -69,7 +69,11 @@ app.use(cors((req, callback) => {
 app.use(bodyParser.json({
     limit: process.env.JSON_BODY_LIMIT || '1mb',
     verify: (req: any, _res, buf) => {
-        if (req.originalUrl?.split('?')[0] === '/webhook') {
+        const rawBodyPaths = new Set([
+            '/webhook',
+            '/api/sandbox/webhooks/echo'
+        ]);
+        if (rawBodyPaths.has(req.originalUrl?.split('?')[0])) {
             req.rawBody = Buffer.from(buf);
         }
     }

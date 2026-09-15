@@ -60,14 +60,14 @@ const CONNECTOR_DEFINITIONS: Record<ConnectorProvider, ConnectorDefinition> = {
         requiredEvents: SANDBOX_PARTNER_REQUIRED_EVENTS,
         searchTerms: ['sandbox partner', 'sandbox.partner'],
         endpoints: {
-            sandbox: 'https://sandbox.partner.invalid/webhooks/whatspoint',
-            production: 'https://partner.invalid/webhooks/whatspoint'
+            sandbox: 'https://api.testbed.whatspoint.com/api/sandbox/webhooks/echo',
+            production: 'https://api.whatspoint.com/api/sandbox/webhooks/echo'
         },
         requiresTenantScopedEvents: true,
         matchWebhook: webhook => {
             const name = webhook.name?.toLowerCase() || '';
             const url = webhook.url?.toLowerCase() || '';
-            return name.includes('sandbox partner') || url.includes('sandbox.partner');
+            return name.includes('sandbox partner') || url.includes('/api/sandbox/webhooks/echo');
         }
     }
 };
